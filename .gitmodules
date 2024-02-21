@@ -1,0 +1,12 @@
+[submodule "api"]
+	path = api
+	url = https://github.com/ManReadApp/api
+[submodule "app"]
+	path = app
+	url = https://github.com/ManReadApp/app
+[submodule "ethread"]
+	path = ethread
+	url = https://github.com/ManReadApp/ethread
+[submodule "api_structure"]
+	path = api_structure
+	url = https://github.com/ManReadApp/api_structure
