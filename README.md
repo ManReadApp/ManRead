@@ -23,3 +23,9 @@ cargo r --release
 cd app
 cargo r --release
 ```
+
+#### Repos
+[App](https://github.com/ManReadApp/app)
+[Api](https://github.com/ManReadApp/api)
+[Strucures](https://github.com/ManReadApp/api_structure)
+[Scraper](https://github.com/ManReadApp/scraper)
