@@ -4,7 +4,7 @@
 DEFAULT_USERNAME="ManReadApp"
 
 # Array of repository names
-REPOS=("api" "app" "api_structure" "ethread" "scraper")
+REPOS=("api" "app" "api_structure" "ethread" "scraper" "translator")
 
 # Function to clone repositories
 clone_repos() {
