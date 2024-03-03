@@ -29,3 +29,4 @@ cargo r --release
 [Api](https://github.com/ManReadApp/api)
 [Strucures](https://github.com/ManReadApp/api_structure)
 [Scraper](https://github.com/ManReadApp/scraper)
+[Translator](https://github.com/ManReadApp/translator)
