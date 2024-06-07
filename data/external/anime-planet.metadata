@@ -1,0 +1,5 @@
+"request_config": "headers_err.json"
+tags[@strip_text] .tags ul li a
+img[src] .mainEntry img
+description[text] .synopsisManga
+title[text] [itemprop="name"]

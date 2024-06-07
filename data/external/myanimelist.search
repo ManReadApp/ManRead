@@ -1,0 +1,8 @@
+{
+    "headers": "headers.json",
+    "url_empty": "https://myanimelist.net/manga.php?cat=manga&show={offset}",
+    "url": "https://myanimelist.net/manga.php?cat=manga&q={query}&show={offset}",
+    "offset": 50,
+    "selector": "tr td:nth-child(2) a.hoverinfo_trigger",
+    "cover": "tr td:nth-child(1) img"
+}

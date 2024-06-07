@@ -1,0 +1,8 @@
+"request_config": "headers.json"
+title[text] h1.entry-title
+summery[strip_text] div.wd-full
+tags[@text] span.mgen a
+cover[src] img.wp-post-image
+type[text] .imptdt a
+state[text] .imptdt i
+rows[@html] div.flex-wrap
