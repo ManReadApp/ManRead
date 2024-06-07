@@ -1,5 +1,6 @@
 use crate::env::config::Config;
 use crate::errors::ApiResult;
+use crate::routes::manga::is_valid_translation;
 use crate::services::auth_service::validator;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::auth_tokens::AuthTokenDBService;
@@ -31,7 +32,7 @@ use log::{info, LevelFilter};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::read_dir;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -63,7 +64,7 @@ async fn main() -> std::io::Result<()> {
     #[cfg(feature = "dev")]
     let _ = std::os::unix::fs::symlink(
         std::fs::canonicalize(&config.root_folder).unwrap(),
-        PathBuf::from("../scraper/tests"),
+        PathBuf::from("crates/scraper/tests"),
     );
     let colors = ColoredLevelConfig::default()
         .trace(Color::Cyan)
@@ -242,4 +243,36 @@ pub async fn get_font(Json(request): Json<FontRequest>, data: Data<Fonts>) -> Ap
         err_type: ApiErrorType::InvalidInput,
     })?;
     Ok(NamedFile::open(path)?)
+}
+
+fn search_directory_for_json_files(directory: &Path) -> Vec<PathBuf> {
+    let mut json_files = Vec::new();
+
+    if let Ok(entries) = read_dir(directory) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    json_files.extend(search_directory_for_json_files(&path));
+                } else if let Some(extension) = path.extension() {
+                    if extension == "json" {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            if !is_valid_translation(&content) {
+                                json_files.push(path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    json_files
+}
+
+#[test]
+fn test_json_structure() {
+    let directory = "data/mangas"; // Specify the directory to search
+    let json_files = search_directory_for_json_files(&PathBuf::from(directory));
+    assert_eq!(json_files.len(), 0)
 }
