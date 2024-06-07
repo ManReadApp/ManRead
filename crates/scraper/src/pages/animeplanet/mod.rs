@@ -1,12 +1,13 @@
 use crate::downloader::download;
 use crate::pages::animeplanet::tags::TAGS;
-use crate::pages::hidden::pages::mangadex::{UA, UA_ERR};
 use crate::ScrapeError;
 use api_structure::scraper::{ScrapeSearchResult, SimpleSearch, ValidSearch};
 use reqwest::header::USER_AGENT;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use std::collections::HashMap;
+
+const UA_ERR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.3'";
 
 mod tags;
 
