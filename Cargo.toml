@@ -14,9 +14,11 @@ version = "0.1.0"
 
 [workspace.dependencies]
 api_structure = {path = "crates/api_structure"}
+manread_scraper = { path = "crates/scraper" }
+scraper = "0.19.0"
+walkdir = "2.5.0"
 serde = {version = "1.0.203", features = ["derive"] }
 log = { version = "0.4.21", features = ["std"] }
-manread_scraper = { path = "crates/scraper" }
 rand = "0.9.0-alpha.1"
 tokio = { version = "1.38.0", features = ["full"] }
 fern = { version = "0.6.2", features = ["colored"] }
@@ -38,3 +40,10 @@ egui_extras = { version = "0.27.1", features = ["all_loaders", "datepicker"] }
 rfd = "0.14"
 regex = "1.10.4"
 identicon-rs = "5.0.0"
+pg-embed = "0.7.1"
+tokio-postgres = "0.7.10"
+openssl = "0.10.64"
+js-sandbox = "0.2.0-rc.2"
+bytes = "1.6.0"
+futures = "0.3.30"
+urlencoding = "2.1.3"
