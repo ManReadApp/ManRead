@@ -110,7 +110,7 @@ async fn manual(
     url: &str,
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
     match uri {
-        "manga-updates" => mangaupdates::get_data(client, url).await,
+        "manga-updates" => todo!(),
         "kitsu" => kitsu::get_data(client, url).await,
         "anilist" => anilist::get_data(client, url).await,
         _ => Err(ApiErr {

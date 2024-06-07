@@ -1,6 +1,6 @@
 use crate::error::ScrapeError;
 use crate::extractor::parser::Field;
-use crate::extractor::{SearchServiceDeserialized, SearchServiceScrapeData};
+use crate::extractor::SearchServiceDeserialized;
 use crate::services::metadata::MetaDataService;
 use crate::services::multisite::MultiSiteService;
 use crate::services::search::SearchService;

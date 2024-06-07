@@ -3,7 +3,7 @@ mod error;
 mod extractor;
 mod pages;
 mod services;
-//mod tests;
+mod tests;
 
 pub use error::ScrapeError;
 pub use services::icon::ExternalSite;

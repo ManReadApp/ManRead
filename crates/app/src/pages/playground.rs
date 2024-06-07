@@ -25,6 +25,7 @@ impl App for PlaygroundPage {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Playground");
             get_app_data().change(
+                //Page::Search,
                 Page::Reader {
                     manga_id: "3e42gobkidcqyuo6cfyu".to_string(),
                     chapter_id: None,

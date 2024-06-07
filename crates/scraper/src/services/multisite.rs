@@ -177,7 +177,7 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
         if let Some(labels) = fields.get("labels") {
             let labels: Vec<String> = serde_json::from_str(labels)?;
             err(labels.len(), urls.len())?;
-            for (i, mut url) in urls.into_iter().enumerate() {
+            for (i, url) in urls.into_iter().enumerate() {
                 let title = labels.get(i).unwrap().to_string();
                 let episode = parse_episode(title.as_str()).unwrap_or(0.0);
                 res.push(Info {
@@ -192,7 +192,7 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
         } else if let Some(episodes) = fields.get("episodes") {
             let episodes: Vec<String> = serde_json::from_str(episodes)?;
             err(episodes.len(), urls.len())?;
-            for (i, mut url) in urls.into_iter().enumerate() {
+            for (i, url) in urls.into_iter().enumerate() {
                 let title = episodes.get(i).unwrap().replace("-", ".").to_string();
                 let episode = title.parse()?;
                 res.push(Info {

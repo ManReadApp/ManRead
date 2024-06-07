@@ -144,10 +144,10 @@ impl ItemDataDefined {
             )),
             ItemDataDefined::Reading => todo!(),
             ItemDataDefined::Title(title) => Ok(format!(
-                "array::ilike(array::flatten(object::values(titles)), \"{title}\") {not2}= true"
+                "(array::flatten(object::values(titles)) *~ \"{title}\") {not2}= true"
             )),
             ItemDataDefined::Source(source) => {
-                Ok(format!("array::ilike(sources, \"{source}\") {not2}= true",))
+                Ok(format!("(sources *~ \"{source}\") {not2}= true",))
             }
             ItemDataDefined::Artist(user) => Ok(format!(
                 "{} {}IN artists",

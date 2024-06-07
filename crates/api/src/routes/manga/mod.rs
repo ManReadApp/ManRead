@@ -15,3 +15,4 @@ pub use reader::get_pages as pages_route;
 pub use reader::info as reader_info_route;
 pub use reader::translation as translation_route;
 pub use search::search as search_route;
+pub use reader::is_valid_translation;

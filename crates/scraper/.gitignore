@@ -6,3 +6,4 @@ Cargo.lock
 /src/pages/hidden/single.rs
 /src/pages/hidden/multi.rs
 /src/pages/hidden/pages
+/venv

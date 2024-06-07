@@ -1,7 +1,8 @@
 [package]
 name = "manread"
-version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,35 +13,36 @@ eframe = { version = "0.27.1", default-features = false, features = [
     "glow", # Use the glow rendering backend. Alternative: "wgpu".
     "persistence", # Enable restoring app state when restarting the app.
 ] }
-log = "0.4"
-serde = { version = "1", features = ["derive"] }
-api_structure = { path = "../api_structure" }
-ethread = { path = "../ethread" }
-image = { version = "0.24", features = ["jpeg", "gif", "qoi"] }
+ethread = { path = "../../ethread" }
+
+log = {workspace = true}
+serde = { workspace = true, features = ["derive"] }
+api_structure = { workspace = true }
+image = { workspace = true, features = ["jpeg", "gif", "qoi"] }
 
 #fetching
-serde_json = "1.0"
-url = "2.5"
-reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
+serde_json = {workspace = true}
+url = {workspace = true}
+reqwest = {workspace = true, features = ["json", "stream", "multipart"] }
+base64 = {workspace = true}
 poll-promise = "0.3"
-base64 = "0.22"
 keyring = "2.3"
 egui_extras = { version = "0.27.1", features = ["all_loaders", "datepicker"] }
 rfd = "0.14"
 
 # auth
-regex = "1.10"
-identicon-rs = "5.0"
+regex = {workspace = true}
+identicon-rs = {workspace = true}
 
 #
-chrono = "0.4"
-futures-util = { version = "0.3", features = [] }
+chrono = {workspace = true}
+futures-util = { workspace = true }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-fern = { version = "0.6.2", features = ["colored"] }
-humantime = "2.1.0"
-tokio = { version = "1.35", features = ["rt", "rt-multi-thread", "sync", "macros"] }
+fern = { workspace = true, features = ["colored"] }
+humantime = {workspace = true}
+tokio = {workspace = true, features = ["rt", "rt-multi-thread", "sync", "macros"] }
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -48,19 +50,12 @@ wasm-bindgen-futures = "0.4"
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ['console'] }
-tokio = { version = "1.35", features = ["sync"] }
+tokio = { workspace = true, features = ["sync"] }
 
 
 [features]
 default = ["dev"]
 dev = []
-
-# Optimize all dependencies even in debug builds:
-[profile.dev.package."*"]
-opt-level = 2
-
-
-[patch.crates-io]
 
 # If you want to use the bleeding edge version of egui and eframe:
 # egui = { git = "https://github.com/emilk/egui", branch = "master" }
