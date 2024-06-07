@@ -1,9 +1,0 @@
-{
-    "headers": "headers.json",
-    "url_empty": "https://asuratoon.com/manga/?page={page}&order=update",
-    "url": "https://asuratoon.com/page/{page}/?s={query}",
-    "selector": ".bsx a",
-    "label_selector": ".bsx a .bigor .tt",
-    "type": ".bsx .type",
-    "cover": ".bsx img"
-}

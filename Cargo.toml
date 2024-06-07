@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/api",
+    "crates/app",
+    "crates/api_structure",
+    "crates/scraper",
+    "crates/translator"
+
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.77"
+version = "0.1.0"
+
+[workspace.dependencies]
