@@ -1,6 +1,7 @@
 use crate::RequestImpl;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize)]
 pub struct MangaReaderResponse {
@@ -124,28 +125,28 @@ pub struct ReaderPageResponse {
     pub version_id: String,
     pub hide_top: f64,
     pub hide_bottom: f64,
-    pub pages: HashMap<u32, ReaderPage>,
+    pub pages: HashMap<u32, Arc<ReaderPage>>,
 }
 
-pub enum Action<'a> {
+pub enum Action {
     Prev,
-    Page(&'a ReaderPage),
+    Page(Arc<ReaderPage>),
     Next,
 }
 
 impl ReaderPageResponse {
-    pub fn get_page(&self, page: u32) -> Action {
+    pub fn get_page(&self, page: i32) -> Action {
         if page < 1 {
             Action::Prev
-        } else if let Some(v) = self.pages.get(&page) {
-            Action::Page(v)
+        } else if let Some(v) = self.pages.get(&(page as u32)) {
+            Action::Page(v.clone())
         } else {
             Action::Next
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct ReaderPage {
     pub page_id: String,
     pub width: u32,
