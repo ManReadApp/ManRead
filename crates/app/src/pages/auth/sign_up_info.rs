@@ -8,7 +8,6 @@ use crate::window_storage::Page;
 use api_structure::auth::jwt::JWTs;
 use api_structure::auth::register::{Gender, NewUserRequest};
 use api_structure::auth::role::Role;
-use api_structure::error::{ApiErr, ClientError};
 use api_structure::RequestImpl;
 use chrono::NaiveDate;
 use eframe::{App, Frame};

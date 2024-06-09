@@ -11,9 +11,7 @@ use crate::widgets::reader::storage::{
     get_page_resp, get_version_key, ImageStorage, PageData, State,
 };
 use api_structure::image::MangaReaderImageRequest;
-use api_structure::reader::{
-    Action, MangaReaderResponse, ReaderChapter, ReaderPageResponse, TranslationArea,
-};
+use api_structure::reader::{Action, MangaReaderResponse, ReaderPageResponse, TranslationArea};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use eframe::emath::Vec2;
@@ -164,7 +162,7 @@ fn load_image(
                                 );
                                 let mut translations = vec![];
                                 if fetch_trans {
-                                    let mut t: Vec<TranslationArea> = serde_json::from_slice(
+                                    let t: Vec<TranslationArea> = serde_json::from_slice(
                                         get_app_data()
                                             .client
                                             .post(

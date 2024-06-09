@@ -1,4 +1,4 @@
-use egui::{vec2, Color32, InnerResponse, Painter, Pos2, Rect, Rounding, Stroke};
+use egui::{Color32, InnerResponse, Painter, Pos2, Rect, Stroke};
 
 fn horizontal_line(
     painter: &Painter,

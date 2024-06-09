@@ -6,7 +6,7 @@ use crate::widgets::reader::render::display_images;
 use crate::widgets::reader::render::overlay::Overlay;
 use crate::widgets::reader::scroll::set_progress;
 use crate::widgets::reader::settings::{get_screen_dim, ReadingMode, Settings, ViewArea};
-use crate::widgets::reader::storage::{get_page_resp, get_version, State, Storage};
+use crate::widgets::reader::storage::{get_page_resp, State, Storage};
 use api_structure::reader::MangaReaderRequest;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};

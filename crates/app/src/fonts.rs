@@ -2,7 +2,6 @@ use crate::get_app_data;
 use api_structure::fonts::FontRequest;
 use egui::FontFamily;
 use ethread::ThreadHandler;
-use std::fmt::Display;
 
 pub fn setup_custom_fonts(c: egui::Context) -> ThreadHandler<Option<()>> {
     let ctx = c.clone();

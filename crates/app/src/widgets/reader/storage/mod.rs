@@ -9,7 +9,6 @@ mod manga;
 pub type PageData = HashMap<String, Fetcher<Arc<ReaderPageResponse>>>;
 pub use image::ImageStorage;
 pub use manga::get_page_resp;
-pub use manga::get_version;
 pub use manga::get_version_key;
 pub(crate) struct Storage {
     pub(crate) manga: Fetcher<Arc<MangaReaderResponse>>,

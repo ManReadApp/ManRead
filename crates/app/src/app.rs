@@ -2,7 +2,7 @@ use crate::fonts::setup_custom_fonts;
 use crate::get_app_data;
 use crate::window_storage::Windows;
 use eframe::Frame;
-use egui::{Context, Margin, Vec2};
+use egui::Context;
 
 #[derive(Default)]
 pub struct TemplateApp {

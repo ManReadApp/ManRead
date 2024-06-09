@@ -7,7 +7,6 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::activate::ActivateRequest;
 use api_structure::auth::jwt::{Claim, JWTs};
-use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 
 #[post("/auth/activate")]

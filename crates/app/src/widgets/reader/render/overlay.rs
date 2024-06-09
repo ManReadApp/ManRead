@@ -1,8 +1,6 @@
 use crate::get_app_data;
 use crate::window_storage::Page;
-use egui::{
-    pos2, vec2, Button, Color32, CursorIcon, Label, Rect, Response, Rounding, Sense, Ui, Widget,
-};
+use egui::{pos2, Button, Color32, CursorIcon, Label, Rect, Response, Rounding, Sense, Ui, Widget};
 
 pub struct Overlay {
     name: String,

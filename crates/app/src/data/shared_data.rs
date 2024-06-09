@@ -65,7 +65,7 @@ impl SharedData {
 
     /// gets access token. if none reload page
     pub async fn get_access_token(&self) -> Option<String> {
-        let mut user = self.user().lock().unwrap().is_some();
+        let user = self.user().lock().unwrap().is_some();
 
         if user {
             let data = {

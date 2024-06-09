@@ -1,28 +1,21 @@
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
 use crate::util::parser::search_parser;
-use crate::widgets::image_overlay::ImageOverlay;
 use crate::window_storage::Page;
 use api_structure::scraper::{
     ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult, SimpleSearch, ValidSearches,
 };
 use api_structure::search::{
-    Array, DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse, Status,
+    Array, DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse,
 };
-use api_structure::{Request, RequestImpl, SearchUris};
-use chrono::Duration;
+use api_structure::{RequestImpl, SearchUris};
 use eframe::emath::vec2;
-use eframe::glow::Query;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    Color32, ComboBox, Context, Grid, Image, Label, OpenUrl, ScrollArea, Sense, Spinner,
-    TextBuffer, TextEdit, Ui, Vec2,
+    Color32, ComboBox, Context, Grid, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit, Ui,
 };
-use ethread::ThreadHandler;
-use log::{debug, error, info, warn};
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use log::{debug, error};
 use std::collections::HashMap;
 use std::mem;
 use std::sync::MutexGuard;

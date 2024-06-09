@@ -9,7 +9,6 @@ use crate::window_storage::Page;
 use api_structure::auth::jwt::JWTs;
 use api_structure::auth::reset_password::RequestResetPasswordRequest;
 use api_structure::auth::reset_password::ResetPasswordRequest;
-use api_structure::auth::role::Role;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::{vec2, Context, Image, Label, Link, Sense, TextEdit, Ui};

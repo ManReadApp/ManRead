@@ -2,7 +2,7 @@ use crate::downloader::download;
 use crate::error::ScrapeError;
 use crate::extractor::parser::clean_text;
 use crate::pages::asuratoon::get_first_url;
-use crate::pages::{anilist, kitsu, mangaupdates};
+use crate::pages::{anilist, kitsu};
 use crate::services::icon::{get_uri, ExternalSite};
 use crate::services::{config_to_request_builder, Service};
 use api_structure::error::{ApiErr, ApiErrorType};

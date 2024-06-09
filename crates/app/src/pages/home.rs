@@ -13,10 +13,8 @@ use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{vec2, Align, Button, Context, Grid, Label, Layout, ScrollArea, Sense, Spinner, Ui};
 use ethread::ThreadHandler;
-use futures_util::StreamExt;
 use poll_promise::Promise;
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::mem;
 use std::sync::Arc;
 

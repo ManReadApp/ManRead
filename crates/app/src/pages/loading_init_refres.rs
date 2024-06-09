@@ -2,7 +2,6 @@ use crate::data::user::User;
 use crate::get_app_data;
 use crate::widgets::centered_spinner;
 use crate::window_storage::Page;
-use api_structure::auth::role::Role;
 use eframe::{App, Frame};
 use egui::{Context, Image};
 use ethread::ThreadHandler;
