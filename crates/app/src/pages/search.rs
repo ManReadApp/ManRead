@@ -330,7 +330,7 @@ impl App for SearchPage {
                     let padding = ui.style_mut().spacing.interact_size.y;
                     ui.style_mut().spacing.interact_size.y = 33.0;
                     ComboBox::new("search_selector", "")
-                        .wrap(true)
+                        .wrap()
                         .selected_text(display_label(&self.selected_search))
                         .show_ui(ui, |ui| {
                             let items = match self.searches.result() {

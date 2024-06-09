@@ -1,4 +1,5 @@
 use crate::errors::ApiResult;
+use api_structure::info::TagSex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -20,7 +21,7 @@ impl Tag {
         api_structure::info::Tag {
             tag: self.tag,
             description: self.description,
-            sex: self.sex,
+            sex: TagSex::from(self.sex),
         }
     }
 }

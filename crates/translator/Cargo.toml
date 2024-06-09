@@ -11,6 +11,7 @@ reqwest = { workspace = true, features = ["json"] }
 base64 =  {workspace = true}
 serde = { workspace = true, features = ["derive"] }
 serde_json = {workspace = true}
+tokio = { workspace = true, default-features = false, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 tokio = { workspace = true, default-features = false, features = ["test-util", "rt-multi-thread", "macros"] }

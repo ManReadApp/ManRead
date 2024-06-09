@@ -10,6 +10,7 @@ use egui::{vec2, Context, Image, Label, Link, TextEdit, Ui};
 use ethread::ThreadHandler;
 use identicon_rs::Identicon;
 use std::io::Cursor;
+use image::ImageFormat;
 
 pub struct SignUpPage {
     height: Option<f32>,
@@ -127,10 +128,10 @@ impl SignUpPage {
 
 async fn upload(username: String, ctx: Context) -> (Option<Vec<(String, String)>>, Image<'static>) {
     let identicon_conways_glider = Identicon::new(&username);
-    let image = identicon_conways_glider.generate_image().unwrap();
+    let img = identicon_conways_glider.generate_image().unwrap();
     let mut res = Cursor::new(vec![]);
-    image
-        .write_to(&mut res, image::ImageOutputFormat::Png)
+    img
+        .write_to(&mut res, ImageFormat::Png)
         .unwrap();
     let data = upload_image(ctx, res.get_ref().clone().into(), None).await;
     let img = Image::from_bytes("generated_icon", res.into_inner());

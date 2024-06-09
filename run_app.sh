@@ -1,1 +1,2 @@
-cargo r --release -p app
+#!/bin/bash
+cargo r --release -p manread

@@ -61,7 +61,7 @@ async fn main() -> eframe::Result<()> {
     eframe::run_native(
         "ManRead",
         native_options,
-        Box::new(|_| Box::<TemplateApp>::default()),
+        Box::new(|_| Ok(Box::<TemplateApp>::default())),
     )
 }
 

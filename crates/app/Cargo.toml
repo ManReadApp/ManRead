@@ -7,8 +7,8 @@ version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = { version = "0.27.1" }
-eframe = { version = "0.27.1", default-features = false, features = [
+egui = { version = "0.27" }
+eframe = { version = "0.27", default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
     "glow", # Use the glow rendering backend. Alternative: "wgpu".
     "persistence", # Enable restoring app state when restarting the app.
@@ -18,7 +18,7 @@ ethread = { path = "../../ethread" }
 log = {workspace = true}
 serde = { workspace = true, features = ["derive"] }
 api_structure = { workspace = true }
-image = { workspace = true, features = ["jpeg", "gif", "qoi"] }
+image = { version = "0.25", features = ["jpeg", "gif", "qoi", "png"] }
 
 #fetching
 serde_json = {workspace = true}
@@ -56,14 +56,3 @@ tokio = { workspace = true, features = ["sync"] }
 [features]
 default = ["dev"]
 dev = []
-
-# If you want to use the bleeding edge version of egui and eframe:
-# egui = { git = "https://github.com/emilk/egui", branch = "master" }
-# eframe = { git = "https://github.com/emilk/egui", branch = "master" }
-
-
-# If you fork https://github.com/emilk/egui you can test with:
-#egui = { path = "../egui/crates/egui" }
-#egui_extras = { path = "../egui/crates/egui_extras" }
-
-# eframe = { path = "../egui/crates/eframe" }

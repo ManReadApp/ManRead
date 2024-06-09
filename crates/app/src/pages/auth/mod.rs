@@ -17,6 +17,6 @@ pub fn background(image: &Image, ui: &mut Ui) {
     image.paint_at(ui, rect);
 }
 
-fn get_background() -> Image<'static> {
+pub fn get_background() -> Image<'static> {
     Image::new(egui::include_image!("../../assets/background.png"))
 }

@@ -1,4 +1,5 @@
 use crate::get_app_data;
+use crate::pages::add::AddMangaPage;
 use crate::pages::auth::reset_password::ResetPasswordPage;
 use crate::pages::auth::sign_in::LoginPage;
 use crate::pages::auth::sign_up::SignUpPage;
@@ -70,7 +71,7 @@ pub struct Windows {
     playground: Option<PlaygroundPage>,
     manga_info: Option<InfoPage>,
     search: Option<SearchPage>,
-    add_manga: Option<()>,
+    add_manga: Option<AddMangaPage>,
     you: Option<()>,
     settings: Option<()>,
     reader: Option<MangaReaderPage>,
@@ -145,7 +146,9 @@ impl Windows {
                 self.manga_info.get_or_insert_with(|| InfoPage::new(v)) as &mut dyn App
             }
             Page::Search => self.search.get_or_insert_with(|| SearchPage::new()) as &mut dyn App,
-            Page::AddManga => todo!(),
+            Page::AddManga => {
+                self.add_manga.get_or_insert_with(|| AddMangaPage::new()) as &mut dyn App
+            }
             Page::You => todo!(),
             Page::Settings => todo!(),
             Page::Reader {

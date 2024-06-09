@@ -33,7 +33,7 @@ impl Translator {
     }
 }
 
-struct IchigoData {
+pub struct IchigoData {
     username: String,
     password: String,
     fingerprint: String,

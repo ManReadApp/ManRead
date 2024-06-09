@@ -17,8 +17,6 @@ use eframe::{App, Frame};
 use egui::{
     vec2, Align, Context, CursorIcon, Image, ImageButton, Label, Layout, Link, Sense, TextEdit, Ui,
 };
-use ethread::ThreadHandler;
-
 pub struct LoginPage {
     height: Option<f32>,
     bg: Image<'static>,

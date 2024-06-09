@@ -5,10 +5,11 @@ use crate::widgets::reader::settings::ReadingMode;
 use crate::widgets::reader::storage::{get_page_resp, ImageStorage, PageData, State};
 use api_structure::reader::{Action, MangaReaderResponse, ReaderPage};
 use eframe::emath::{pos2, vec2, Rect, Vec2};
-use egui::{Color32, Rounding, Stroke, Ui};
+use egui::{Color32, Ui};
 use std::sync::Arc;
 
 mod helper;
+pub mod overlay;
 
 pub fn display_images(
     v: Arc<MangaReaderResponse>,
@@ -128,7 +129,7 @@ pub fn display_images(
                 }
             }
         }
-        ReadingMode::Row(_) => unimplemented!(),
+        ReadingMode::Row(_) => todo!("implement row reader"),
     }
 }
 

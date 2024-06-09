@@ -54,6 +54,11 @@ pub struct UserDBService {
 }
 
 impl UserDBService {
+    pub async fn all(&self) -> ApiResult<Vec<String>> {
+        let data: Vec<RecordData<User>> = User::all(&self.conn).await?;
+        Ok(data.into_iter().map(|v| v.data.names).flatten().collect())
+    }
+
     pub async fn get_username(&self, id: &str) -> Option<String> {
         if let Some(v) = self.temp.lock().unwrap().get(id) {
             return Some(v.clone());

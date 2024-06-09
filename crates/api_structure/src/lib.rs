@@ -4,6 +4,7 @@ pub mod fonts;
 pub mod home;
 pub mod image;
 pub mod info;
+pub mod manga;
 pub mod reader;
 pub mod scrape;
 pub mod scraper;

@@ -8,3 +8,4 @@ pub(crate) struct Settings {
 }
 pub use reader::ReadingMode;
 pub use view::ViewArea;
+pub use view::get_screen_dim;

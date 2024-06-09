@@ -32,6 +32,19 @@ pub struct ClientError {
     pub data: Option<String>,
 }
 
+impl Display for ClientError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.cause
+                .as_ref()
+                .map(|v| format!("{}: {}", self.message, v))
+                .unwrap_or(self.message.clone())
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub enum ApiErrorType {
     InternalError,
