@@ -7,5 +7,5 @@ pub(crate) struct Settings {
     pub(crate) version_hierachy: Vec<String>,
 }
 pub use reader::ReadingMode;
-pub use view::ViewArea;
 pub use view::get_screen_dim;
+pub use view::ViewArea;

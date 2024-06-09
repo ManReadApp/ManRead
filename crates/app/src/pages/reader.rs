@@ -3,14 +3,14 @@ use crate::get_app_data;
 use crate::widgets::reader::load::load_images;
 use crate::widgets::reader::progress::Progress;
 use crate::widgets::reader::render::display_images;
+use crate::widgets::reader::render::overlay::Overlay;
 use crate::widgets::reader::scroll::set_progress;
 use crate::widgets::reader::settings::{get_screen_dim, ReadingMode, Settings, ViewArea};
 use crate::widgets::reader::storage::{get_page_resp, get_version, State, Storage};
 use api_structure::reader::MangaReaderRequest;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
-use egui::{vec2, Context, Rect, pos2, Rounding, Color32, Label, Sense};
-use crate::widgets::reader::render::overlay::Overlay;
+use egui::{pos2, vec2, Color32, Context, Label, Rect, Rounding, Sense};
 
 pub struct MangaReaderPage {
     storage: Storage,
@@ -101,7 +101,11 @@ impl App for MangaReaderPage {
                             let dim = get_screen_dim(ctx);
                             let height = 50.;
                             let top = Rect::from_min_size(pos2(0., 0.), vec2(dim.x, height));
-                            painter.rect_filled(Rect::from_min_size(pos2(0., dim.y - height), vec2(dim.x, height)), Rounding::ZERO, Color32::from_rgba_unmultiplied(0, 0, 0, (0.7 * 255.) as u8));
+                            painter.rect_filled(
+                                Rect::from_min_size(pos2(0., dim.y - height), vec2(dim.x, height)),
+                                Rounding::ZERO,
+                                Color32::from_rgba_unmultiplied(0, 0, 0, (0.7 * 255.) as u8),
+                            );
                             ui.put(top, Overlay::new("One Piece", 1., None));
                             self.storage.loaded_pages.clean(ctx);
                         } else {

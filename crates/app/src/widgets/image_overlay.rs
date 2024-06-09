@@ -1,9 +1,9 @@
 use eframe::emath::{pos2, vec2, Pos2, Rect, Vec2};
 use eframe::epaint::{Color32, FontId, PathShape, TextShape};
+use egui::epaint::PathStroke;
 use egui::{Image, Response, Ui, Widget};
 use std::f64::consts::PI;
 use std::ops::Add;
-use egui::epaint::PathStroke;
 
 #[derive(Clone)]
 pub struct ImageOverlay {

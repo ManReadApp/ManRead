@@ -12,9 +12,9 @@ pub struct ViewArea {
 
 pub fn get_screen_dim(ctx: &Context) -> Vec2 {
     #[cfg(target_arch = "wasm32")]
-        let screen = get_window_dimensions();
+    let screen = get_window_dimensions();
     #[cfg(not(target_arch = "wasm32"))]
-        let screen = ctx.input(|i| i.viewport().outer_rect).unwrap().size();
+    let screen = ctx.input(|i| i.viewport().outer_rect).unwrap().size();
     screen
 }
 

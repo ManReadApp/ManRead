@@ -8,7 +8,6 @@ use crate::services::db::page::PageDBService;
 use crate::services::db::progress::ProgressDBService;
 use actix_files::NamedFile;
 use actix_web::post;
-use std::sync::Arc;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
@@ -22,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::read_to_string;
+use std::sync::Arc;
 
 #[post("/pages")]
 #[protect(
@@ -89,7 +89,7 @@ pub async fn get_pages(
         version_id: req.chapter_version_id,
         hide_top: 0.0,
         hide_bottom: 0.0,
-        pages: pages.into_iter().map(|(a, b)|(a, Arc::new(b))).collect(),
+        pages: pages.into_iter().map(|(a, b)| (a, Arc::new(b))).collect(),
     }))
 }
 
@@ -260,7 +260,7 @@ struct TranslationResponse {
     pub images: Vec<Vec<Translation>>,
 }
 
-pub fn is_valid_translation(s: &str) -> bool{
+pub fn is_valid_translation(s: &str) -> bool {
     let v: Result<TranslationResponse, _> = serde_json::from_str(s);
     v.is_ok()
 }
