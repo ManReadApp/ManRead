@@ -42,9 +42,7 @@ pub fn display_images(
                 let start1 = vec2(gaps1.x, gaps1.y / 2.) + view_start;
                 let start2 = view_start + vec2(size.x / 2., gaps2.y / 2.);
                 if !lr {
-                    let temp = img1;
-                    img1 = img2;
-                    img2 = temp;
+                    std::mem::swap(&mut img1, &mut img2);
                 }
                 img1.0
                     .paint_at(ui, Rect::from_min_size(start1.to_pos2(), size1));
@@ -97,26 +95,18 @@ pub fn display_images(
                     let rect =
                         Rect::from_min_size(pos2(view_start.x, processed), vec2(size.x, height));
                     img.0.paint_at(ui, rect);
-                    match &ch {
-                        State::ReaderPageResponse(v) => {
-                            let page = v.pages.iter().find_map(|(index, value)| {
-                                match value.page_id == rp.page_id {
-                                    true => Some(*index),
-                                    false => None,
-                                }
-                            });
-                            ui.painter().debug_rect(
-                                rect,
-                                Color32::RED,
-                                format!(
-                                    "{} {}/{}",
-                                    chapter,
-                                    page.unwrap_or_default(),
-                                    v.pages.len()
-                                ),
-                            );
-                        }
-                        _ => {}
+                    if let State::ReaderPageResponse(v) = &ch {
+                        let page = v.pages.iter().find_map(|(index, value)| {
+                            match value.page_id == rp.page_id {
+                                true => Some(*index),
+                                false => None,
+                            }
+                        });
+                        ui.painter().debug_rect(
+                            rect,
+                            Color32::RED,
+                            format!("{} {}/{}", chapter, page.unwrap_or_default(), v.pages.len()),
+                        );
                     }
 
                     processed += height;

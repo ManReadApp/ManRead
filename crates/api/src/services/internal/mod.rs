@@ -7,7 +7,9 @@ use surrealdb::Surreal;
 
 static mut RERUN: u128 = 0;
 
-pub async fn internal_service(db: impl Fn() -> Arc<Surreal<Db>>) {
+#[allow(dead_code)]
+//TODO: refactor
+pub async fn internal_service(_: impl Fn() -> Arc<Surreal<Db>>) {
     loop {
         let time = get_next_rerun();
 
@@ -28,14 +30,18 @@ pub async fn internal_service(db: impl Fn() -> Arc<Surreal<Db>>) {
     }
 }
 
+#[allow(dead_code)]
+//TODO: refactror
 pub fn should_rerun() {
     set_rerun(now_timestamp().expect("time went backwards").as_millis() - 1)
 }
 
+#[allow(dead_code)]
 fn get_next_rerun() -> u128 {
     unsafe { RERUN }
 }
 
+#[allow(dead_code)]
 fn set_rerun(i: u128) {
     unsafe { RERUN = i }
 }

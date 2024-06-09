@@ -24,8 +24,6 @@ impl Translator {
         fingerprint: String,
     ) -> Self {
         Self::Ichigo(Arc::new(Mutex::new(IchigoData {
-            username: username.clone(),
-            password: password.clone(),
             fingerprint,
             uuid,
             cookie: get_ichigo_cookie(username, password).await.unwrap(),
@@ -34,8 +32,6 @@ impl Translator {
 }
 
 pub struct IchigoData {
-    username: String,
-    password: String,
     fingerprint: String,
     uuid: String,
     cookie: String,
@@ -82,14 +78,12 @@ async fn ichigo_translate(
     }
     let mut items1 = vec![];
     let mut items2 = vec![];
-    let mut count = 0;
-    for (src, target) in src_target {
+    for (count, (src, target)) in src_target.into_iter().enumerate() {
         if count % 2 == 0 {
             items1.push((src, target))
         } else {
             items2.push((src, target))
         }
-        count += 1;
     }
     if items2.is_empty() {
         ichigo_translate_instance(translator, items1).await
@@ -134,7 +128,7 @@ async fn download(v: RequestBuilder) -> Result<Vec<u8>, String> {
                 if v.status().is_success() {
                     v.bytes().await.map_err(|v| v.to_string())
                 } else {
-                    Err(format!("Statuscode: {}", v.status().to_string()))
+                    Err(format!("Statuscode: {}", v.status()))
                 }
             }
             Err(v) => Err(v.to_string()),
@@ -156,8 +150,6 @@ mod tests {
     #[tokio::test]
     async fn ichigo() {
         let translator = Translator::Ichigo(Arc::new(Mutex::new(IchigoData {
-            username: "".to_string(),
-            password: "".to_string(),
             fingerprint: "1".to_string(),
             uuid: "1".to_string(),
             cookie: "".to_string(),

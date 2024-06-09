@@ -1,7 +1,6 @@
 use crate::get_app_data;
 use crate::window_storage::Page;
 
-use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::Context;
 

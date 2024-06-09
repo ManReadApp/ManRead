@@ -22,6 +22,7 @@ pub struct MangaList {
 }
 
 impl MangaList {
+    #[allow(dead_code)]
     fn new(name: String, user: ThingType<User>) -> Self {
         Self {
             name,
@@ -34,6 +35,7 @@ impl MangaList {
 }
 
 pub struct MangaListDBService {
+    #[allow(dead_code)]
     conn: Arc<Surreal<Db>>,
 }
 

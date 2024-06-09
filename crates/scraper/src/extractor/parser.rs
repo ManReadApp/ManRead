@@ -31,16 +31,14 @@ impl TryFrom<&str> for Target {
         // Check if the prefix is '@', a digit, or None
         if let Some('@') | Some('0'..='9') = prefix {
             // If so, remove the prefix
-            if value.starts_with('@') {
+            if let Some(v) = value.strip_prefix('@') {
                 pre = Prefix::All;
-                value = value[1..].to_owned();
-            } else {
-                if let Some(index) = value.find(|c: char| !c.is_digit(10)) {
-                    let numeric_part = &value[..index];
-                    if let Ok(num) = numeric_part.parse::<usize>() {
-                        pre = Prefix::Num(num);
-                        value = value[index..].to_owned();
-                    }
+                value = v.to_string();
+            } else if let Some(index) = value.find(|c: char| !c.is_ascii_digit()) {
+                let numeric_part = &value[..index];
+                if let Ok(num) = numeric_part.parse::<usize>() {
+                    pre = Prefix::Num(num);
+                    value = value[index..].to_owned();
                 }
             }
         }
@@ -159,13 +157,13 @@ fn get_text(text: scraper::element_ref::Text) -> String {
     text.collect()
 }
 pub fn clean_text(text: String) -> String {
-    if let Some(v) = text.strip_prefix("\n") {
+    if let Some(v) = text.strip_prefix('\n') {
         clean_text(v.to_string())
-    } else if let Some(v) = text.strip_suffix("\n") {
+    } else if let Some(v) = text.strip_suffix('\n') {
         clean_text(v.to_string())
-    } else if let Some(v) = text.strip_prefix(" ") {
+    } else if let Some(v) = text.strip_prefix(' ') {
         clean_text(v.to_string())
-    } else if let Some(v) = text.strip_suffix(" ") {
+    } else if let Some(v) = text.strip_suffix(' ') {
         clean_text(v.to_string())
     } else {
         text

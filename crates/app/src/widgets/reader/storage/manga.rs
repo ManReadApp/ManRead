@@ -39,25 +39,19 @@ pub fn get_page_resp(
 
 /// gets prioritized  version
 pub fn get_version<'a>(rc: &'a ReaderChapter, hierachy: &[String]) -> Option<&'a String> {
-    let key = rc.versions.keys().next();
-    if key.is_none() {
-        return None;
-    }
+    let key = rc.versions.keys().next()?;
     for id in hierachy {
         if let Some(v) = rc.versions.get(id) {
             return Some(v);
         }
     }
-    rc.versions.get(key.unwrap())
+    rc.versions.get(key)
 }
 
 pub fn get_version_key(rc: &ReaderChapter, hierachy: &[String]) -> Option<String> {
-    let key = rc.versions.keys().next();
-    if key.is_none() {
-        return None;
-    }
-    for id in hierachy {
+    let key = rc.versions.keys().next()?;
+    if let Some(id) = hierachy.iter().next() {
         return Some(id.clone());
     }
-    return key.cloned();
+    Some(key.clone())
 }

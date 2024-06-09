@@ -1,5 +1,5 @@
 use crate::downloader::download;
-use crate::pages::hidden;
+use crate::pages::{self, hidden};
 use crate::services::icon::get_uri;
 use crate::services::{config_to_request_builder, Service};
 use crate::{ExternalSite, ScrapeError};
@@ -15,15 +15,24 @@ use std::sync::Arc;
 pub struct MultiSiteService {
     client: Client,
     services: HashMap<String, Service>,
+    internal: HashSet<&'static str>,
 }
 
 impl MultiSiteService {
     pub fn new(services: HashMap<String, Service>) -> Self {
         Self {
+            internal: pages::hidden::multi::register().into_iter().collect(),
             client: Default::default(),
             services,
         }
     }
+
+    pub fn get_services(&self) -> Vec<String> {
+        let mut uris: Vec<String> = self.services.keys().cloned().collect();
+        uris.append(&mut self.internal.iter().map(|v| v.to_string()).collect());
+        uris
+    }
+
     pub async fn get_chapters(
         &self,
         url: &str,
@@ -40,13 +49,13 @@ impl MultiSiteService {
                     .map(|v| {
                         v.into_iter()
                             .map(|mut v| {
-                                if v.url.starts_with("/") {
+                                if v.url.starts_with('/') {
                                     let url_base =
                                         url.replace("http://", "").replace("https://", "");
                                     v.url = format!(
                                         "https://{}{}",
                                         url_base
-                                            .split_once("/")
+                                            .split_once('/')
                                             .map(|v| v.0.to_string())
                                             .unwrap_or(url_base),
                                         v.url
@@ -108,7 +117,7 @@ impl MultiSiteService {
             let req = config_to_request_builder(&self.client, &v.config, &info.url);
             let html = download(req).await?;
             let fields = v.process(html.as_str());
-            post_process_pages(&info.site.as_str(), fields)
+            post_process_pages(info.site.as_str(), fields)
         } else {
             manual_pages(&self.client, info, acc).await
         }
@@ -146,7 +155,7 @@ pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
     } else if let Some(captured) = re2.captures(&s.to_lowercase()) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
-    } else if let Some(captured) = Regex::new(r"第(\d+(\.\d+)?)").unwrap().captures(&s) {
+    } else if let Some(captured) = Regex::new(r"第(\d+(\.\d+)?)").unwrap().captures(s) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
     } else {
@@ -193,7 +202,7 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
             let episodes: Vec<String> = serde_json::from_str(episodes)?;
             err(episodes.len(), urls.len())?;
             for (i, url) in urls.into_iter().enumerate() {
-                let title = episodes.get(i).unwrap().replace("-", ".").to_string();
+                let title = episodes.get(i).unwrap().replace('-', ".").to_string();
                 let episode = title.parse()?;
                 res.push(Info {
                     site: uri.to_string(),

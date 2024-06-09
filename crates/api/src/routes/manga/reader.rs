@@ -241,7 +241,7 @@ async fn translation(
 }
 
 #[derive(Serialize, Deserialize)]
-struct Translation {
+pub struct Translation {
     #[serde(rename = "translatedText")]
     pub translated_text: String,
     #[serde(rename = "minX")]
@@ -256,11 +256,6 @@ struct Translation {
 }
 
 #[derive(Serialize, Deserialize)]
-struct TranslationResponse {
+pub struct TranslationResponse {
     pub images: Vec<Vec<Translation>>,
-}
-
-pub fn is_valid_translation(s: &str) -> bool {
-    let v: Result<TranslationResponse, _> = serde_json::from_str(s);
-    v.is_ok()
 }

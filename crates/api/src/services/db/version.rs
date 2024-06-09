@@ -12,6 +12,7 @@ pub struct Version {
 }
 
 impl Version {
+    #[allow(dead_code)]
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -21,6 +22,7 @@ impl Version {
 }
 
 pub struct VersionDBService {
+    #[allow(dead_code)]
     conn: Arc<Surreal<Db>>,
 }
 

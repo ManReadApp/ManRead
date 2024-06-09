@@ -34,7 +34,7 @@ impl ExternalSite {
                     .unwrap_or_default()
                     .to_str()
                     .unwrap_or_default();
-                if let Some((name, ext)) = name.split_once(".") {
+                if let Some((name, ext)) = name.split_once('.') {
                     match ext {
                         "filter" => {
                             filters.insert(
@@ -76,8 +76,8 @@ impl ExternalSite {
 impl Filter {
     pub fn new(value: String) -> Result<Vec<Self>, String> {
         value
-            .split("\n")
-            .map(|v| {
+            .split('\n')
+            .flat_map(|v| {
                 if let Some(v) = v.strip_prefix("starts_with ") {
                     Some(Ok(Filter::StartsWith(v.to_string())))
                 } else if let Some(v) = v.strip_prefix("contains ") {
@@ -88,13 +88,11 @@ impl Filter {
                         Ok(r) => Some(Ok(Filter::Regex(r))),
                         Err(e) => Some(Err(e.to_string())),
                     }
-                } else if let Some(v) = v.strip_prefix("ends_with ") {
-                    Some(Ok(Filter::EndsWith(v.to_string())))
                 } else {
-                    None
+                    v.strip_prefix("ends_with ")
+                        .map(|v| Ok(Filter::EndsWith(v.to_string())))
                 }
             })
-            .flatten()
             .collect::<Result<Vec<_>, String>>()
     }
 

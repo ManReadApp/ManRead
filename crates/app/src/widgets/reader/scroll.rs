@@ -58,7 +58,7 @@ pub fn set_progress(
                                         );
                                         progress.image = 1;
                                         progress.pixels = processed - max;
-                                        progress.chapter = v.chapter_id.clone();
+                                        progress.chapter.clone_from(&v.chapter_id);
                                     }
                                 }
                             }
@@ -76,7 +76,7 @@ pub fn set_progress(
                                         if let State::ReaderPageResponse(rpp) = &ch {
                                             let last_page =
                                                 rpp.pages.keys().max().copied().unwrap();
-                                            progress.chapter = v.chapter_id.clone();
+                                            progress.chapter.clone_from(&v.chapter_id);
                                             let v = rpp.pages.get(&last_page).unwrap();
                                             progress.image = last_page;
                                             progress.pixels = v.height(area.x) + processed

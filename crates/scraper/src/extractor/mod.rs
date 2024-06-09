@@ -114,25 +114,17 @@ impl SearchServiceScrapeData {
                 .collect::<Vec<_>>()
         };
 
-        let status: Option<Vec<String>> = if let Some(status) = &self.status {
-            Some(
-                doc.select(status)
-                    .map(|v| v.text().collect())
-                    .collect::<Vec<_>>(),
-            )
-        } else {
-            None
-        };
+        let status: Option<Vec<String>> = self.status.as_ref().map(|status| {
+            doc.select(status)
+                .map(|v| v.text().collect())
+                .collect::<Vec<_>>()
+        });
 
-        let type_: Option<Vec<String>> = if let Some(type_) = &self.type_ {
-            Some(
-                doc.select(type_)
-                    .map(|v| v.text().collect())
-                    .collect::<Vec<_>>(),
-            )
-        } else {
-            None
-        };
+        let type_: Option<Vec<String>> = self.type_.as_ref().map(|type_| {
+            doc.select(type_)
+                .map(|v| v.text().collect())
+                .collect::<Vec<_>>()
+        });
         let mut res = vec![];
         for (i, url) in urls.into_iter().enumerate() {
             res.push(ScrapeSearchResult {

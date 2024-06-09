@@ -145,10 +145,8 @@ impl Windows {
             Page::MangaInfo(v) => {
                 self.manga_info.get_or_insert_with(|| InfoPage::new(v)) as &mut dyn App
             }
-            Page::Search => self.search.get_or_insert_with(|| SearchPage::new()) as &mut dyn App,
-            Page::AddManga => {
-                self.add_manga.get_or_insert_with(|| AddMangaPage::new()) as &mut dyn App
-            }
+            Page::Search => self.search.get_or_insert_with(SearchPage::new) as &mut dyn App,
+            Page::AddManga => self.add_manga.get_or_insert_with(AddMangaPage::new) as &mut dyn App,
             Page::You => todo!(),
             Page::Settings => todo!(),
             Page::Reader {

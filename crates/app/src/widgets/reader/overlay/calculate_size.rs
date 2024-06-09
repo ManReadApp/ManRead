@@ -53,11 +53,7 @@ impl ReaderTranslationArea {
             }
             update_fontsize(fontsize, &mut lj);
             let size = ui.fonts(|fonts| fonts.layout_job(lj.clone())).size();
-            if y < size.y {
-                increase = false;
-            } else {
-                increase = true;
-            }
+            increase = y >= size.y;
             if last_action == LastAction::Increase && !increase {
                 update_fontsize(fontsize - 1, &mut lj);
                 break;

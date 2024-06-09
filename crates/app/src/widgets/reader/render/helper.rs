@@ -34,7 +34,7 @@ pub fn get_img<'a>(
         if let Some(v) = img.req.task.ready() {
             match v {
                 None => imgs.error.clone(),
-                Some(v) => return v.clone(),
+                Some(v) => v.clone(),
             }
         } else {
             imgs.loading.clone()

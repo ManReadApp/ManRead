@@ -1,6 +1,5 @@
 use crate::env::config::Config;
 use crate::errors::ApiResult;
-use crate::routes::manga::is_valid_translation;
 use crate::services::auth_service::validator;
 use crate::services::crypto_service::CryptoService;
 use crate::services::db::auth_tokens::AuthTokenDBService;
@@ -30,7 +29,7 @@ use fern::colors::{Color, ColoredLevelConfig};
 use log::{info, LevelFilter};
 use std::collections::HashMap;
 use std::fs::read_dir;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -202,7 +201,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 //TODO: wtf
-async fn test(db: impl Fn() -> Arc<Surreal<Db>>) {}
+async fn test(_: impl Fn() -> Arc<Surreal<Db>>) {}
 
 fn log_url(config: &Config) {
     #[cfg(feature = "log-ip")]
@@ -243,34 +242,49 @@ pub async fn get_font(Json(request): Json<FontRequest>, data: Data<Fonts>) -> Ap
     Ok(NamedFile::open(path)?)
 }
 
-fn search_directory_for_json_files(directory: &Path) -> Vec<PathBuf> {
-    let mut json_files = Vec::new();
+#[cfg(test)]
+mod testing {
+    use std::{
+        fs::read_dir,
+        path::{Path, PathBuf},
+    };
 
-    if let Ok(entries) = read_dir(directory) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_dir() {
-                    json_files.extend(search_directory_for_json_files(&path));
-                } else if let Some(extension) = path.extension() {
-                    if extension == "json" {
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            if !is_valid_translation(&content) {
-                                json_files.push(path);
+    use crate::routes::manga::TranslationResponse;
+
+    pub fn is_valid_translation(s: &str) -> bool {
+        let v: Result<TranslationResponse, _> = serde_json::from_str(s);
+        v.is_ok()
+    }
+
+    fn search_directory_for_json_files(directory: &Path) -> Vec<PathBuf> {
+        let mut json_files = Vec::new();
+
+        if let Ok(entries) = read_dir(directory) {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        json_files.extend(search_directory_for_json_files(&path));
+                    } else if let Some(extension) = path.extension() {
+                        if extension == "json" {
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                if !is_valid_translation(&content) {
+                                    json_files.push(path);
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
+        json_files
     }
 
-    json_files
-}
-
-#[test]
-fn test_json_structure() {
-    let directory = "data/mangas"; // Specify the directory to search
-    let json_files = search_directory_for_json_files(&PathBuf::from(directory));
-    assert_eq!(json_files.len(), 0)
+    #[test]
+    fn test_json_structure() {
+        let directory = "data/mangas"; // Specify the directory to search
+        let json_files = search_directory_for_json_files(&PathBuf::from(directory));
+        assert_eq!(json_files.len(), 0)
+    }
 }

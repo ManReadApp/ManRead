@@ -158,15 +158,12 @@ impl Display for Array {
         };
         write!(
             f,
-            "{}",
-            format!(
-                "{prefix}{})",
-                self.items
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            )
+            "{prefix}{})",
+            self.items
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(" ")
         )
     }
 }
@@ -182,16 +179,13 @@ impl Display for Item {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}",
-            format!(
-                "{}:{}{}",
-                self.data.name,
-                match self.not {
-                    true => "!",
-                    false => "",
-                },
-                self.data.value
-            )
+            "{}:{}{}",
+            self.data.name,
+            match self.not {
+                true => "!",
+                false => "",
+            },
+            self.data.value
         )
     }
 }

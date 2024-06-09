@@ -54,6 +54,7 @@ pub struct UserDBService {
 }
 
 impl UserDBService {
+    #[cfg(feature = "dev")]
     pub async fn all(&self) -> ApiResult<Vec<String>> {
         let data: Vec<RecordData<User>> = User::all(&self.conn).await?;
         Ok(data.into_iter().map(|v| v.data.names).flatten().collect())

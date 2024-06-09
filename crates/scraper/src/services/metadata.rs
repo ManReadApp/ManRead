@@ -77,17 +77,17 @@ fn post_process(
                     let value = vv.get(i).unwrap().as_str();
                     let text = clean_text(
                         clean_text(data)
-                            .strip_prefix(&value)
+                            .strip_prefix(value)
                             .ok_or(ScrapeError::node_not_found())?
                             .to_string(),
                     );
-                    let key = value.replace(":", "");
+                    let key = value.replace(':', "");
                     match value {
                         "Genres:" | "Demographic:" | "Themes:" => {
                             let genres: Vec<String> = text
-                                .split(",")
-                                .map(|v| v.split_once("\n").map(|v| v.0).unwrap_or(v).to_string())
-                                .map(|v| clean_text(v))
+                                .split(',')
+                                .map(|v| v.split_once('\n').map(|v| v.0).unwrap_or(v).to_string())
+                                .map(clean_text)
                                 .collect();
                             res.insert(key, ItemOrArray::Array(genres));
                         }

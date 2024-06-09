@@ -55,7 +55,7 @@ impl SearchPage {
         search: &'a mut String,
         allowed: &Vec<Field>,
     ) -> (TextEdit<'a>, Array, Vec<String>) {
-        let (parsed, errors) = search_parser(&search, false, allowed);
+        let (parsed, errors) = search_parser(search, false, allowed);
         let color = if !errors.is_empty() {
             Some(Color32::from_rgb(255, 64, 64))
         } else {
@@ -74,11 +74,11 @@ impl SearchPage {
         fetcher.set_body(&*get_app_data().search.lock().unwrap());
         fetcher.send();
         let mut search = get_app_data().search.lock().unwrap().query.to_string();
-        if search.starts_with("and:(") && search.ends_with(")") {
+        if search.starts_with("and:(") && search.ends_with(')') {
             search = search
                 .strip_prefix("and:(")
                 .unwrap()
-                .strip_suffix(")")
+                .strip_suffix(')')
                 .unwrap()
                 .to_string();
         }
@@ -214,14 +214,14 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
                             let image = {
                                 if item.internal() {
                                     app.covers.lock().unwrap().get(
-                                        &item.id_url(),
+                                        item.id_url(),
                                         &item.status(),
                                         &item.ext(),
                                         item.image_number(),
                                         ui.ctx(),
                                     )
                                 } else {
-                                    app.covers.lock().unwrap().get_url(&item.cover(), ui.ctx())
+                                    app.covers.lock().unwrap().get_url(item.cover(), ui.ctx())
                                 }
                             };
                             if let Some(img) = image {
@@ -308,7 +308,7 @@ impl App for SearchPage {
                         true => &mut self.internal.search,
                         false => &mut self.external.search,
                     },
-                    &binding,
+                    binding,
                 ),
             };
             ui.horizontal(|ui| {
@@ -346,7 +346,7 @@ impl App for SearchPage {
                     ui.style_mut().spacing.interact_size.y = padding;
                 });
                 if selected != self.selected_search && self.selected_search != "internal" {
-                    self.external_search.uri = self.selected_search.clone();
+                    self.external_search.uri.clone_from(&self.selected_search);
                     if let Some(Complete::Json(v)) = self.searches.result() {
                         self.external_search.data = match v.get(&self.selected_search).unwrap() {
                             ValidSearches::String => {
@@ -424,9 +424,9 @@ fn reset_ext(fetcher: &mut Fetcher<Vec<ScrapeSearchResult>>, data: &ExternalSear
 }
 
 fn display_label(s: &str) -> String {
-    let s = s.replace("-", " ");
+    let s = s.replace('-', " ");
     if !s.is_empty() {
-        s.split(" ")
+        s.split(' ')
             .map(|s| format!("{}{}", &s[0..1].to_uppercase(), &s[1..]))
             .collect::<Vec<_>>()
             .join(" ")

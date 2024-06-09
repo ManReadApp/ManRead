@@ -5,15 +5,18 @@ use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::Context;
 
+#[allow(dead_code)]
+//TODO: implement
 pub struct InfoPage {
     info: Fetcher,
 }
 
 impl InfoPage {
     pub fn new(page: String) -> Self {
-        Self {
-            info: Fetcher::new(MangaInfoRequest::request(&get_app_data().url).unwrap()),
-        }
+        let mut info = Fetcher::new(MangaInfoRequest::request(&get_app_data().url).unwrap());
+        info.set_body(MangaInfoRequest { manga_id: page });
+        info.send();
+        Self { info }
     }
 }
 
@@ -26,6 +29,8 @@ impl App for InfoPage {
 }
 
 #[derive(PartialEq)]
+//TODO: implement
+#[allow(dead_code)]
 enum Actions {
     None,
     AddChapter,

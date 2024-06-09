@@ -10,7 +10,7 @@ use crate::widgets::reader::storage::{get_page_resp, State, Storage};
 use api_structure::reader::MangaReaderRequest;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
-use egui::{pos2, vec2, Color32, Context, Label, Rect, Rounding, Sense};
+use egui::{pos2, vec2, Color32, Context, Rect, Rounding};
 
 pub struct MangaReaderPage {
     storage: Storage,
@@ -108,56 +108,53 @@ impl App for MangaReaderPage {
                             );
                             ui.put(top, Overlay::new("One Piece", 1., None));
                             self.storage.loaded_pages.clean(ctx);
+                        } else if v.no_chapters() {
+                            //TODO: no chapters
                         } else {
-                            if v.no_chapters() {
-                                //TODO: no chapters
-                            } else {
-                                let chapter = get_page_resp(
-                                    v.clone(),
-                                    &self.settings.version_hierachy,
-                                    &mut self.storage.page_data,
-                                    &v.open_chapter,
-                                    ctx,
-                                );
-                                let progress = v.progress;
-                                match chapter {
-                                    State::ChapterLoading => {
-                                        //TODO: display spinner
-                                    }
-                                    State::ChapterError => todo!("display error"),
-                                    State::ReaderPageResponse(rp) => {
-                                        let (page, pixels) = rp
-                                            .pages
-                                            .iter()
-                                            .find_map(|(page, data)| {
-                                                match progress >= data.progress.height_start
-                                                    && progress <= data.progress.height_end
-                                                {
-                                                    true => {
-                                                        let gap = data.progress.height_end
-                                                            - data.progress.height_start;
-                                                        let pro =
-                                                            progress - data.progress.height_start;
-                                                        let progress_in_image = pro / gap;
-                                                        let progress = data.height(size.x) as f64
-                                                            * progress_in_image;
-                                                        Some((*page, progress as f32))
-                                                    }
-                                                    false => None,
-                                                }
-                                            })
-                                            .unwrap_or((
-                                                rp.pages.keys().max().copied().unwrap_or(1),
-                                                0.0,
-                                            ));
-                                        self.progress = Some(Progress {
-                                            chapter: v.open_chapter.to_string(),
-                                            image: page,
-                                            pixels,
-                                        });
-                                    }
-                                    State::NoChapter => todo!("display error"),
+                            let chapter = get_page_resp(
+                                v.clone(),
+                                &self.settings.version_hierachy,
+                                &mut self.storage.page_data,
+                                &v.open_chapter,
+                                ctx,
+                            );
+                            let progress = v.progress;
+                            match chapter {
+                                State::ChapterLoading => {
+                                    //TODO: display spinner
                                 }
+                                State::ChapterError => todo!("display error"),
+                                State::ReaderPageResponse(rp) => {
+                                    let (page, pixels) = rp
+                                        .pages
+                                        .iter()
+                                        .find_map(|(page, data)| {
+                                            match progress >= data.progress.height_start
+                                                && progress <= data.progress.height_end
+                                            {
+                                                true => {
+                                                    let gap = data.progress.height_end
+                                                        - data.progress.height_start;
+                                                    let pro = progress - data.progress.height_start;
+                                                    let progress_in_image = pro / gap;
+                                                    let progress = data.height(size.x) as f64
+                                                        * progress_in_image;
+                                                    Some((*page, progress as f32))
+                                                }
+                                                false => None,
+                                            }
+                                        })
+                                        .unwrap_or((
+                                            rp.pages.keys().max().copied().unwrap_or(1),
+                                            0.0,
+                                        ));
+                                    self.progress = Some(Progress {
+                                        chapter: v.open_chapter.to_string(),
+                                        image: page,
+                                        pixels,
+                                    });
+                                }
+                                State::NoChapter => todo!("display error"),
                             }
                         }
                     }

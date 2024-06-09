@@ -106,7 +106,7 @@ impl SignUpPage {
             let username = self.username.clone();
             self.thumb = Some(ThreadHandler::new_async_ctx(
                 upload(username, ctx.clone()),
-                Some(&ctx),
+                Some(ctx),
             ));
         }
         ui.add_space(8.0);

@@ -14,6 +14,7 @@ pub struct ScrapeAccount {
 }
 
 pub struct ScrapeAccountDBService {
+    #[allow(dead_code)]
     conn: Arc<Surreal<Db>>,
 }
 

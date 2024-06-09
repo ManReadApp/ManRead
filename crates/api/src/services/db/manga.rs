@@ -369,15 +369,15 @@ async fn query_builder(
 // return "No title";
 // }
 
-fn last_read() -> &'static str {
-    //f32, datetime
-    "SELECT progress, updated as read_updated FROM user_progress WHERE user_progress.user = {} AND user_progress.manga = mangas.id ORDER BY user_progress.updated DESC LIMIT 1"
-}
+// fn last_read() -> &'static str {
+//     //f32, datetime
+//     "SELECT progress, updated as read_updated FROM user_progress WHERE user_progress.user = {} AND user_progress.manga = mangas.id ORDER BY user_progress.updated DESC LIMIT 1"
+// }
 
-fn popularity() -> &'static str {
-    // number => list_count
-    "count(SELECT id FROM user_progress WHERE user_progress.manga = mangas.id)"
-}
+// fn popularity() -> &'static str {
+//     // number => list_count
+//     "count(SELECT id FROM user_progress WHERE user_progress.manga = mangas.id)"
+// }
 
 fn reading(user_id: &str) -> String {
     format!("(SELECT manga FROM (SELECT manga, time::max(updated) as max FROM user_progress WHERE user = {user_id} GROUP BY manga) ORDER BY max DESC)")

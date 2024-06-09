@@ -35,11 +35,11 @@ impl SharedData {
     pub fn get_title(&self, data: &HashMap<String, Vec<String>>) -> String {
         for lang in &self.lang_hierarchy {
             if let Some(v) = data.get(lang) {
-                return v.get(0).unwrap().to_string();
+                return v.first().unwrap().to_string();
             }
         }
         if let Some(v) = data.values().next() {
-            return v.get(0).unwrap().to_string();
+            return v.first().unwrap().to_string();
         }
         "No Title".to_string()
     }

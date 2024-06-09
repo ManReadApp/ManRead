@@ -18,6 +18,7 @@ pub struct ImageOverlay {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 enum Dot {
     None,
     Red,

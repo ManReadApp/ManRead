@@ -91,17 +91,15 @@ impl CoverStorage {
         Self::new(v)
     }
 
-    fn download(
+    async fn download(
         manga_id: String,
         status: Status,
         ext: String,
-    ) -> impl Future<Output = Option<(String, ImageOverlay)>> + Sized {
-        async move {
-            Some((
-                manga_id.clone(),
-                Self::download_logic(manga_id, status, ext).await?,
-            ))
-        }
+    ) -> Option<(String, ImageOverlay)> {
+        Some((
+            manga_id.clone(),
+            Self::download_logic(manga_id, status, ext).await?,
+        ))
     }
 
     fn download_url(url: &str) -> impl Future<Output = Option<ImageOverlay>> + Sized {
@@ -114,39 +112,33 @@ impl CoverStorage {
         }
     }
 
-    fn download_logic(
-        manga_id: String,
-        status: Status,
-        ext: String,
-    ) -> impl Future<Output = Option<ImageOverlay>> + Sized {
-        async move {
-            let app = get_app_data();
-            let token = format!("Bearer {}", app.get_access_token().await.unwrap());
-            let bytes = app
-                .client
-                .post(app.url.join("cover").unwrap())
-                .header(AUTHORIZATION, token)
-                .json(&MangaCoverRequest {
-                    manga_id: manga_id.clone(),
-                    file_ext: ext,
-                })
-                .send()
-                .await
-                .ok()?
-                .bytes()
-                .await
-                .ok()?;
-            let img = Image::from_bytes(format!("cover://{}", manga_id), bytes.to_vec())
-                .sense(Sense::click());
-
-            Some(match status {
-                Status::Dropped => ImageOverlay::dropped(img),
-                Status::Hiatus => ImageOverlay::hiatus(img),
-                Status::Ongoing => ImageOverlay::ongoing(img),
-                Status::Completed => ImageOverlay::completed(img),
-                Status::Upcoming => ImageOverlay::upcoming(img),
+    async fn download_logic(manga_id: String, status: Status, ext: String) -> Option<ImageOverlay> {
+        let app = get_app_data();
+        let token = format!("Bearer {}", app.get_access_token().await.unwrap());
+        let bytes = app
+            .client
+            .post(app.url.join("cover").unwrap())
+            .header(AUTHORIZATION, token)
+            .json(&MangaCoverRequest {
+                manga_id: manga_id.clone(),
+                file_ext: ext,
             })
-        }
+            .send()
+            .await
+            .ok()?
+            .bytes()
+            .await
+            .ok()?;
+        let img = Image::from_bytes(format!("cover://{}", manga_id), bytes.to_vec())
+            .sense(Sense::click());
+
+        Some(match status {
+            Status::Dropped => ImageOverlay::dropped(img),
+            Status::Hiatus => ImageOverlay::hiatus(img),
+            Status::Ongoing => ImageOverlay::ongoing(img),
+            Status::Completed => ImageOverlay::completed(img),
+            Status::Upcoming => ImageOverlay::upcoming(img),
+        })
     }
 }
 

@@ -20,7 +20,7 @@ pub fn single(
     let area = area as u32 * i_;
     for i in 0..=area + i_ {
         if load_image(
-            &v,
+            v,
             hierachy,
             chapter,
             imgs_,
@@ -33,9 +33,10 @@ pub fn single(
         {
             break;
         }
-        if i != 0 && i <= area {
-            if load_image(
-                &v,
+        if i != 0
+            && i <= area
+            && load_image(
+                v,
                 hierachy,
                 chapter,
                 imgs_,
@@ -45,9 +46,8 @@ pub fn single(
                 progress.image as i32 - i as i32,
             )
             .0
-            {
-                break;
-            }
+        {
+            break;
         }
     }
 }

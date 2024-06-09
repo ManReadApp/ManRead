@@ -23,6 +23,12 @@ impl SingleSiteService {
         }
     }
 
+    pub fn get_services(&self) -> Vec<String> {
+        let mut uris: Vec<String> = self.services.keys().cloned().collect();
+        uris.append(&mut self.internal.iter().map(|v| v.to_string()).collect());
+        uris
+    }
+
     pub async fn get_pages(
         &self,
         url: &str,

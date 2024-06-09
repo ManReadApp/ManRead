@@ -23,12 +23,12 @@ pub fn get_content_type_from_filename(file_name: &str) -> Option<ImageFormat> {
 
 pub async fn write_file(
     filename: String,
-    old_file_name: &str,
+    _old_file_name: &str,
     mut data: Vec<u8>,
     config: &Data<Config>,
 ) -> ApiResult<String> {
     #[cfg(feature = "content-type-from-filename")]
-    let content_type = get_content_type_from_filename(old_file_name);
+    let content_type = get_content_type_from_filename(_old_file_name);
     #[cfg(not(feature = "content-type-from-filename"))]
     let content_type = None;
     let mut content_type = match content_type {

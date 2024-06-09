@@ -75,8 +75,8 @@ pub async fn get_data(
         .split_once("anilist.co/manga/")
         .ok_or(ScrapeError::input_error("Invalid url"))?
         .1;
-    if id.contains("/") {
-        id = id.split_once("/").unwrap().0;
+    if id.contains('/') {
+        id = id.split_once('/').unwrap().0;
     }
     let json = json!({"query": QUERY, "variables": {"id": id}});
     let resp = download(
@@ -384,13 +384,11 @@ pub async fn search(
             items.insert("sort", serde_json::to_value("SEARCH_MATCH").unwrap());
         }
         items.insert("search", serde_json::to_value(&search.search).unwrap());
-    } else {
-        if search.sort.is_none() {
-            items.insert(
-                "sort",
-                serde_json::to_value(["TRENDING_DESC", "POPULARITY_DESC"]).unwrap(),
-            );
-        }
+    } else if search.sort.is_none() {
+        items.insert(
+            "sort",
+            serde_json::to_value(["TRENDING_DESC", "POPULARITY_DESC"]).unwrap(),
+        );
     };
     if let Some(sort) = &search.sort {
         items.insert("sort", get_sort(sort, search.desc));

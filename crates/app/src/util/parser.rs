@@ -130,7 +130,7 @@ fn push(
     Ok(())
 }
 
-fn try_from_str(s: UnparsedItem, fields: &Vec<Field>) -> Result<ItemOrArray, String> {
+fn try_from_str(s: UnparsedItem, fields: &[Field]) -> Result<ItemOrArray, String> {
     Ok(match s {
         UnparsedItem::Item(it) => {
             let not = it.contains(":!");

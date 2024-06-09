@@ -2,12 +2,16 @@ use crate::get_app_data;
 use crate::window_storage::Page;
 use egui::{pos2, Button, Color32, CursorIcon, Label, Rect, Response, Rounding, Sense, Ui, Widget};
 
+#[allow(dead_code)]
+//TODO:
 pub struct Overlay {
     name: String,
     episode: f64,
     episode_name: Option<String>,
 }
 
+#[allow(dead_code)]
+//TODO:
 pub struct BottomOverlay {
     visible: bool,
     color: Color32,
@@ -24,6 +28,8 @@ impl Widget for BottomOverlay {
     }
 }
 
+#[allow(dead_code)]
+//TODO:
 pub struct PageOverlay {
     progress: f64,
     page: i32,

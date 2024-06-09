@@ -18,7 +18,7 @@ pub struct MangaKindDBService {
 }
 
 impl MangaKindDBService {
-    pub async fn get_id(&self, kind: &str) -> ApiResult<ThingFunc> {
+    pub async fn get_id(&self, _kind: &str) -> ApiResult<ThingFunc> {
         todo!()
     }
     pub async fn get_kind(&self, id: &str) -> Option<Kind> {

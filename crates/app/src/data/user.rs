@@ -71,7 +71,7 @@ impl User {
     }
 
     fn parse_jwt(s: &str) -> Result<Claim, ClientError> {
-        let mut splits = s.split(".");
+        let mut splits = s.split('.');
         splits.next();
         let mut splits = splits.collect::<Vec<_>>();
         splits.pop();

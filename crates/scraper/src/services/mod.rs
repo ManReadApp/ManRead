@@ -59,7 +59,7 @@ pub fn init(
                 .unwrap_or_default()
                 .to_str()
                 .unwrap_or_default();
-            if !name.starts_with(".") {
+            if !name.starts_with('.') {
                 if let Some(scraper) = name.strip_suffix(".scraper") {
                     let (service, kind) = get_services(&folder, &path)?;
                     match kind {
@@ -94,8 +94,8 @@ pub fn init(
     ))
 }
 
-fn get_services(folder: &Path, path: &PathBuf) -> Result<(Service, Option<Kind>), ScrapeError> {
-    let file = File::open(path.as_path())?;
+fn get_services(folder: &Path, path: &Path) -> Result<(Service, Option<Kind>), ScrapeError> {
+    let file = File::open(path)?;
     let reader = io::BufReader::new(file);
     let mut lines = reader.lines();
     if let Some(Ok(first_line)) = lines.next() {

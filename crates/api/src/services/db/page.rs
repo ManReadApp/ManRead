@@ -25,6 +25,7 @@ pub struct Page {
 }
 
 impl Page {
+    #[allow(dead_code)]
     pub fn new(img: DynamicImage, ext: &str, page: u32, hasher: &Hasher) -> Self {
         let hash = hasher.hash_image(&img).to_base64();
         Self {

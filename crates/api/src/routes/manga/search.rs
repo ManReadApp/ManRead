@@ -8,18 +8,19 @@ use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
+use api_structure::auth::role::Role;
 use api_structure::search::{SearchRequest, SearchResponse};
 
 #[post("/search")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "Role::Admin",
+        "Role::CoAdmin",
+        "Role::Moderator",
+        "Role::Author",
+        "Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "Role"
 )]
 async fn search(
     Json(request): Json<SearchRequest>,

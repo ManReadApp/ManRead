@@ -119,10 +119,8 @@ fn show_top_bar(ui: &mut Ui, active: HomePages) {
         for p in HomePages::all() {
             if active == p {
                 let _ = ui.selectable_label(true, p.to_string());
-            } else {
-                if ui.button(p.to_string()).clicked() {
-                    p.switch_window();
-                }
+            } else if ui.button(p.to_string()).clicked() {
+                p.switch_window();
             }
         }
 

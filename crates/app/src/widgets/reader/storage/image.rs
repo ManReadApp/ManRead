@@ -6,6 +6,7 @@ use ethread::ThreadHandler;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+type ImageWithTranslations = Option<Arc<(Image<'static>, Vec<ReaderTranslationArea>)>>;
 
 pub struct ImageStorage {
     hashmap: HashMap<String, ImageStore>,
@@ -39,11 +40,7 @@ impl ImageStorage {
         }
     }
 
-    pub(crate) fn insert(
-        &mut self,
-        key: String,
-        image: ThreadHandler<Option<Arc<(Image, Vec<ReaderTranslationArea>)>>>,
-    ) {
+    pub(crate) fn insert(&mut self, key: String, image: ThreadHandler<ImageWithTranslations>) {
         self.hashmap.insert(
             key,
             ImageStore {
@@ -86,5 +83,5 @@ impl ImageStorage {
 
 pub struct ImageStore {
     last_checked: Duration,
-    pub(crate) req: ThreadHandler<Option<Arc<(Image<'static>, Vec<ReaderTranslationArea>)>>>,
+    pub(crate) req: ThreadHandler<ImageWithTranslations>,
 }

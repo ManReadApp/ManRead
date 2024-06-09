@@ -32,7 +32,7 @@ pub struct TagDBService {
 }
 
 impl TagDBService {
-    pub async fn get_ids(&self, sex: &Option<u32>, value: &str) -> ApiResult<ThingArray> {
+    pub async fn get_ids(&self, _sex: &Option<u32>, _value: &str) -> ApiResult<ThingArray> {
         todo!()
     }
     pub async fn get_tag(&self, id: &str) -> Option<Tag> {

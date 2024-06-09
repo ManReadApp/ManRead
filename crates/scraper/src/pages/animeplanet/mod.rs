@@ -79,7 +79,7 @@ pub async fn search(
 
     if !search_request.tags.is_empty() {
         let mut tag_ids = vec![];
-        let tags = TAGS.clone().into_iter().collect::<HashMap<_, _>>();
+        let tags = TAGS.into_iter().collect::<HashMap<_, _>>();
         for tag in &search_request.tags {
             tag_ids.push(*tags.get(tag.as_str()).unwrap());
         }
@@ -117,9 +117,7 @@ pub async fn search(
             title: title.text().collect::<Vec<_>>().join(""),
             url: format!(
                 "https://www.anime-planet.com{}",
-                url.attr("href")
-                    .ok_or(ScrapeError::node_not_found())?
-                    .to_string()
+                url.attr("href").ok_or(ScrapeError::node_not_found())?
             ),
             cover: cover
                 .attr("data-src")

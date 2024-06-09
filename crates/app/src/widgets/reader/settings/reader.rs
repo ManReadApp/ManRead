@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+//TODO:
 pub enum ReadingMode {
     Single,
     /// bool for left to right

@@ -24,7 +24,7 @@ pub fn multi(
     let mut count = 0;
     while processed < area + y {
         let (br, img) = load_image(
-            &v,
+            v,
             hierachy,
             chapter,
             imgs_,
@@ -33,12 +33,9 @@ pub fn multi(
             page_data,
             progress.image as i32 + count,
         );
-        match img {
-            Action::Page(v) => {
-                let a = if height { v.height(x) } else { v.width(x) };
-                processed += a;
-            }
-            _ => {}
+        if let Action::Page(v) = img {
+            let a = if height { v.height(x) } else { v.width(x) };
+            processed += a;
         }
         if br {
             break;
@@ -50,7 +47,7 @@ pub fn multi(
     processed = 0.0;
     while processed < area {
         let (br, img) = load_image(
-            &v,
+            v,
             hierachy,
             chapter,
             imgs_,
@@ -59,12 +56,9 @@ pub fn multi(
             page_data,
             progress.image as i32 - count,
         );
-        match img {
-            Action::Page(v) => {
-                let a = if height { v.height(x) } else { v.width(x) };
-                processed += a;
-            }
-            _ => {}
+        if let Action::Page(v) = img {
+            let a = if height { v.height(x) } else { v.width(x) };
+            processed += a;
         }
         if br {
             break;

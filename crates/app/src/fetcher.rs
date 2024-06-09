@@ -12,7 +12,6 @@ use reqwest::{Body, Client, Method, RequestBuilder};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::io::Read;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -227,10 +226,7 @@ enum Response<T> {
 
 impl<T> Response<T> {
     fn loading(&self) -> bool {
-        match self {
-            Response::Procressing { .. } => true,
-            _ => false,
-        }
+        matches!(self, Response::Procressing { .. })
     }
 }
 
@@ -349,7 +345,8 @@ pub async fn upload_image(
     v
 }
 
-pub async fn upload_images<S: Read>(
+#[allow(dead_code)]
+pub async fn upload_images(
     ctx: Context,
     data: Vec<(String, UploadFile)>,
 ) -> Option<Vec<(String, String)>> {

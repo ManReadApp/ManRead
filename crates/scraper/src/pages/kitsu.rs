@@ -14,8 +14,8 @@ pub async fn get_data(
         .split_once("kitsu.io/manga/")
         .map(|v| v.1)
         .ok_or(ScrapeError::input_error("not a valid url"))?;
-    if slug.contains("/") {
-        slug = slug.split_once("/").unwrap().0;
+    if slug.contains('/') {
+        slug = slug.split_once('/').unwrap().0;
     }
     let url = format!("https://kitsu.io/api/edge/manga?fields%5Bcategories%5D=slug%2Ctitle&filter%5Bslug%5D={slug}&include=categories,genres");
     let text = download(client.get(url)).await?;
