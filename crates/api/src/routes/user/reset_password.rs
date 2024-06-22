@@ -10,7 +10,7 @@ use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 use surrealdb_extras::SurrealTableInfo;
 
-#[post("/auth/request_reset_password")]
+#[post("/request_reset_password")]
 async fn request_reset_password(
     Json(data): Json<RequestResetPasswordRequest>,
     activation: Data<AuthTokenDBService>,
@@ -20,7 +20,7 @@ async fn request_reset_password(
     AuthToken::new_forgot(id).add_i(&*activation.conn).await?;
     Ok(Json(()))
 }
-#[post("/auth/reset_password")]
+#[post("/reset_password")]
 async fn reset_password(
     Json(data): Json<ResetPasswordRequest>,
     user: Data<UserDBService>,

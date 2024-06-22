@@ -8,3 +8,5 @@ pub struct MangaReaderImageRequest {
     pub page: u32,
     pub file_ext: String,
 }
+
+pub type MangaReaderTranslationRequest = MangaReaderImageRequest;

@@ -26,7 +26,7 @@ pub async fn available_external_search_sites(
     Json(search_service.sites())
 }
 
-#[post("/external/search")]
+#[post("/search/external")]
 #[protect(
     any(
         "api_structure::auth::role::Role::Admin",

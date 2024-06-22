@@ -2,6 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
+use crate::models::reader::page::{Action, ReaderPage};
+
 #[derive(Serialize, Deserialize)]
 pub struct ReaderPageResponse {
     pub version_id: String,

@@ -8,7 +8,7 @@ use api_structure::auth::login::LoginRequest;
 use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 
-#[post("/auth/sign_in")]
+#[post("/sign_in")]
 async fn login(
     Json(data): Json<LoginRequest>,
     user: Data<UserDBService>,

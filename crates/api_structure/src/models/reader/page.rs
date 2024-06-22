@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use super::progress::Progress;
+
 pub enum Action {
     Prev,
     Page(Arc<ReaderPage>),

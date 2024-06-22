@@ -165,33 +165,38 @@ async fn main() -> std::io::Result<()> {
             .service(routes::frontend::frontend_ep)
             .service(
                 web::scope("/api")
-                    .service(get_fonts)
-                    .service(get_font)
+                    .service(web::scope("/fonts").service(get_fonts).service(get_font))
+                    .service(
+                        web::scope("/auth")
+                            .service(routes::user::sign_up_route)
+                            .service(routes::user::sign_in_route)
+                            .service(routes::user::reset_password_route)
+                            .service(routes::user::request_reset_password_route),
+                    )
                     .service(routes::image::upload_images)
                     .service(routes::image::spinner)
-                    .service(routes::user::sign_up_route)
-                    .service(routes::user::sign_in_route)
-                    .service(routes::user::reset_password_route)
-                    .service(routes::user::request_reset_password_route)
                     .service(
                         web::scope("")
                             .wrap(HttpAuthentication::bearer(validator))
+                            .service(routes::manga::home_route) //min User
                             .service(
                                 web::scope("/manga")
+                                    .service(routes::manga::cover_route) //min User
+                                    .service(routes::manga::search_route) //min User
+                                    .service(routes::manga::info_route) //min User
                                     .service(routes::manga::get_tags_route)
-                                    .service(routes::manga::get_kinds_route),
+                                    .service(routes::manga::get_kinds_route)
+                                    .service(routes::manga::external_search), //min User
+                            )
+                            .service(
+                                web::scope("/reader")
+                                    .service(routes::manga::translation_route) //min User
+                                    .service(routes::manga::reader_info_route) //min User
+                                    .service(routes::manga::chapter_page_route) //min User
+                                    .service(routes::manga::pages_route), //min User
                             )
                             .service(routes::user::refresh_route) //ALL
                             .service(routes::user::activate_route) //NotVerified
-                            .service(routes::manga::home_route) //min User
-                            .service(routes::manga::search_route) //min User
-                            .service(routes::manga::cover_route) //min User
-                            .service(routes::manga::info_route) //min User
-                            .service(routes::manga::reader_info_route) //min User
-                            .service(routes::manga::pages_route) //min User
-                            .service(routes::manga::chapter_page_route) //min User
-                            .service(routes::manga::translation_route) //min User
-                            .service(routes::manga::external_search) //min User
                             .service(routes::manga::available_external_search_sites), //min User
                     ),
             );
@@ -233,11 +238,11 @@ fn fonts() -> Fonts {
     archive
 }
 
-#[post("/fonts")]
+#[post("/list")]
 pub async fn get_fonts(data: Data<Fonts>) -> Json<Vec<String>> {
     Json(data.iter().map(|(v, _)| v.to_string()).collect())
 }
-#[post("/font")]
+#[post("/file")]
 pub async fn get_font(Json(request): Json<FontRequest>, data: Data<Fonts>) -> ApiResult<NamedFile> {
     let path = data.get(&request.file).ok_or(ApiErr {
         message: Some("Font file does not exist".to_string()),

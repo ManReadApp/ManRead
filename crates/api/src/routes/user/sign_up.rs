@@ -9,7 +9,7 @@ use api_structure::auth::register::NewUserRequest;
 use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
 
-#[post("/auth/sign_up")]
+#[post("/sign_up")]
 async fn sign_up_route(
     Json(data): Json<NewUserRequest>,
     crypto: Data<CryptoService>,

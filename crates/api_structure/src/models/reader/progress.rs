@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Progress {
     pub width_start: f64,

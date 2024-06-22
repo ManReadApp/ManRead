@@ -93,7 +93,7 @@ pub async fn get_pages(
     }))
 }
 
-#[post("/reader_info")]
+#[post("/info")]
 #[protect(
     any(
         "api_structure::auth::role::Role::Admin",
@@ -201,7 +201,7 @@ impl From<Translation> for TranslationArea {
     }
 }
 
-#[post("page_translation")]
+#[post("translation")]
 #[protect(
     any(
         "api_structure::auth::role::Role::Admin",
