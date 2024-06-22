@@ -43,6 +43,8 @@ impl User {
     }
 
     pub fn delete_token() -> Result<(), ClientError> {
+        //todo: remove later
+        return Ok(());
         let entry = Entry::new("manread_tokens", "refresh_token").map_err(|e| ClientError {
             message: "failed to create builder".to_string(),
             cause: Some(e.to_string()),

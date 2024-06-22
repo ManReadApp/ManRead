@@ -36,7 +36,7 @@ reqwest = {version = "0.12.4", features = ["json", "stream", "multipart"] }
 base64 = "0.22.1"
 poll-promise = "0.3"
 keyring = "2.3"
-egui_extras = { version = "0.27.1", features = ["all_loaders", "datepicker"] }
+egui_extras = { version = "0.27.2", features = ["all_loaders", "datepicker"] }
 rfd = "0.14"
 regex = "1.10.4"
 identicon-rs = "5.0.0"
@@ -56,3 +56,4 @@ opt-level = 2
 egui = { git = "https://github.com/emilk/egui", branch = "master" }
 egui_extras = { git = "https://github.com/emilk/egui", branch = "master" }
 eframe = { git = "https://github.com/emilk/egui", branch = "master" }
+identicon-rs = { git = "https://github.com/conways-glider/identicon-rs", branch = "main" }

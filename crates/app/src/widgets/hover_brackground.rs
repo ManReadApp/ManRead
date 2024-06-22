@@ -4,20 +4,32 @@ use egui_extras::{Size, StripBuilder};
 
 const BORDER_RADIUS: f32 = 4.0;
 const OUTER_MARGIN: f32 = 10.0;
+const MAX_WIDTH: f32 = 350.;
 
 //TODO: add drop shadow
 pub trait HoverBackground {
+    const RENDER_SIDE: bool = false;
     fn inner(&mut self, ui: &mut Ui, ctx: &egui::Context);
+    fn side(&mut self, ui: &mut Ui, ctx: &egui::Context) {}
     fn hover_box(&mut self, ui: &mut Ui, ctx: &egui::Context, height: Option<f32>) -> f32 {
         let max_height = ui.available_height();
         let height = height.unwrap_or(max_height).min(max_height);
         let mut out = 0.0;
-        StripBuilder::new(ui)
-            .size(Size::remainder())
-            .size(Size::relative(1.0).at_most(350.0))
-            .size(Size::remainder())
-            .horizontal(|mut strip| {
-                strip.empty();
+        let mut sb = StripBuilder::new(ui);
+        sb = match Self::RENDER_SIDE {
+            true => sb
+                .size(Size::remainder())
+                .size(Size::relative(0.5).at_most(MAX_WIDTH))
+                .size(Size::relative(0.5).at_most(MAX_WIDTH))
+                .size(Size::remainder()),
+            false => sb
+                .size(Size::remainder())
+                .size(Size::relative(1.0).at_most(MAX_WIDTH))
+                .size(Size::remainder()),
+        };
+        sb.horizontal(|mut strip| {
+            strip.empty();
+            let mut content = |main: bool| {
                 strip.strip(|builder| {
                     builder
                         .size(Size::remainder())
@@ -40,24 +52,32 @@ pub trait HoverBackground {
                                             .scroll_bar_visibility(
                                                 ScrollBarVisibility::AlwaysHidden,
                                             )
-                                            .show(ui, |ui| {
-                                                out =
-                                                    ui.vertical(|ui| {
-                                                        self.inner(ui, ctx);
-                                                    })
-                                                    .response
-                                                    .rect
-                                                    .size()
-                                                    .y + OUTER_MARGIN * 2.0;
+                                            .show(ui, |ui| match main {
+                                                true => {
+                                                    out = ui
+                                                        .vertical(|ui| self.inner(ui, ctx))
+                                                        .response
+                                                        .rect
+                                                        .size()
+                                                        .y
+                                                        + OUTER_MARGIN * 2.0;
+                                                }
+                                                false => {
+                                                    ui.vertical(|ui| self.side(ui, ctx));
+                                                }
                                             });
                                     });
                             });
                             strip.empty();
                         });
-                });
-
-                strip.empty();
-            });
+                })
+            };
+            content(true);
+            if Self::RENDER_SIDE {
+                content(false);
+            }
+            strip.empty()
+        });
         if out != height {
             ctx.request_repaint();
         }

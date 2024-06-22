@@ -8,4 +8,9 @@
 /data/users/banner
 /data/users/icon
 /data/external
-Cargo.lock
+.DS_Store
+output.log
+/ethread
+/data/db.zip
+/data/external.zip
+/.idea

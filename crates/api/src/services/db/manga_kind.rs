@@ -18,6 +18,10 @@ pub struct MangaKindDBService {
 }
 
 impl MangaKindDBService {
+    pub async fn all(&self) -> ApiResult<Vec<String>> {
+        let items: Vec<RecordData<Kind>> = Kind::all(&self.conn).await?;
+        Ok(items.into_iter().map(|v| v.data.kind).collect())
+    }
     pub async fn get_id(&self, _kind: &str) -> ApiResult<ThingFunc> {
         todo!()
     }

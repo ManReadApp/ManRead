@@ -54,7 +54,7 @@ pub struct Chapter {
     pub release_date: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Tag {
     pub tag: String,
     pub description: Option<String>,

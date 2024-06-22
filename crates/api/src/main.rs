@@ -176,6 +176,11 @@ async fn main() -> std::io::Result<()> {
                     .service(
                         web::scope("")
                             .wrap(HttpAuthentication::bearer(validator))
+                            .service(
+                                web::scope("/manga")
+                                    .service(routes::manga::get_tags_route)
+                                    .service(routes::manga::get_kinds_route),
+                            )
                             .service(routes::user::refresh_route) //ALL
                             .service(routes::user::activate_route) //NotVerified
                             .service(routes::manga::home_route) //min User

@@ -35,6 +35,21 @@ impl TagDBService {
     pub async fn get_ids(&self, _sex: &Option<u32>, _value: &str) -> ApiResult<ThingArray> {
         todo!()
     }
+
+    pub async fn search_tags(
+        &self,
+        query: &str,
+        limit: usize,
+        sex: u64,
+    ) -> ApiResult<Vec<RecordData<Tag>>> {
+        Ok(Tag::search(
+            &self.conn,
+            Some(format!(
+                "WHERE sex = {sex} AND string::contains(string::lowercase(tag), '{}') LIMIT {limit}"
+                , query.to_lowercase().replace("'", "\\'"))),
+        )
+        .await?)
+    }
     pub async fn get_tag(&self, id: &str) -> Option<Tag> {
         if let Some(v) = self.temp.lock().unwrap().get(id) {
             return Some(v.clone());
