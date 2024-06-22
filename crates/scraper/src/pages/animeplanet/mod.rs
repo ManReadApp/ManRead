@@ -2,7 +2,10 @@ use crate::downloader::download;
 use crate::pages::animeplanet::tags::TAGS;
 use crate::pages::hidden::pages::mangadex::UA_ERR;
 use crate::ScrapeError;
-use api_structure::scraper::{ScrapeSearchResult, SimpleSearch, ValidSearch};
+use api_structure::{
+    models::manga::external_search::{SimpleSearch, ValidSearch},
+    resp::manga::external_search::ScrapeSearchResponse,
+};
 use reqwest::header::USER_AGENT;
 use reqwest::Client;
 use scraper::{Html, Selector};
@@ -54,7 +57,7 @@ fn get_status(s: &str) -> &str {
 pub async fn search(
     client: &Client,
     search_request: SimpleSearch,
-) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
+) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
     let valid: ValidSearch = get_valid();
     if !search_request.validate(&valid) {
         return Err(ScrapeError::input_error("couldnt match ValidSearch"));
@@ -113,7 +116,7 @@ pub async fn search(
             .select(&title)
             .next()
             .ok_or(ScrapeError::node_not_found())?;
-        res.push(ScrapeSearchResult {
+        res.push(ScrapeSearchResponse {
             title: title.text().collect::<Vec<_>>().join(""),
             url: format!(
                 "https://www.anime-planet.com{}",

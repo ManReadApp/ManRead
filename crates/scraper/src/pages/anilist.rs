@@ -1,8 +1,10 @@
 use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
 use crate::ScrapeError;
-use api_structure::scraper::ValidSearch;
-use api_structure::scraper::{ScrapeSearchResult, SimpleSearch};
+use api_structure::{
+    models::manga::external_search::{SimpleSearch, ValidSearch},
+    resp::manga::external_search::ScrapeSearchResponse,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -368,7 +370,7 @@ fn get_status(s: &str) -> &str {
 pub async fn search(
     client: &Client,
     search: &SimpleSearch,
-) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
+) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
     let valid: ValidSearch = ValidSearch::anilist();
     if !search.validate(&valid) {
         return Err(ScrapeError::input_error("couldnt match ValidSearch"));
@@ -412,7 +414,7 @@ pub async fn search(
     let data = data.data.page.media;
     Ok(data
         .into_iter()
-        .map(|v| ScrapeSearchResult {
+        .map(|v| ScrapeSearchResponse {
             title: v.title.user_preferred,
             url: format!("https://anilist.co/manga/{}", v.id),
             cover: v.cover_image.extra_large,

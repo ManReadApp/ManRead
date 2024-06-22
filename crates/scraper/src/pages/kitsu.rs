@@ -1,7 +1,10 @@
 use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
 use crate::ScrapeError;
-use api_structure::scraper::{ScrapeSearchResult, SimpleSearch};
+use api_structure::{
+    models::manga::external_search::SimpleSearch,
+    resp::manga::external_search::ScrapeSearchResponse,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -136,7 +139,7 @@ impl Attributes1 {
 pub async fn search(
     client: &Client,
     search: SimpleSearch,
-) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
+) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
     let limit = 20;
     let offset = (search.page - 1) * limit;
     let mut url = format!("https://kitsu.io/api/edge/manga?fields%5Bmanga%5D=slug%2CcanonicalTitle%2Ctitles%2CposterImage%2Cdescription%2CaverageRating%2CstartDate%2CpopularityRank%2CratingRank&page%5Blimit%5D={limit}&page%5Boffset%5D={offset}");
@@ -148,7 +151,7 @@ pub async fn search(
         let categories = search.tags.join(",");
         url = format!("{url}&filter%5Bcategories%5D={categories}")
     }
-    if let Some(sort) = search.sort {
+    if let Some(sort) = &search.sort {
         url = format!("{url}&sort={}", get_sort(&sort))
     }
     let text = download(client.get(url)).await?;
@@ -156,7 +159,7 @@ pub async fn search(
     let data = data.data;
     Ok(data
         .into_iter()
-        .map(|v| ScrapeSearchResult {
+        .map(|v| ScrapeSearchResponse {
             title: v.attributes.canonical_title,
             url: format!("https://kitsu.io/manga/{}", v.attributes.slug),
             cover: v.attributes.poster_image.original,

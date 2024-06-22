@@ -1,7 +1,10 @@
 use crate::extractor::SearchServiceScrapeData;
 use crate::pages::{anilist, animeplanet, kitsu};
 use crate::ScrapeError;
-use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult, ValidSearch, ValidSearches};
+use api_structure::models::manga::external_search::{
+    ExternalSearchData, ValidSearch, ValidSearches,
+};
+use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use std::collections::HashMap;
 
@@ -49,7 +52,7 @@ impl SearchService {
         &self,
         uri: &str,
         search: ExternalSearchData,
-    ) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
+    ) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
         if let Some(service) = self.services.get(uri) {
             let (query, page) = search.get_query();
             service.search(&self.client, query, page).await

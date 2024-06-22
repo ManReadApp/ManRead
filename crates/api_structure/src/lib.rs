@@ -15,8 +15,8 @@ use req::manga::external_search::ExternalSearchRequest;
 use req::manga::info::MangaInfoRequest;
 use req::manga::search::SearchRequest;
 use req::manga::tag::TagsRequest;
-use req::manga::{HomeRequest, KindsRequest};
-use req::reader::image::{MangaReaderImageRequest, MangaReaderTranslationRequest};
+use req::manga::{AvailableExternalSitesRequest, HomeRequest, KindsRequest};
+use req::reader::image::MangaReaderImageRequest;
 use req::reader::info::MangaReaderRequest;
 use req::reader::pages::ReaderPageRequest;
 use resp::manga::external_search::ScrapeSearchResponse;
@@ -26,7 +26,7 @@ use resp::manga::search::SearchResponse;
 use resp::manga::{KindsResponse, TagsResponse};
 use resp::reader::pages::ReaderPageResponse;
 use resp::reader::MangaReaderResponse;
-use resp::{ByteResponse, FontsResponse, NoResponse};
+use resp::{AvailableExternalSitesResponse, ByteResponse, FontsResponse, NoResponse};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use url::{ParseError, Url};
@@ -48,8 +48,8 @@ macro_rules! request {
         }
 
         impl $name {
-            fn respone_type() -> std::marker::PhantomData<$out> {
-                std::marker::PhantomData
+            fn fetcher(url: &Url) -> Result<(std::marker::PhantomData<$out>, Request), ParseError> {
+                Ok((std::marker::PhantomData, Self::request(url)?))
             }
         }
     };
@@ -103,8 +103,8 @@ impl RequestImpl for SearchUris {
 request!(FontRequest, "/fonts/file", false, NoResponse);
 request!(FontsRequest, "/fonts/list", false, FontsResponse);
 
-//Auth
-//...
+// Auth
+// 6...
 
 //todo: upload
 //todo: spinner
@@ -123,6 +123,12 @@ request!(
     true,
     Vec<ScrapeSearchResponse>
 );
+request!(
+    AvailableExternalSitesRequest,
+    "/manga/search/external/list",
+    true,
+    AvailableExternalSitesResponse
+);
 
 request!(
     MangaReaderImageRequest,
@@ -137,6 +143,7 @@ request!(
     MangaReaderResponse
 );
 request!(ReaderPageRequest, "/reader/pages", true, ReaderPageResponse);
+pub struct MangaReaderTranslationRequest(pub MangaReaderImageRequest);
 request!(
     MangaReaderTranslationRequest,
     "/reader/translation",

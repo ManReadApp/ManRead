@@ -7,3 +7,4 @@ pub mod tag;
 
 pub struct HomeRequest;
 pub struct KindsRequest;
+pub struct AvailableExternalSitesRequest;

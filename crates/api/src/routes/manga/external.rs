@@ -9,7 +9,7 @@ use log::debug;
 use manread_scraper::SearchService;
 use std::collections::HashMap;
 
-#[post("/external/search/sites")]
+#[post("/search/external/list")]
 #[protect(
     any(
         "api_structure::auth::role::Role::Admin",

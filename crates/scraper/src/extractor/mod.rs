@@ -1,7 +1,7 @@
 use crate::downloader::download;
 use crate::services::config_to_request_builder;
 use crate::ScrapeError;
-use api_structure::scraper::ScrapeSearchResult;
+use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::Deserialize;
@@ -66,7 +66,7 @@ impl SearchServiceScrapeData {
         client: &Client,
         query: String,
         page: u32,
-    ) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
+    ) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
         let mut url = None;
         if query.is_empty() {
             if let Some(u) = &self.url_empty {
@@ -127,7 +127,7 @@ impl SearchServiceScrapeData {
         });
         let mut res = vec![];
         for (i, url) in urls.into_iter().enumerate() {
-            res.push(ScrapeSearchResult {
+            res.push(ScrapeSearchResponse {
                 title: labels.get(i).unwrap().to_string(),
                 url,
                 cover: cover.get(i).unwrap().to_string(),
