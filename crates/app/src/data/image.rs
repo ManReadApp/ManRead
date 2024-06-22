@@ -1,8 +1,8 @@
 use crate::get_app_data;
 use crate::widgets::image_overlay::ImageOverlay;
-use api_structure::image::MangaCoverRequest;
 use api_structure::models::manga::status::Status;
 use api_structure::now_timestamp;
+use api_structure::req::manga::cover::MangaCoverRequest;
 use egui::{Context, Image, Sense};
 use ethread::ThreadHandler;
 use futures_util::{stream, StreamExt};

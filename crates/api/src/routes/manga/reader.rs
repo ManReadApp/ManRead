@@ -12,11 +12,14 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::error::{ApiErr, ApiErrorType};
-use api_structure::image::MangaReaderImageRequest;
-use api_structure::reader::{
-    MangaReaderRequest, MangaReaderResponse, Progress, ReaderPage, ReaderPageRequest,
-    ReaderPageResponse, TranslationArea,
-};
+use api_structure::models::reader::page::ReaderPage;
+use api_structure::models::reader::progress::Progress;
+use api_structure::models::reader::translation::TranslationArea;
+use api_structure::req::reader::image::MangaReaderImageRequest;
+use api_structure::req::reader::info::MangaReaderRequest;
+use api_structure::req::reader::pages::ReaderPageRequest;
+use api_structure::resp::reader::pages::ReaderPageResponse;
+use api_structure::resp::reader::MangaReaderResponse;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;

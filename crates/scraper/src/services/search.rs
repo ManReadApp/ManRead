@@ -53,6 +53,7 @@ impl SearchService {
         uri: &str,
         search: ExternalSearchData,
     ) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
+        //TODO: move to scraper
         if let Some(service) = self.services.get(uri) {
             let (query, page) = search.get_query();
             service.search(&self.client, query, page).await

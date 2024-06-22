@@ -4,7 +4,7 @@ use actix_files::NamedFile;
 use actix_web::post;
 use actix_web::web::{Data, Json};
 use actix_web_grants::protect;
-use api_structure::image::MangaCoverRequest;
+use api_structure::req::manga::cover::MangaCoverRequest;
 
 #[post("/cover")]
 #[protect(

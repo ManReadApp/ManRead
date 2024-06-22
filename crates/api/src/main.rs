@@ -175,7 +175,6 @@ async fn main() -> std::io::Result<()> {
                     )
                     .service(routes::image::upload_images)
                     .service(routes::image::spinner)
-                    .service(routes::manga::available_external_search_sites) //min User
                     .service(
                         web::scope("")
                             .wrap(HttpAuthentication::bearer(validator))
@@ -187,6 +186,7 @@ async fn main() -> std::io::Result<()> {
                                     .service(routes::manga::info_route) //min User
                                     .service(routes::manga::get_tags_route)
                                     .service(routes::manga::get_kinds_route)
+                                    .service(routes::manga::available_external_search_sites) //min User
                                     .service(routes::manga::external_search), //min User
                             )
                             .service(

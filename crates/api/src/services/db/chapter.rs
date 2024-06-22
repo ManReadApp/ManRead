@@ -1,7 +1,7 @@
 use crate::errors::{ApiError, ApiResult};
 use crate::services::db::chapter_version::ChapterVersion;
 use crate::services::db::tag::Tag;
-use api_structure::reader::ReaderChapter;
+use api_structure::models::reader::chapter::ReaderChapter;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
