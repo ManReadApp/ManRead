@@ -1,6 +1,6 @@
-use crate::search::SearchResponse;
-use crate::RequestImpl;
 use serde::{Deserialize, Serialize};
+
+use super::search::SearchResponse;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HomeResponse {
@@ -10,9 +10,4 @@ pub struct HomeResponse {
     pub favorites: Vec<SearchResponse>,
     pub reading: Vec<SearchResponse>,
     pub random: Vec<SearchResponse>,
-}
-
-impl RequestImpl for HomeResponse {
-    const ROUTE: &'static str = "home";
-    const AUTH: bool = true;
 }

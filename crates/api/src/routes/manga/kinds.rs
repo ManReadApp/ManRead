@@ -3,7 +3,7 @@ use actix_web::{
     web::{Data, Json},
 };
 use actix_web_grants::protect;
-use api_structure::manga::Kinds;
+use api_structure::resp::manga::KindsResponse;
 
 use crate::{errors::ApiResult, services::db::manga_kind::MangaKindDBService};
 
@@ -18,6 +18,6 @@ use crate::{errors::ApiResult, services::db::manga_kind::MangaKindDBService};
     ),
     ty = "api_structure::auth::role::Role"
 )]
-pub async fn get_kinds(kind_service: Data<MangaKindDBService>) -> ApiResult<Json<Kinds>> {
+pub async fn get_kinds(kind_service: Data<MangaKindDBService>) -> ApiResult<Json<KindsResponse>> {
     kind_service.all().await.map(Json)
 }

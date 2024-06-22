@@ -1,5 +1,5 @@
 use crate::errors::ApiResult;
-use api_structure::info::TagSex;
+use api_structure::models::manga::tag::TagSex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -17,8 +17,8 @@ pub struct Tag {
 }
 
 impl Tag {
-    pub fn to_public(self) -> api_structure::info::Tag {
-        api_structure::info::Tag {
+    pub fn to_public(self) -> api_structure::models::manga::tag::Tag {
+        api_structure::models::manga::tag::Tag {
             tag: self.tag,
             description: self.description,
             sex: TagSex::from(self.sex),

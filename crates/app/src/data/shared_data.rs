@@ -2,7 +2,8 @@ use crate::data::image::CoverStorage;
 use crate::data::user::User;
 use crate::window_storage::Page;
 use api_structure::auth::jwt::Claim;
-use api_structure::search::{Array, ItemOrArray, Order, SearchRequest};
+use api_structure::models::manga::search::{Array, ItemOrArray, Order};
+use api_structure::req::manga::search::SearchRequest;
 use egui::Image;
 #[cfg(target_arch = "wasm32")]
 use log::info;

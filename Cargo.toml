@@ -5,7 +5,7 @@ members = [
     "crates/app",
     "crates/api_structure",
     "crates/scraper",
-    "crates/translator"]
+    "crates/translator", "crates/proc_macros"]
 
 [workspace.package]
 edition = "2021"
@@ -13,6 +13,7 @@ rust-version = "1.77"
 version = "0.1.0"
 
 [workspace.dependencies]
+proc-macros = {path = "crates/proc_macros"}
 api_structure = {path = "crates/api_structure"}
 manread_scraper = { path = "crates/scraper" }
 scraper = "0.19.0"

@@ -7,8 +7,11 @@ use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
-use api_structure::home::HomeResponse;
-use api_structure::search::{Array, ItemOrArray, Order, SearchRequest, SearchResponse, Status};
+use api_structure::models::manga::search::{Array, ItemOrArray, Order};
+use api_structure::models::manga::status::Status;
+use api_structure::req::manga::search::SearchRequest;
+use api_structure::resp::manga::home::HomeResponse;
+use api_structure::resp::manga::search::SearchResponse;
 use rand::Rng;
 use surrealdb_extras::RecordData;
 

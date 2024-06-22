@@ -1,4 +1,4 @@
-use api_structure::info::Tag;
+use api_structure::models::manga::tag::Tag;
 use egui::Ui;
 
 use super::{group::Group, tag_suggestion_box::TagSuggestionBox};

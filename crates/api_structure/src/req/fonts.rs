@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct FontRequest {
     pub file: String,
 }
+pub struct FontsRequest;
 
 impl FontRequest {
     pub fn new(file: String) -> Self {

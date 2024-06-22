@@ -2,8 +2,9 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use api_structure::info::Tag;
-use api_structure::manga::{AddMangaRequest, Kinds};
+use api_structure::models::manga::tag::Tag;
+use api_structure::req::manga::add::AddMangaRequest;
+use api_structure::resp::manga::KindsResponse;
 use api_structure::RequestImpl;
 use eframe::{App, Frame};
 use egui::{include_image, vec2, Button, Context, Image, ImageSource, TextBuffer, Ui, Vec2};
@@ -77,7 +78,9 @@ impl AddMangaPage {
             request,
             upload_image: Default::default(),
             uploaded_image: None,
-            request2: Some(Fetcher::new(Kinds::request(&get_app_data().url).unwrap())),
+            request2: Some(Fetcher::new(
+                KindsResponse::request(&get_app_data().url).unwrap(),
+            )),
             init: false,
         }
     }
@@ -157,10 +160,11 @@ impl AddMangaPage {
     }
 
     fn get_thumb_texture_a_size(&self, ui: &Ui, window_width: f64) -> Image<'static> {
-        let calc = |width: f32, percentage: f64| {
-            let size = (window_width * percentage) / width as f64;
+        let calc = |size: Vec2, percentage: f64| {
+            let ratio = size.y / size.x;
+            let size = window_width * percentage;
             let size = size as f32;
-            vec2(size, size)
+            vec2(size, size * ratio)
         };
         let get_size = |img: &Image<'static>| {
             img.load_for_size(ui.ctx(), ui.available_size())
@@ -171,11 +175,11 @@ impl AddMangaPage {
         };
         let img_mutex = self.upload_image.lock().unwrap();
         let img = if let Some(v) = &*img_mutex {
-            v.clone().fit_to_fraction(calc(get_size(v).x, 0.7))
+            v.clone().fit_to_exact_size(calc(get_size(v), 0.7))
         } else {
             self.default_image
                 .clone()
-                .fit_to_fraction(calc(get_size(&self.default_image).x, 0.15))
+                .fit_to_exact_size(calc(get_size(&self.default_image), 0.15))
         };
         img.clone()
     }

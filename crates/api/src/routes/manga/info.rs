@@ -10,8 +10,11 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::auth::role::Role;
-use api_structure::info::{ExternalSite, MangaInfoRequest, MangaInfoResponse, Visibility};
-use api_structure::search::Status;
+use api_structure::models::manga::chapter::ExternalSite;
+use api_structure::models::manga::status::Status;
+use api_structure::models::manga::visiblity::Visibility;
+use api_structure::req::manga::info::MangaInfoRequest;
+use api_structure::resp::manga::info::MangaInfoResponse;
 use rand::Rng;
 
 #[post("/info")]
@@ -88,7 +91,7 @@ pub async fn info(
                     .to_public(),
             );
         }
-        chapters.push(api_structure::info::Chapter {
+        chapters.push(api_structure::models::manga::chapter::Chapter {
             titles: v.titles,
             chapter: v.chapter,
             tags: ctags,

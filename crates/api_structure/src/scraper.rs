@@ -1,5 +1,7 @@
 use crate::error::{ApiErr, ApiErrorType};
-use crate::search::{DisplaySearch, Field, Status};
+use crate::models::manga::search::Field;
+use crate::models::manga::status::Status;
+use crate::search::DisplaySearch;
 use crate::RequestImpl;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;

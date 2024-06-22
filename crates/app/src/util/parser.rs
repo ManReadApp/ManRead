@@ -1,4 +1,4 @@
-use api_structure::search::{Array, Field, Item, ItemData, ItemOrArray};
+use api_structure::models::manga::search::{Array, Field, Item, ItemData, ItemOrArray};
 
 pub fn search_parser(s: &str, or_default: bool, field: &Vec<Field>) -> (Array, Vec<String>) {
     let mut depth = 0;

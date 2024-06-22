@@ -5,8 +5,8 @@ use actix_web::{
 };
 use actix_web_grants::protect;
 use api_structure::{
-    info::{Tag, TagSex},
-    manga::TagsRequest,
+    models::manga::tag::{Tag, TagSex},
+    req::manga::tag::TagsRequest,
 };
 
 #[post("/tags")]

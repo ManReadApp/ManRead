@@ -24,7 +24,7 @@ use actix_web::web::{Data, Json};
 use actix_web::{post, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use api_structure::error::{ApiErr, ApiErrorType};
-use api_structure::fonts::FontRequest;
+use api_structure::req::fonts::FontRequest;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{info, LevelFilter};
 use std::collections::HashMap;

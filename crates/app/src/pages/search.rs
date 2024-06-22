@@ -2,12 +2,14 @@ use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
 use crate::util::parser::search_parser;
 use crate::window_storage::Page;
+use api_structure::models::manga::search::{Array, Field, ItemKind, ItemOrArray};
+use api_structure::req::manga::search::SearchRequest;
+use api_structure::resp::manga::search::SearchResponse;
 use api_structure::scraper::{
     ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult, SimpleSearch, ValidSearches,
 };
-use api_structure::search::{
-    Array, DisplaySearch, Field, ItemKind, ItemOrArray, SearchRequest, SearchResponse,
-};
+
+use api_structure::search::DisplaySearch;
 use api_structure::{RequestImpl, SearchUris};
 use eframe::emath::vec2;
 use eframe::{App, Frame};

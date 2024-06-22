@@ -4,11 +4,10 @@ use crate::get_app_data;
 use crate::widgets::home_page_swithcer::HomePages;
 use crate::window_storage::Page;
 use api_structure::auth::role::Role;
-use api_structure::home::HomeResponse;
-use api_structure::search::{
-    Array, Item, ItemData, ItemOrArray, Order, SearchRequest, SearchResponse,
-};
-use api_structure::RequestImpl;
+use api_structure::models::manga::search::{Array, Item, ItemData, ItemOrArray, Order};
+use api_structure::req::manga::search::SearchRequest;
+use api_structure::resp::manga::home::HomeResponse;
+use api_structure::resp::manga::search::SearchResponse;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{vec2, Align, Button, Context, Grid, Label, Layout, ScrollArea, Sense, Spinner, Ui};

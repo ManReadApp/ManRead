@@ -9,7 +9,8 @@ use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::auth::jwt::Claim;
 use api_structure::auth::role::Role;
-use api_structure::search::{SearchRequest, SearchResponse};
+use api_structure::req::manga::search::SearchRequest;
+use api_structure::resp::manga::search::SearchResponse;
 
 #[post("/search")]
 #[protect(

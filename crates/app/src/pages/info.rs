@@ -1,7 +1,6 @@
 use crate::fetcher::Fetcher;
 use crate::get_app_data;
-use api_structure::info::MangaInfoRequest;
-use api_structure::RequestImpl;
+use api_structure::{req::manga::info::MangaInfoRequest, RequestImpl};
 use eframe::{App, Frame};
 use egui::Context;
 

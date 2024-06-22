@@ -1,6 +1,5 @@
-use api_structure::info::{Tag, TagSex};
-use api_structure::manga::TagsRequest;
-use api_structure::RequestImpl;
+use api_structure::models::manga::tag::{Tag, TagSex};
+use api_structure::req::manga::tag::TagsRequest;
 use egui::epaint::ahash::HashMap;
 use egui::util::hash;
 use egui::{ComboBox, TextBuffer, Ui};

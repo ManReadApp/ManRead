@@ -1,5 +1,5 @@
 use crate::get_app_data;
-use api_structure::fonts::FontRequest;
+use api_structure::req::fonts::FontRequest;
 use egui::FontFamily;
 use ethread::ThreadHandler;
 
