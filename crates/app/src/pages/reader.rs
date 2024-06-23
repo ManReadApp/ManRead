@@ -1,4 +1,4 @@
-use crate::fetcher::{Complete, Fetcher};
+use crate::fetcher::Complete;
 use crate::get_app_data;
 use crate::requests::RequestImpl;
 use crate::widgets::reader::load::load_images;

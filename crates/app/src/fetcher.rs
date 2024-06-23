@@ -12,7 +12,6 @@ use reqwest::{Body, Client, Method, RequestBuilder};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -24,12 +23,6 @@ pub struct Fetcher<T: DeserializeOwned = bool> {
     request: Request,
     response: Response<T>,
     context: Arc<Mutex<Option<Context>>>,
-}
-
-impl<T: DeserializeOwned + Send> From<(PhantomData<T>, Request)> for Fetcher<T> {
-    fn from((_, req): (PhantomData<T>, Request)) -> Self {
-        Self::new(req)
-    }
 }
 
 impl<T: DeserializeOwned + Send> Fetcher<T> {

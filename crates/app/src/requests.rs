@@ -37,7 +37,12 @@ pub trait RequestImpl<T: Send + DeserializeOwned> {
     fn fetcher(url: &url::Url) -> Fetcher<T> {
         Fetcher::new(Self::request(url).unwrap())
     }
+
     fn fetcher_ctx(url: &url::Url, ctx: egui::Context) -> Fetcher<T> {
+        Fetcher::new_ctx(Self::request(url).unwrap(), ctx)
+    }
+
+    fn cfetcher_ctx<V: Send + DeserializeOwned>(url: &url::Url, ctx: egui::Context) -> Fetcher<V> {
         Fetcher::new_ctx(Self::request(url).unwrap(), ctx)
     }
 

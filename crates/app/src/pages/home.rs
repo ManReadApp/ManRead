@@ -1,7 +1,7 @@
 use crate::data::image::CoverStorage;
-use crate::fetcher::{Complete, Fetcher};
+use crate::fetcher::Complete;
 use crate::get_app_data;
-use crate::requests::RequestImpl;
+use crate::requests::{HomeRequestFetcher, RequestImpl};
 use crate::widgets::home_page_swithcer::HomePages;
 use crate::window_storage::Page;
 use api_structure::auth::role::Role;
@@ -17,10 +17,9 @@ use ethread::ThreadHandler;
 use poll_promise::Promise;
 use std::collections::HashMap;
 use std::mem;
-use std::sync::Arc;
 
 pub struct HomePage {
-    data: Fetcher<Arc<HomeResponse>>,
+    data: HomeRequestFetcher,
     init: bool,
     moved: bool,
     imgs: Option<ThreadHandler<CoverStorage>>,

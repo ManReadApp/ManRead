@@ -1,12 +1,12 @@
-use crate::fetcher::Fetcher;
 use crate::requests::MangaReaderRequestFetcher;
+use crate::requests::ReaderPageRequestFetcher;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 mod image;
 mod manga;
 
-pub type PageData = HashMap<String, Fetcher<Arc<ReaderPageResponse>>>;
+pub type PageData = HashMap<String, ReaderPageRequestFetcher>;
 use api_structure::resp::reader::pages::ReaderPageResponse;
 pub use image::ImageStorage;
 pub use manga::get_page_resp;

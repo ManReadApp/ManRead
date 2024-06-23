@@ -1,6 +1,9 @@
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
-use crate::requests::{RequestImpl, SearchRequestFetcher};
+use crate::requests::{
+    AvailableExternalSitesRequestFetcher, ExternalSearchRequestFetcher, RequestImpl,
+    SearchRequestFetcher,
+};
 use crate::util::parser::search_parser;
 use crate::window_storage::Page;
 use api_structure::models::manga::external_search::{
@@ -21,7 +24,6 @@ use egui::{
     Color32, ComboBox, Context, Grid, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit, Ui,
 };
 use log::{debug, error};
-use std::collections::HashMap;
 use std::mem;
 use std::sync::MutexGuard;
 
@@ -32,7 +34,7 @@ pub struct SearchPage {
     external_change: bool,
     reset_scroll: bool,
     selected_search: String,
-    searches: Fetcher<HashMap<String, ValidSearches>>,
+    searches: AvailableExternalSitesRequestFetcher,
     init: bool,
 }
 
@@ -99,7 +101,7 @@ impl SearchPage {
             },
             external: SearchData {
                 searched: vec![],
-                fetcher: Fetcher::new(ExternalSearchRequest::request(&get_app_data().url).unwrap()),
+                fetcher: ExternalSearchRequest::fetcher(&get_app_data().url),
                 search: "".to_string(),
                 end: false,
                 require_new: false,
@@ -130,10 +132,7 @@ impl SearchPage {
 impl<T: DisplaySearch> SearchData<T> {
     fn move_data_external(&mut self, ctx: &Context, search: &mut ExternalSearchRequest) {
         if self.fetcher.result().is_some() {
-            let mut new = Fetcher::new_ctx(
-                ExternalSearchRequest::request(&get_app_data().url).unwrap(),
-                ctx.clone(),
-            );
+            let mut new = SearchRequest::cfetcher_ctx(&get_app_data().url, ctx.clone());
             mem::swap(&mut new, &mut self.fetcher);
             let result = new.take_result().unwrap();
             match result {
@@ -161,10 +160,7 @@ impl<T: DisplaySearch> SearchData<T> {
     }
     fn move_data_internal(&mut self, ctx: &Context) {
         if self.fetcher.result().is_some() {
-            let mut new = Fetcher::new_ctx(
-                SearchRequest::request(&get_app_data().url).unwrap(),
-                ctx.clone(),
-            );
+            let mut new = SearchRequest::cfetcher_ctx(&get_app_data().url, ctx.clone());
             mem::swap(&mut new, &mut self.fetcher);
             let result = new.take_result().unwrap();
             match result {
@@ -417,12 +413,12 @@ impl App for SearchPage {
     }
 }
 
-fn reset(fetcher: &mut Fetcher<Vec<SearchResponse>>, data: MutexGuard<SearchRequest>) {
+fn reset(fetcher: &mut SearchRequestFetcher, data: MutexGuard<SearchRequest>) {
     fetcher.set_body(&*data);
     fetcher.send();
 }
 
-fn reset_ext(fetcher: &mut Fetcher<Vec<ScrapeSearchResponse>>, data: &ExternalSearchRequest) {
+fn reset_ext(fetcher: &mut ExternalSearchRequestFetcher, data: &ExternalSearchRequest) {
     fetcher.set_body(data);
     fetcher.send();
 }
