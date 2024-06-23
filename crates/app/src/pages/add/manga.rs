@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use api_structure::models::manga::tag::Tag;
 use api_structure::req::manga::add::AddMangaRequest;
-use api_structure::req::manga::KindsRequest;
+use api_structure::req::manga::{AvailableExternalSitesRequest, KindsRequest};
 use eframe::{App, Frame};
 use egui::{include_image, vec2, Button, Context, Image, ImageSource, TextBuffer, Ui, Vec2};
 use ethread::ThreadHandler;
@@ -13,11 +13,14 @@ use rfd::AsyncFileDialog;
 use crate::fetcher::{upload_image, UploadFile};
 use crate::get_app_data;
 use crate::pages::auth::{background, get_background};
-use crate::requests::{AddMangaRequestFetcher, KindsRequestFetcher, RequestImpl as _};
+use crate::requests::{
+    AddMangaRequestFetcher, AvailableExternalSitesRequestFetcher, KindsRequestFetcher,
+    RequestImpl as _,
+};
 use crate::widgets::add::{tag_field, Group, SuggestionBox, TagSuggestionBox};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::submit_button;
-use crate::window_storage::Page;
+use crate::window_storage::{Initter, Page};
 
 pub struct AddMangaPage {
     bg: Image<'static>,
@@ -38,7 +41,8 @@ pub struct AddMangaPage {
     upload_image: Arc<Mutex<Option<Image<'static>>>>,
     uploaded_image: Option<ThreadHandler<Option<String>>>,
     request2: Option<KindsRequestFetcher>,
-    init: bool,
+    available_searches: AvailableExternalSitesRequestFetcher,
+    init: Initter,
 }
 
 impl AddMangaPage {
@@ -79,7 +83,8 @@ impl AddMangaPage {
             upload_image: Default::default(),
             uploaded_image: None,
             request2: Some(KindsRequest::fetcher(&get_app_data().url)),
-            init: false,
+            init: Default::default(),
+            available_searches: AvailableExternalSitesRequest::fetcher(&get_app_data().url),
         }
     }
 
@@ -185,11 +190,11 @@ impl AddMangaPage {
 
 impl App for AddMangaPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
-        if !self.init {
+        if self.init.init() {
             if let Some(v) = &mut self.request2 {
-                v.set_ctx(ctx.clone());
-                v.send();
+                v.set_ctx(ctx.clone()).send();
             }
+            self.available_searches.set_ctx(ctx.clone()).send();
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             background(&self.bg, ui);
@@ -343,5 +348,18 @@ impl HoverBackground for AddMangaPage {
 
     const RENDER_SIDE: bool = true;
 
-    fn side(&mut self, ui: &mut Ui, ctx: &egui::Context) {}
+    fn side(&mut self, ui: &mut Ui, ctx: &egui::Context) {
+        if let Some(v) = self.available_searches.result() {
+            match v {
+                crate::fetcher::Complete::ApiError(_) => todo!(),
+                crate::fetcher::Complete::Error(_) => todo!(),
+                crate::fetcher::Complete::Bytes(_) => {}
+                crate::fetcher::Complete::Json(res) => {
+                    for (item, _) in res {
+                        ui.label(item);
+                    }
+                }
+            }
+        }
+    }
 }

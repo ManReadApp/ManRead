@@ -42,7 +42,7 @@ impl App for HomePage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         if !self.init {
             self.init = true;
-            self.data.set_ctx(ctx.clone())
+            self.data.set_ctx(ctx.clone());
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(data) = self.data.result().cloned() {

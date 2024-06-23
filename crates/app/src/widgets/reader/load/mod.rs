@@ -171,7 +171,7 @@ fn load_image(
                                             .post(
                                                 get_app_data()
                                                     .url
-                                                    .join("page_translation")
+                                                    .join("reader/translation")
                                                     .unwrap(),
                                             )
                                             .header(AUTHORIZATION, &token)
@@ -220,7 +220,7 @@ fn load_image(
 
                                 let res = get_app_data()
                                     .client
-                                    .post(get_app_data().url.join("chapter_page").unwrap())
+                                    .post(get_app_data().url.join("reader/chapter_page").unwrap())
                                     .header(AUTHORIZATION, token)
                                     .json(&data)
                                     .send()

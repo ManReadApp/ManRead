@@ -117,7 +117,7 @@ impl CoverStorage {
         let token = format!("Bearer {}", app.get_access_token().await.unwrap());
         let bytes = app
             .client
-            .post(app.url.join("cover").unwrap())
+            .post(app.url.join("manga/cover").unwrap())
             .header(AUTHORIZATION, token)
             .json(&MangaCoverRequest {
                 manga_id: manga_id.clone(),

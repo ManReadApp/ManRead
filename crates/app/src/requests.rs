@@ -61,7 +61,7 @@ pub trait RequestImpl<T: Send + DeserializeOwned> {
     fn request(url: &url::Url) -> Result<Request, ParseError> {
         Ok(Request {
             auth: Self::AUTH,
-            url: url.join(&Self::ROUTE[1..])?,
+            url: url.join(&Self::ROUTE)?,
             method: Self::METHOD.to_string(),
             headers: Self::headers(),
             req_body: vec![],

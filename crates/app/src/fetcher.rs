@@ -56,8 +56,9 @@ impl<T: DeserializeOwned + Send> Fetcher<T> {
     }
 
     /// sets context for request reload
-    pub fn set_ctx(&mut self, ctx: Context) {
+    pub fn set_ctx(&mut self, ctx: Context) -> &mut Self {
         self.context.lock().replace(ctx);
+        return self;
     }
 
     /// sends request & sets Response 2 processing

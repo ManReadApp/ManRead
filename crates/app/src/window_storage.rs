@@ -11,6 +11,18 @@ use crate::pages::{
 use eframe::App;
 use std::collections::HashSet;
 
+#[derive(Default)]
+pub struct Initter(bool);
+impl Initter {
+    pub fn init(&mut self) -> bool {
+        if !self.0 {
+            self.0 = true;
+            return true;
+        }
+        false
+    }
+}
+
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub enum Page {
     LoadingInitRefresh,
