@@ -10,8 +10,11 @@ use crate::widgets::reader::settings::ReadingMode;
 use crate::widgets::reader::storage::{
     get_page_resp, get_version_key, ImageStorage, PageData, State,
 };
-use api_structure::image::MangaReaderImageRequest;
-use api_structure::reader::{Action, MangaReaderResponse, ReaderPageResponse, TranslationArea};
+use api_structure::models::reader::page::Action;
+use api_structure::models::reader::translation::TranslationArea;
+use api_structure::req::reader::image::MangaReaderImageRequest;
+use api_structure::resp::reader::pages::ReaderPageResponse;
+use api_structure::resp::reader::MangaReaderResponse;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use eframe::emath::Vec2;

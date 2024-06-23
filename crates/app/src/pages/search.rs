@@ -1,16 +1,19 @@
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
+use crate::requests::{RequestImpl, SearchRequestFetcher};
 use crate::util::parser::search_parser;
 use crate::window_storage::Page;
-use api_structure::models::manga::search::{Array, Field, ItemKind, ItemOrArray};
-use api_structure::req::manga::search::SearchRequest;
-use api_structure::resp::manga::search::SearchResponse;
-use api_structure::scraper::{
-    ExternalSearchData, ExternalSearchRequest, ScrapeSearchResult, SimpleSearch, ValidSearches,
+use api_structure::models::manga::external_search::{
+    ExternalSearchData, SimpleSearch, ValidSearches,
 };
+use api_structure::models::manga::search::{Array, Field, ItemKind, ItemOrArray};
+use api_structure::req::manga::external_search::ExternalSearchRequest;
+use api_structure::req::manga::search::SearchRequest;
+use api_structure::req::manga::AvailableExternalSitesRequest;
+use api_structure::resp::manga::external_search::ScrapeSearchResponse;
+use api_structure::resp::manga::search::SearchResponse;
 
 use api_structure::search::DisplaySearch;
-use api_structure::{RequestImpl, SearchUris};
 use eframe::emath::vec2;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
@@ -24,7 +27,7 @@ use std::sync::MutexGuard;
 
 pub struct SearchPage {
     internal: SearchData<SearchResponse>,
-    external: SearchData<ScrapeSearchResult>,
+    external: SearchData<ScrapeSearchResponse>,
     external_search: ExternalSearchRequest,
     external_change: bool,
     reset_scroll: bool,
@@ -71,8 +74,7 @@ impl SearchPage {
     }
 
     pub fn new() -> Self {
-        let mut fetcher: Fetcher<Vec<SearchResponse>> =
-            Fetcher::new(SearchRequest::request(&get_app_data().url).unwrap());
+        let mut fetcher: SearchRequestFetcher = SearchRequest::fetcher(&get_app_data().url);
         fetcher.set_body(&*get_app_data().search.lock().unwrap());
         fetcher.send();
         let mut search = get_app_data().search.lock().unwrap().query.to_string();
@@ -84,7 +86,7 @@ impl SearchPage {
                 .unwrap()
                 .to_string();
         }
-        let mut searches = Fetcher::new(SearchUris::request(&get_app_data().url).unwrap());
+        let mut searches = AvailableExternalSitesRequest::fetcher(&get_app_data().url);
         searches.send();
         Self {
             internal: SearchData {
@@ -420,7 +422,7 @@ fn reset(fetcher: &mut Fetcher<Vec<SearchResponse>>, data: MutexGuard<SearchRequ
     fetcher.send();
 }
 
-fn reset_ext(fetcher: &mut Fetcher<Vec<ScrapeSearchResult>>, data: &ExternalSearchRequest) {
+fn reset_ext(fetcher: &mut Fetcher<Vec<ScrapeSearchResponse>>, data: &ExternalSearchRequest) {
     fetcher.set_body(data);
     fetcher.send();
 }

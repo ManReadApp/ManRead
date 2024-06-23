@@ -7,26 +7,6 @@ pub mod scrape;
 pub mod search;
 
 use crate::error::{ApiErr, ApiErrorType};
-use models::reader::translation::TranslationArea;
-use req::fonts::{FontRequest, FontsRequest};
-use req::manga::add::AddMangaRequest;
-use req::manga::cover::MangaCoverRequest;
-use req::manga::external_search::ExternalSearchRequest;
-use req::manga::info::MangaInfoRequest;
-use req::manga::search::SearchRequest;
-use req::manga::tag::TagsRequest;
-use req::manga::{AvailableExternalSitesRequest, HomeRequest, KindsRequest};
-use req::reader::image::MangaReaderImageRequest;
-use req::reader::info::MangaReaderRequest;
-use req::reader::pages::ReaderPageRequest;
-use resp::manga::external_search::ScrapeSearchResponse;
-use resp::manga::home::HomeResponse;
-use resp::manga::info::MangaInfoResponse;
-use resp::manga::search::SearchResponse;
-use resp::manga::{KindsResponse, TagsResponse};
-use resp::reader::pages::ReaderPageResponse;
-use resp::reader::MangaReaderResponse;
-use resp::{AvailableExternalSitesResponse, ByteResponse, FontsResponse, NoResponse};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use url::{ParseError, Url};
@@ -38,21 +18,6 @@ pub fn now_timestamp() -> Result<Duration, ApiErr> {
         cause: Some(v.to_string()),
         err_type: ApiErrorType::InternalError,
     })
-}
-
-macro_rules! request {
-    ($name:ident, $route:expr, $auth:expr, $out:ty) => {
-        impl crate::RequestImpl for $name {
-            const ROUTE: &'static str = proc_macros::strip_prefix!($route);
-            const AUTH: bool = $auth;
-        }
-
-        impl $name {
-            fn fetcher(url: &Url) -> Result<(std::marker::PhantomData<$out>, Request), ParseError> {
-                Ok((std::marker::PhantomData, Self::request(url)?))
-            }
-        }
-    };
 }
 
 pub trait RequestImpl {
@@ -93,60 +58,5 @@ impl Request {
     }
 }
 
-pub struct SearchUris;
-
-impl RequestImpl for SearchUris {
-    const ROUTE: &'static str = "external/search/sites";
-    const AUTH: bool = true;
-}
-// Fonts
-request!(FontRequest, "/fonts/file", false, NoResponse);
-request!(FontsRequest, "/fonts/list", false, FontsResponse);
-
-// Auth
-// 6...
-
-//todo: upload
-//todo: spinner
-
-request!(HomeRequest, "/home", true, HomeResponse);
-
-request!(AddMangaRequest, "/manga/add", true, NoResponse); //TODO: implement
-request!(KindsRequest, "/manga/kinds", true, KindsResponse);
-request!(TagsRequest, "/manga/tags", true, TagsResponse);
-request!(MangaInfoRequest, "/manga/info", true, MangaInfoResponse);
-request!(SearchRequest, "/manga/search", true, SearchResponse);
-request!(MangaCoverRequest, "/manga/cover", true, ByteResponse);
-request!(
-    ExternalSearchRequest,
-    "/manga/search/external",
-    true,
-    Vec<ScrapeSearchResponse>
-);
-request!(
-    AvailableExternalSitesRequest,
-    "/manga/search/external/list",
-    true,
-    AvailableExternalSitesResponse
-);
-
-request!(
-    MangaReaderImageRequest,
-    "/reader/chapter_page",
-    true,
-    ByteResponse
-);
-request!(
-    MangaReaderRequest,
-    "/reader/info",
-    true,
-    MangaReaderResponse
-);
-request!(ReaderPageRequest, "/reader/pages", true, ReaderPageResponse);
+use crate::req::reader::image::MangaReaderImageRequest;
 pub struct MangaReaderTranslationRequest(pub MangaReaderImageRequest);
-request!(
-    MangaReaderTranslationRequest,
-    "/reader/translation",
-    true,
-    Vec<TranslationArea>
-);

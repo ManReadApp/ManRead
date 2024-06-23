@@ -6,8 +6,8 @@ use egui::{ComboBox, TextBuffer, Ui};
 use log::error;
 use std::collections::HashSet;
 
-use crate::fetcher::Fetcher;
 use crate::get_app_data;
+use crate::requests::{RequestImpl, TagsRequestFetcher};
 
 use super::suggestionbox::SuggestionBox;
 
@@ -17,7 +17,7 @@ pub struct TagSuggestionBox {
     tags: HashSet<Tag>,
     queries: HashMap<TagSex, HashSet<u64>>,
     pub query: String,
-    requests: Vec<Fetcher<Vec<Tag>>>,
+    requests: Vec<TagsRequestFetcher>,
     sex: TagSex,
 }
 
@@ -47,7 +47,7 @@ impl TagSuggestionBox {
     }
 
     fn new_request(&mut self, ctx: egui::Context) {
-        let mut r = Fetcher::new_ctx(TagsRequest::request(&get_app_data().url).unwrap(), ctx);
+        let mut r = TagsRequest::fetcher_ctx(&get_app_data().url, ctx);
         r.set_body(&TagsRequest {
             limit: 50,
             query: self.query.clone(),

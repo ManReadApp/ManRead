@@ -4,16 +4,16 @@ use std::sync::{Arc, Mutex};
 
 use api_structure::models::manga::tag::Tag;
 use api_structure::req::manga::add::AddMangaRequest;
-use api_structure::resp::manga::KindsResponse;
-use api_structure::RequestImpl;
+use api_structure::req::manga::KindsRequest;
 use eframe::{App, Frame};
 use egui::{include_image, vec2, Button, Context, Image, ImageSource, TextBuffer, Ui, Vec2};
 use ethread::ThreadHandler;
 use rfd::AsyncFileDialog;
 
-use crate::fetcher::{upload_image, Fetcher, UploadFile};
+use crate::fetcher::{upload_image, UploadFile};
 use crate::get_app_data;
 use crate::pages::auth::{background, get_background};
+use crate::requests::{AddMangaRequestFetcher, KindsRequestFetcher, RequestImpl as _};
 use crate::widgets::add::{tag_field, Group, SuggestionBox, TagSuggestionBox};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::submit_button;
@@ -34,17 +34,17 @@ pub struct AddMangaPage {
     scrape: Option<(String, String)>,
     height: Option<f32>,
     default_image: Image<'static>,
-    request: Fetcher<String>,
+    request: AddMangaRequestFetcher,
     upload_image: Arc<Mutex<Option<Image<'static>>>>,
     uploaded_image: Option<ThreadHandler<Option<String>>>,
-    request2: Option<Fetcher<Vec<String>>>,
+    request2: Option<KindsRequestFetcher>,
     init: bool,
 }
 
 impl AddMangaPage {
     pub fn new() -> Self {
         let img = Image::new(include_image!("../../assets/upload.png"));
-        let request = Fetcher::new(AddMangaRequest::request(&get_app_data().url).unwrap());
+        let request = AddMangaRequest::fetcher(&get_app_data().url);
         Self {
             bg: get_background(),
             titles: HashMap::new(),
@@ -78,9 +78,7 @@ impl AddMangaPage {
             request,
             upload_image: Default::default(),
             uploaded_image: None,
-            request2: Some(Fetcher::new(
-                KindsResponse::request(&get_app_data().url).unwrap(),
-            )),
+            request2: Some(KindsRequest::fetcher(&get_app_data().url)),
             init: false,
         }
     }

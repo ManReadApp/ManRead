@@ -14,6 +14,7 @@ mod data;
 mod fetcher;
 mod fonts;
 mod pages;
+mod requests;
 mod util;
 mod widgets;
 mod window_storage;

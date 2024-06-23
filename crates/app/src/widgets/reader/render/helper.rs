@@ -1,6 +1,6 @@
 use crate::widgets::reader::overlay::ReaderTranslationArea;
 use crate::widgets::reader::storage::{ImageStorage, State};
-use api_structure::reader::{Action, ReaderPage};
+use api_structure::models::reader::page::{Action, ReaderPage};
 use egui::Image;
 use std::sync::Arc;
 

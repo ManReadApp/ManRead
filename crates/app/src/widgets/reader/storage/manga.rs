@@ -1,8 +1,10 @@
-use crate::fetcher::{Complete, Fetcher};
+use crate::fetcher::Complete;
 use crate::get_app_data;
+use crate::requests::RequestImpl;
 use crate::widgets::reader::storage::{PageData, State};
-use api_structure::reader::{MangaReaderResponse, ReaderChapter, ReaderPageRequest};
-use api_structure::RequestImpl;
+use api_structure::models::reader::chapter::ReaderChapter;
+use api_structure::req::reader::pages::ReaderPageRequest;
+use api_structure::resp::reader::MangaReaderResponse;
 use egui::Context;
 use std::sync::Arc;
 
@@ -25,7 +27,7 @@ pub fn get_page_resp(
                 State::ChapterLoading
             };
         }
-        let mut fetcher = Fetcher::new(ReaderPageRequest::request(&get_app_data().url).unwrap());
+        let mut fetcher = ReaderPageRequest::fetcher(&get_app_data().url);
         fetcher.set_ctx(ctx.clone());
         fetcher.set_body(&ReaderPageRequest {
             chapter_version_id: ver.to_string(),

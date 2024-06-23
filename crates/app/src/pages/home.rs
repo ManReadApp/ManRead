@@ -1,11 +1,13 @@
 use crate::data::image::CoverStorage;
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
+use crate::requests::RequestImpl;
 use crate::widgets::home_page_swithcer::HomePages;
 use crate::window_storage::Page;
 use api_structure::auth::role::Role;
 use api_structure::models::manga::search::{Array, Item, ItemData, ItemOrArray, Order};
 use api_structure::req::manga::search::SearchRequest;
+use api_structure::req::manga::HomeRequest;
 use api_structure::resp::manga::home::HomeResponse;
 use api_structure::resp::manga::search::SearchResponse;
 use eframe::{App, Frame};
@@ -26,7 +28,7 @@ pub struct HomePage {
 
 impl Default for HomePage {
     fn default() -> Self {
-        let mut req = Fetcher::new(HomeResponse::request(&get_app_data().url).unwrap());
+        let mut req = HomeRequest::fetcher(&get_app_data().url);
         req.send();
         Self {
             data: req,

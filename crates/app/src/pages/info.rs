@@ -1,18 +1,18 @@
-use crate::fetcher::Fetcher;
-use crate::get_app_data;
-use api_structure::{req::manga::info::MangaInfoRequest, RequestImpl};
+use crate::requests::MangaInfoRequestFetcher;
+use crate::{get_app_data, requests::RequestImpl as _};
+use api_structure::req::manga::info::MangaInfoRequest;
 use eframe::{App, Frame};
 use egui::Context;
 
 #[allow(dead_code)]
 //TODO: implement
 pub struct InfoPage {
-    info: Fetcher,
+    info: MangaInfoRequestFetcher,
 }
 
 impl InfoPage {
     pub fn new(page: String) -> Self {
-        let mut info = Fetcher::new(MangaInfoRequest::request(&get_app_data().url).unwrap());
+        let mut info = MangaInfoRequest::fetcher(&get_app_data().url);
         info.set_body(MangaInfoRequest { manga_id: page });
         info.send();
         Self { info }

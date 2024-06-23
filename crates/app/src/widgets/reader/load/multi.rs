@@ -1,7 +1,9 @@
 use crate::widgets::reader::load::load_image;
 use crate::widgets::reader::progress::Progress;
 use crate::widgets::reader::storage::{ImageStorage, PageData};
-use api_structure::reader::{Action, MangaReaderResponse, ReaderPageResponse};
+use api_structure::models::reader::page::Action;
+use api_structure::resp::reader::pages::ReaderPageResponse;
+use api_structure::resp::reader::MangaReaderResponse;
 use egui::Context;
 use std::sync::Arc;
 

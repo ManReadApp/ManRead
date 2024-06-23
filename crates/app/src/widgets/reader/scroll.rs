@@ -1,7 +1,8 @@
 use crate::widgets::reader::progress::Progress;
 use crate::widgets::reader::settings::ReadingMode;
 use crate::widgets::reader::storage::{get_page_resp, PageData, State};
-use api_structure::reader::{Action, MangaReaderResponse};
+use api_structure::models::reader::page::Action;
+use api_structure::resp::reader::MangaReaderResponse;
 use eframe::emath::Vec2;
 use egui::Ui;
 use std::sync::Arc;

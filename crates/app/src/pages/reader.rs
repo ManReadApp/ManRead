@@ -1,5 +1,6 @@
 use crate::fetcher::{Complete, Fetcher};
 use crate::get_app_data;
+use crate::requests::RequestImpl;
 use crate::widgets::reader::load::load_images;
 use crate::widgets::reader::progress::Progress;
 use crate::widgets::reader::render::display_images;
@@ -7,8 +8,7 @@ use crate::widgets::reader::render::overlay::Overlay;
 use crate::widgets::reader::scroll::set_progress;
 use crate::widgets::reader::settings::{get_screen_dim, ReadingMode, Settings, ViewArea};
 use crate::widgets::reader::storage::{get_page_resp, State, Storage};
-use api_structure::reader::MangaReaderRequest;
-use api_structure::RequestImpl;
+use api_structure::req::reader::info::MangaReaderRequest;
 use eframe::{App, Frame};
 use egui::{pos2, vec2, Color32, Context, Rect, Rounding};
 
@@ -21,7 +21,7 @@ pub struct MangaReaderPage {
 
 impl MangaReaderPage {
     pub(crate) fn new(manga_id: String, chapter_id: Option<String>) -> Self {
-        let mut manga = Fetcher::new(MangaReaderRequest::request(&get_app_data().url).unwrap());
+        let mut manga = MangaReaderRequest::fetcher(&get_app_data().url);
         manga.set_body(MangaReaderRequest {
             manga_id,
             chapter_id,
