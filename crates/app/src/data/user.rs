@@ -1,7 +1,8 @@
 use crate::get_app_data;
-use api_structure::auth::jwt::{Claim, JWTs};
 use api_structure::error::ClientError;
+use api_structure::models::auth::jwt::Claim;
 use api_structure::now_timestamp;
+use api_structure::resp::auth::JWTsResponse;
 use base64::engine::general_purpose;
 use base64::Engine;
 use keyring::Entry;
@@ -15,7 +16,7 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(jwts: JWTs) -> Option<Self> {
+    pub fn new(jwts: JWTsResponse) -> Option<Self> {
         let claim = Self::parse_jwt(&jwts.access_token);
         if let Err(err) = &claim {
             error!("{:?}", err);
@@ -92,8 +93,8 @@ impl User {
         })
     }
 
-    pub async fn get_updated_tokens(refresh_token: &str) -> Option<JWTs> {
-        let token: JWTs = get_app_data()
+    pub async fn get_updated_tokens(refresh_token: &str) -> Option<JWTsResponse> {
+        let token: JWTsResponse = get_app_data()
             .client
             .post(get_app_data().url.join("refresh").unwrap())
             .header("Authorization", format!("Bearer {}", refresh_token))

@@ -7,8 +7,8 @@ use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
-use api_structure::auth::jwt::Claim;
-use api_structure::auth::role::Role;
+use api_structure::models::auth::jwt::Claim;
+use api_structure::models::auth::role::Role;
 use api_structure::req::manga::search::SearchRequest;
 use api_structure::resp::manga::search::SearchResponse;
 

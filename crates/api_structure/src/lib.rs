@@ -1,4 +1,3 @@
-pub mod auth;
 pub mod error;
 pub mod models;
 pub mod req;
@@ -9,7 +8,7 @@ pub mod search;
 use crate::error::{ApiErr, ApiErrorType};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use url::{ParseError, Url};
+use url::Url;
 
 pub fn now_timestamp() -> Result<Duration, ApiErr> {
     let start = SystemTime::now();
@@ -18,29 +17,6 @@ pub fn now_timestamp() -> Result<Duration, ApiErr> {
         cause: Some(v.to_string()),
         err_type: ApiErrorType::InternalError,
     })
-}
-
-pub trait RequestImpl {
-    const ROUTE: &'static str;
-    const AUTH: bool;
-    const METHOD: &'static str = "POST";
-
-    fn headers() -> HashMap<String, String> {
-        let mut hm = HashMap::new();
-        hm.insert("Content-Type".into(), "application/json".into());
-        hm
-    }
-
-    fn request(url: &Url) -> Result<Request, ParseError> {
-        Ok(Request {
-            auth: Self::AUTH,
-            url: url.join(&Self::ROUTE[1..])?,
-            method: Self::METHOD.to_string(),
-            headers: Self::headers(),
-            req_body: vec![],
-            bytes: false,
-        })
-    }
 }
 
 pub struct Request {

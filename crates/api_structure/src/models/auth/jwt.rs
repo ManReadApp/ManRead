@@ -1,8 +1,10 @@
-use crate::auth::role::Role;
-use crate::error::ApiErr;
-use crate::{now_timestamp, RequestImpl};
-use serde::{Deserialize, Serialize};
 use std::time::Duration;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{error::ApiErr, now_timestamp};
+
+use super::role::Role;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Claim {
@@ -43,16 +45,4 @@ impl Claim {
 pub enum JwtType {
     AccessToken,
     RefreshToken,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-/// Response
-pub struct JWTs {
-    pub access_token: String,
-    pub refresh_token: String,
-}
-
-impl RequestImpl for JWTs {
-    const ROUTE: &'static str = "refresh";
-    const AUTH: bool = true;
 }

@@ -1,8 +1,9 @@
 use crate::env::config::random_string;
 use crate::errors::ApiResult;
 use crate::services::db::user::User;
-use api_structure::auth::role::{Kind, Role};
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::kind::Kind;
+use api_structure::models::auth::role::Role;
 use api_structure::now_timestamp;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

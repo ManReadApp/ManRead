@@ -4,7 +4,7 @@ use crate::get_app_data;
 use crate::requests::{HomeRequestFetcher, RequestImpl};
 use crate::widgets::home_page_swithcer::HomePages;
 use crate::window_storage::Page;
-use api_structure::auth::role::Role;
+use api_structure::models::auth::role::Role;
 use api_structure::models::manga::search::{Array, Item, ItemData, ItemOrArray, Order};
 use api_structure::req::manga::search::SearchRequest;
 use api_structure::req::manga::HomeRequest;

@@ -1,6 +1,6 @@
 use crate::errors::{ApiError, ApiResult};
-use api_structure::auth::jwt::Claim;
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::jwt::Claim;
 use api_structure::now_timestamp;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validation};

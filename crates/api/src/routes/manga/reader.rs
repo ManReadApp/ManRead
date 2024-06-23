@@ -10,8 +10,8 @@ use actix_files::NamedFile;
 use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
-use api_structure::auth::jwt::Claim;
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::jwt::Claim;
 use api_structure::models::reader::page::ReaderPage;
 use api_structure::models::reader::progress::Progress;
 use api_structure::models::reader::translation::TranslationArea;
@@ -29,13 +29,13 @@ use std::sync::Arc;
 #[post("/pages")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "api_structure::models::auth::role::Role::Admin",
+        "api_structure::models::auth::role::Role::CoAdmin",
+        "api_structure::models::auth::role::Role::Moderator",
+        "api_structure::models::auth::role::Role::Author",
+        "api_structure::models::auth::role::Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "api_structure::models::auth::role::Role"
 )]
 pub async fn get_pages(
     Json(req): Json<ReaderPageRequest>,
@@ -99,13 +99,13 @@ pub async fn get_pages(
 #[post("/info")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "api_structure::models::auth::role::Role::Admin",
+        "api_structure::models::auth::role::Role::CoAdmin",
+        "api_structure::models::auth::role::Role::Moderator",
+        "api_structure::models::auth::role::Role::Author",
+        "api_structure::models::auth::role::Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "api_structure::models::auth::role::Role"
 )]
 pub async fn info(
     Json(req): Json<MangaReaderRequest>,
@@ -155,13 +155,13 @@ pub async fn info(
 #[post("/chapter_page")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "api_structure::models::auth::role::Role::Admin",
+        "api_structure::models::auth::role::Role::CoAdmin",
+        "api_structure::models::auth::role::Role::Moderator",
+        "api_structure::models::auth::role::Role::Author",
+        "api_structure::models::auth::role::Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "api_structure::models::auth::role::Role"
 )]
 pub async fn chapter_page_route(
     Json(data): Json<MangaReaderImageRequest>,
@@ -207,13 +207,13 @@ impl From<Translation> for TranslationArea {
 #[post("translation")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "api_structure::models::auth::role::Role::Admin",
+        "api_structure::models::auth::role::Role::CoAdmin",
+        "api_structure::models::auth::role::Role::Moderator",
+        "api_structure::models::auth::role::Role::Author",
+        "api_structure::models::auth::role::Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "api_structure::models::auth::role::Role"
 )]
 async fn translation(
     Json(data): Json<MangaReaderImageRequest>,

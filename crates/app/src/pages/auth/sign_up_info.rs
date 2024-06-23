@@ -1,14 +1,14 @@
 use crate::data::user::User;
-use crate::fetcher::{upload_image, Complete, Fetcher, UploadFile};
+use crate::fetcher::{upload_image, Complete, UploadFile};
 use crate::get_app_data;
 use crate::pages::auth::{background, get_background};
+use crate::requests::{RegisterRequestFetcher, RequestImpl as _};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::submit_button;
 use crate::window_storage::Page;
-use api_structure::auth::jwt::JWTs;
-use api_structure::auth::register::{Gender, NewUserRequest};
-use api_structure::auth::role::Role;
-use api_structure::RequestImpl;
+use api_structure::models::auth::gender::Gender;
+use api_structure::models::auth::role::Role;
+use api_structure::req::auth::register::RegisterRequest;
 use chrono::NaiveDate;
 use eframe::{App, Frame};
 use egui::{vec2, Color32, Context, Image, Label, Sense, Ui};
@@ -29,7 +29,7 @@ pub struct SignUpInfoPage {
     gender: usize,
     birth_data: NaiveDate,
     image_upload: Option<Promise<Option<(String, Image<'static>)>>>,
-    create_user: Fetcher<JWTs>,
+    create_user: RegisterRequestFetcher,
     init: bool,
 }
 
@@ -56,7 +56,7 @@ impl SignUpInfoPage {
             gender: 0,
             birth_data: NaiveDate::default(),
             image_upload: None,
-            create_user: Fetcher::new(NewUserRequest::request(&get_app_data().url).unwrap()),
+            create_user: RegisterRequest::fetcher(&get_app_data().url),
             init: false,
         }
     }
@@ -220,7 +220,7 @@ impl SignUpInfoPage {
                 None
             }
             .unwrap_or_else(|| self.icon_name.clone());
-            self.create_user.set_body(NewUserRequest {
+            self.create_user.set_body(RegisterRequest {
                 name: self.username.clone(),
                 email: self.email.clone(),
                 password: self.password.clone(),

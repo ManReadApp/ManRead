@@ -1,15 +1,15 @@
 use crate::data::user::User;
-use crate::fetcher::{Complete, Fetcher};
+use crate::fetcher::Complete;
 use crate::get_app_data;
 use crate::pages::auth::verify_account::{text_fields, CodeValue};
 use crate::pages::auth::{background, get_background};
+use crate::requests::{
+    RequestImpl as _, RequestResetPasswordRequestFetcher, ResetPasswordRequestFetcher,
+};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::submit_button;
 use crate::window_storage::Page;
-use api_structure::auth::jwt::JWTs;
-use api_structure::auth::reset_password::RequestResetPasswordRequest;
-use api_structure::auth::reset_password::ResetPasswordRequest;
-use api_structure::RequestImpl;
+use api_structure::req::auth::reset_password::{RequestResetPasswordRequest, ResetPasswordRequest};
 use eframe::{App, Frame};
 use egui::{vec2, Context, Image, Label, Link, Sense, TextEdit, Ui};
 
@@ -20,8 +20,8 @@ pub struct ResetPasswordPage {
     sent: bool,
     email_reset: bool,
     password: String,
-    request: Fetcher<()>,
-    reset: Fetcher<JWTs>,
+    request: RequestResetPasswordRequestFetcher,
+    reset: ResetPasswordRequestFetcher,
     init: bool,
     code: Vec<CodeValue>,
 }
@@ -35,10 +35,8 @@ impl Default for ResetPasswordPage {
             sent: false,
             email_reset: false,
             password: "".to_string(),
-            request: Fetcher::new(
-                RequestResetPasswordRequest::request(&get_app_data().url).unwrap(),
-            ),
-            reset: Fetcher::new(ResetPasswordRequest::request(&get_app_data().url).unwrap()),
+            request: RequestResetPasswordRequest::fetcher(&get_app_data().url),
+            reset: ResetPasswordRequest::fetcher(&get_app_data().url),
             init: false,
             code: vec![CodeValue::default(); 6],
         }

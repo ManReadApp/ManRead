@@ -5,14 +5,15 @@ use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
-use api_structure::auth::activate::ActivateRequest;
-use api_structure::auth::jwt::{Claim, JWTs};
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::jwt::Claim;
+use api_structure::req::auth::activate::ActivateRequest;
+use api_structure::resp::auth::JWTsResponse;
 
 #[post("/auth/activate")]
 #[protect(
-    any("api_structure::auth::role::Role::NotVerified"),
-    ty = "api_structure::auth::role::Role"
+    any("api_structure::models::auth::role::Role::NotVerified"),
+    ty = "api_structure::models::auth::role::Role"
 )]
 async fn activate(
     claim: ReqData<Claim>,
@@ -20,7 +21,7 @@ async fn activate(
     user: Data<UserDBService>,
     crypto: Data<CryptoService>,
     activation: Data<AuthTokenDBService>,
-) -> ApiResult<Json<JWTs>> {
+) -> ApiResult<Json<JWTsResponse>> {
     let find = activation.check(&data.key).await?;
     if let Some(v) = &find.data.user {
         if v.thing.id().to_string() != claim.id {
@@ -39,7 +40,7 @@ async fn activate(
 
     user.set_role(claim.id.as_str(), kind.kind).await?;
 
-    Ok(Json(JWTs {
+    Ok(Json(JWTsResponse {
         access_token: crypto.encode_claim(&Claim::new_access(claim.id.clone(), kind.kind)?)?,
         refresh_token: crypto.encode_claim(&Claim::new_refresh(claim.id.clone(), kind.kind)?)?,
     }))

@@ -1,3 +1,9 @@
+use api_structure::req::auth::activate::ActivateRequest;
+use api_structure::req::auth::login::LoginRequest;
+use api_structure::req::auth::register::RegisterRequest;
+use api_structure::req::auth::reset_password::{RequestResetPasswordRequest, ResetPasswordRequest};
+use api_structure::req::auth::TokenRefreshRequest;
+use api_structure::resp::auth::JWTsResponse;
 use paste::paste;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -80,8 +86,22 @@ macro_rules! request {
 request!(FontRequest, "/fonts/file", false, NoResponse);
 request!(FontsRequest, "/fonts/list", false, FontsResponse);
 
-// Auth
-// 6...
+request!(ActivateRequest, "/auth/activate", true, JWTsResponse);
+request!(TokenRefreshRequest, "/refresh", true, JWTsResponse);
+request!(LoginRequest, "/auth/sign_in", false, JWTsResponse);
+request!(RegisterRequest, "/auth/sign_up", false, JWTsResponse);
+request!(
+    ResetPasswordRequest,
+    "/auth/reset_password",
+    false,
+    JWTsResponse
+);
+request!(
+    RequestResetPasswordRequest,
+    "/auth/request_reset_password",
+    false,
+    NoResponse
+);
 
 //todo: upload
 //todo: spinner

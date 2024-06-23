@@ -1,13 +1,12 @@
 use crate::data::user::User;
-use crate::fetcher::{Complete, Fetcher};
+use crate::fetcher::Complete;
 use crate::get_app_data;
 use crate::pages::auth::{background, get_background};
+use crate::requests::{ActivateRequestFetcher, RequestImpl as _};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::submit_button;
 use crate::window_storage::Page;
-use api_structure::auth::activate::ActivateRequest;
-use api_structure::auth::jwt::JWTs;
-use api_structure::RequestImpl;
+use api_structure::req::auth::activate::ActivateRequest;
 use eframe::{App, Frame};
 use egui::{vec2, Context, Image, TextEdit, Ui};
 use std::collections::VecDeque;
@@ -16,7 +15,7 @@ pub struct VerifyAccountPage {
     height: Option<f32>,
     bg: Image<'static>,
     code: Vec<CodeValue>,
-    request: Fetcher<JWTs>,
+    request: ActivateRequestFetcher,
     init: bool,
 }
 
@@ -26,7 +25,7 @@ impl Default for VerifyAccountPage {
             height: None,
             bg: get_background(),
             code: vec![CodeValue::default(); 6],
-            request: Fetcher::new(ActivateRequest::request(&get_app_data().url).unwrap()),
+            request: ActivateRequest::fetcher(&get_app_data().url),
             init: false,
         }
     }

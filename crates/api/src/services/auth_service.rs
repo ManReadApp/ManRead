@@ -4,7 +4,7 @@ use actix_web::web::Data;
 use actix_web::{Error, HttpMessage};
 use actix_web_grants::authorities::AttachAuthorities;
 use actix_web_httpauth::extractors::bearer::BearerAuth;
-use api_structure::auth::jwt::JwtType;
+use api_structure::models::auth::jwt::JwtType;
 
 pub async fn validator(
     req: ServiceRequest,

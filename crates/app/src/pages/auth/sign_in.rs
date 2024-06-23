@@ -1,18 +1,16 @@
 use crate::data::user::User;
-use crate::fetcher::{Complete, Fetcher};
+use crate::fetcher::Complete;
 use crate::get_app_data;
 use crate::pages::auth::{background, get_background};
+use crate::requests::{LoginRequestFetcher, RequestImpl as _};
 use crate::util::validator::{validate_email, validate_password, validate_username};
 use crate::widgets::hover_brackground::HoverBackground;
 use crate::widgets::or_continue_with::centered_line_with_text_widget;
 use crate::widgets::submit_button;
 use crate::window_storage::Page;
-use api_structure::auth::jwt::JWTs;
-use api_structure::auth::login::{
-    LoginRequest, LoginWithEmailAndPassword, LoginWithUsernameAndPassword,
-};
-use api_structure::auth::role::Role;
-use api_structure::RequestImpl;
+use api_structure::models::auth::login::{LoginWithEmailAndPassword, LoginWithUsernameAndPassword};
+use api_structure::models::auth::role::Role;
+use api_structure::req::auth::login::LoginRequest;
 use eframe::{App, Frame};
 use egui::{
     vec2, Align, Context, CursorIcon, Image, ImageButton, Label, Layout, Link, Sense, TextEdit, Ui,
@@ -26,7 +24,7 @@ pub struct LoginPage {
     email_login: bool,
     username: String,
     password: String,
-    request: Fetcher<JWTs>,
+    request: LoginRequestFetcher,
     ctx_set: bool,
 }
 impl Default for LoginPage {
@@ -51,7 +49,7 @@ impl Default for LoginPage {
             email_login: false,
             username: "".to_string(),
             password: "".to_string(),
-            request: Fetcher::new(LoginRequest::request(&get_app_data().url).unwrap()),
+            request: LoginRequest::fetcher(&get_app_data().url),
             ctx_set: false,
         }
     }

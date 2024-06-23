@@ -4,18 +4,19 @@ use crate::services::crypto_service::CryptoService;
 use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json};
-use api_structure::auth::jwt::{Claim, JWTs};
-use api_structure::auth::register::NewUserRequest;
-use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::jwt::Claim;
+use api_structure::models::auth::role::Role;
+use api_structure::req::auth::register::RegisterRequest;
+use api_structure::resp::auth::JWTsResponse;
 
 #[post("/sign_up")]
 async fn sign_up_route(
-    Json(data): Json<NewUserRequest>,
+    Json(data): Json<RegisterRequest>,
     crypto: Data<CryptoService>,
     config: Data<Config>,
     db: Data<UserDBService>,
-) -> ApiResult<Json<JWTs>> {
+) -> ApiResult<Json<JWTsResponse>> {
     if !config
         .root_folder
         .join("temp")
@@ -75,7 +76,7 @@ async fn sign_up_route(
         config.root_folder.join("temp").join(data.icon_temp_name),
         config.root_folder.join("users").join("icon").join(name),
     )?;
-    Ok(Json(JWTs {
+    Ok(Json(JWTsResponse {
         access_token: crypto.encode_claim(&Claim::new_access(id.clone(), Role::NotVerified)?)?,
         refresh_token: crypto.encode_claim(&Claim::new_refresh(id.clone(), Role::NotVerified)?)?,
     }))

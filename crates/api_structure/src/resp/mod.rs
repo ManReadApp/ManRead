@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::models::manga::external_search::ValidSearches;
 
+pub mod auth;
 pub mod manga;
 pub mod reader;
 

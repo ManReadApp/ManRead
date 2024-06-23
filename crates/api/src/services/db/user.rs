@@ -1,7 +1,7 @@
 use crate::errors::ApiResult;
-use api_structure::auth::register::Gender;
-use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::gender::Gender;
+use api_structure::models::auth::role::Role;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

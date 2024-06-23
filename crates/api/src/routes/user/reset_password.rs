@@ -4,10 +4,11 @@ use crate::services::db::auth_tokens::{AuthToken, AuthTokenDBService};
 use crate::services::db::user::UserDBService;
 use actix_web::post;
 use actix_web::web::{Data, Json};
-use api_structure::auth::jwt::{Claim, JWTs};
-use api_structure::auth::reset_password::{RequestResetPasswordRequest, ResetPasswordRequest};
-use api_structure::auth::role::Role;
 use api_structure::error::{ApiErr, ApiErrorType};
+use api_structure::models::auth::jwt::Claim;
+use api_structure::models::auth::role::Role;
+use api_structure::req::auth::reset_password::{RequestResetPasswordRequest, ResetPasswordRequest};
+use api_structure::resp::auth::JWTsResponse;
 use surrealdb_extras::SurrealTableInfo;
 
 #[post("/request_reset_password")]
@@ -26,7 +27,7 @@ async fn reset_password(
     user: Data<UserDBService>,
     crypto: Data<CryptoService>,
     activation: Data<AuthTokenDBService>,
-) -> ApiResult<Json<JWTs>> {
+) -> ApiResult<Json<JWTsResponse>> {
     let find = activation.check(&data.key).await?;
     let id = user.get_id(&data.ident, data.email).await?;
     if let Some(v) = &find.data.user {
@@ -55,7 +56,7 @@ async fn reset_password(
     let hash = crypto.hash_password(&data.password)?;
     user.set_password(id.as_str(), hash).await?;
 
-    Ok(Json(JWTs {
+    Ok(Json(JWTsResponse {
         access_token: crypto.encode_claim(&Claim::new_access(id.clone(), kind.kind)?)?,
         refresh_token: crypto.encode_claim(&Claim::new_refresh(id.clone(), kind.kind)?)?,
     }))

@@ -14,13 +14,13 @@ use std::collections::HashMap;
 #[post("/search/external/list")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "api_structure::models::auth::role::Role::Admin",
+        "api_structure::models::auth::role::Role::CoAdmin",
+        "api_structure::models::auth::role::Role::Moderator",
+        "api_structure::models::auth::role::Role::Author",
+        "api_structure::models::auth::role::Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "api_structure::models::auth::role::Role"
 )]
 pub async fn available_external_search_sites(
     search_service: Data<SearchService>,
@@ -31,13 +31,13 @@ pub async fn available_external_search_sites(
 #[post("/search/external")]
 #[protect(
     any(
-        "api_structure::auth::role::Role::Admin",
-        "api_structure::auth::role::Role::CoAdmin",
-        "api_structure::auth::role::Role::Moderator",
-        "api_structure::auth::role::Role::Author",
-        "api_structure::auth::role::Role::User"
+        "api_structure::models::auth::role::Role::Admin",
+        "api_structure::models::auth::role::Role::CoAdmin",
+        "api_structure::models::auth::role::Role::Moderator",
+        "api_structure::models::auth::role::Role::Author",
+        "api_structure::models::auth::role::Role::User"
     ),
-    ty = "api_structure::auth::role::Role"
+    ty = "api_structure::models::auth::role::Role"
 )]
 pub async fn search(
     Json(data): Json<ExternalSearchRequest>,
