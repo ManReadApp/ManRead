@@ -132,7 +132,7 @@ impl SearchPage {
 impl<T: DisplaySearch> SearchData<T> {
     fn move_data_external(&mut self, ctx: &Context, search: &mut ExternalSearchRequest) {
         if self.fetcher.result().is_some() {
-            let mut new = SearchRequest::cfetcher_ctx(&get_app_data().url, ctx.clone());
+            let mut new = ExternalSearchRequest::cfetcher_ctx(&get_app_data().url, ctx.clone());
             mem::swap(&mut new, &mut self.fetcher);
             let result = new.take_result().unwrap();
             match result {
