@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::get_app_data;
 use api_structure::error::ClientError;
 use api_structure::models::auth::jwt::Claim;
@@ -119,7 +121,7 @@ impl User {
                 self.user_data = user.unwrap();
                 self.access_token = jwts.access_token;
                 self.refresh_token = jwts.refresh_token;
-                return Some(self.refresh_token.clone());
+                return Some(self.access_token.clone());
             }
         }
         None
@@ -134,7 +136,8 @@ impl User {
     }
 
     fn is_access_valid(&self) -> bool {
-        self.user_data.exp > now_timestamp().expect("Time went backwards").as_millis()
+        self.user_data.exp
+            > (now_timestamp().expect("Time went backwards") - Duration::from_secs(10)).as_millis()
     }
 
     fn is_refresh_valid(&self) -> bool {
