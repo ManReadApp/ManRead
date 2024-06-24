@@ -10,7 +10,7 @@ pub fn setup_custom_fonts(c: egui::Context) -> ThreadHandler<Option<()>> {
 
         let fonts: Vec<String> = get_app_data()
             .client
-            .post(get_app_data().url.join("fonts").unwrap())
+            .post(get_app_data().url.join("fonts/list").unwrap())
             .send()
             .await
             .ok()?
@@ -20,7 +20,7 @@ pub fn setup_custom_fonts(c: egui::Context) -> ThreadHandler<Option<()>> {
         for font in &fonts {
             let raw = get_app_data()
                 .client
-                .post(get_app_data().url.join("font").unwrap())
+                .post(get_app_data().url.join("fonts/file").unwrap())
                 .json(&FontRequest::new(font.to_string()))
                 .send()
                 .await
