@@ -1,5 +1,3 @@
-//
-
 use crate::errors::ApiResult;
 use actix_web::post;
 use actix_web::web::{Data, Json};
