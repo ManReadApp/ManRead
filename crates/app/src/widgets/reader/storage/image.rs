@@ -64,11 +64,11 @@ impl ImageStorage {
                     if let Some(v) = v.req.task.ready() {
                         if let Some(v) = v {
                             for image in &v.1 {
-                                if let Some(v) = image.background.source().uri() {
+                                if let Some(v) = image.background.source(ctx).uri() {
                                     ctx.forget_image(v);
                                 }
                             }
-                            if let Some(v) = v.0.source().uri() {
+                            if let Some(v) = v.0.source(ctx).uri() {
                                 ctx.forget_image(v);
                             }
                         }
