@@ -28,9 +28,12 @@ pub struct Service {
 
 impl Service {
     fn process(&self, html: &str) -> HashMap<String, String> {
+        let html = html.replace("<noscript>", "").replace("</noscript>", "");
         self.fields
             .iter()
-            .filter_map(|v| v.get(html).map(|res| (v.name.clone(), res)))
+            .filter_map(|v| {
+                v.get(&html).map(|res| (v.name.clone(), res))
+            })
             .collect::<HashMap<_, _>>()
     }
 }
