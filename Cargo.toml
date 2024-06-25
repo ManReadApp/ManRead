@@ -9,7 +9,6 @@ members = [
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.77"
 version = "0.1.0"
 
 [workspace.dependencies]
@@ -37,7 +36,6 @@ reqwest = {version = "0.12.4", features = ["json", "stream", "multipart"] }
 base64 = "0.22.1"
 poll-promise = "0.3"
 keyring = "2.3"
-egui_extras = { version = "0.27.2", features = ["all_loaders", "datepicker"] }
 rfd = "0.14"
 regex = "1.10.4"
 identicon-rs = "5.0.0"
