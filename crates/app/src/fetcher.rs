@@ -107,6 +107,7 @@ impl<T: DeserializeOwned + Send> Fetcher<T> {
                     Ok(vec![])
                 } else {
                     let suc = resp.status().is_success();
+                    let url = resp.url().clone();
                     let byts = resp.bytes().await.map_err(|e| {
                         Errors::ClientErr(ClientError {
                             message: e.to_string(),
@@ -115,7 +116,11 @@ impl<T: DeserializeOwned + Send> Fetcher<T> {
                         })
                     })?;
                     if suc {
-                        context.lock().as_ref().unwrap().request_repaint();
+                        context
+                            .lock()
+                            .as_ref()
+                            .expect(&format!("{}", url))
+                            .request_repaint();
                         Ok(byts.to_vec())
                     } else {
                         let err =
