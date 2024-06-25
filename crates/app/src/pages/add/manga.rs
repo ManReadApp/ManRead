@@ -2,8 +2,11 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use api_structure::models::manga::external_search::ExternalSearchData;
 use api_structure::models::manga::tag::Tag;
 use api_structure::req::manga::add::AddMangaRequest;
+use api_structure::req::manga::external_search::ExternalSearchRequest;
+use api_structure::req::manga::search::SearchRequest;
 use api_structure::req::manga::{AvailableExternalSitesRequest, KindsRequest};
 use eframe::{App, Frame};
 use egui::{include_image, vec2, Button, Context, Image, ImageSource, TextBuffer, Ui, Vec2};
@@ -13,9 +16,9 @@ use rfd::AsyncFileDialog;
 use crate::fetcher::{upload_image, UploadFile};
 use crate::get_app_data;
 use crate::pages::auth::{background, get_background};
+use crate::pages::search::{SearchComponent, SearchData};
 use crate::requests::{
-    AddMangaRequestFetcher, AvailableExternalSitesRequestFetcher, KindsRequestFetcher,
-    RequestImpl as _,
+    AddMangaRequestFetcher, KindsRequestFetcher, RequestImpl as _, SearchRequestFetcher,
 };
 use crate::widgets::add::{tag_field, Group, SuggestionBox, TagSuggestionBox};
 use crate::widgets::hover_brackground::HoverBackground;
@@ -41,14 +44,26 @@ pub struct AddMangaPage {
     upload_image: Arc<Mutex<Option<Image<'static>>>>,
     uploaded_image: Option<ThreadHandler<Option<String>>>,
     request2: Option<KindsRequestFetcher>,
-    available_searches: AvailableExternalSitesRequestFetcher,
     init: Initter,
+    search: SearchComponent,
 }
 
 impl AddMangaPage {
     pub fn new() -> Self {
         let img = Image::new(include_image!("../../assets/upload.png"));
         let request = AddMangaRequest::fetcher(&get_app_data().url);
+        let mut fetcher: SearchRequestFetcher = SearchRequest::fetcher(&get_app_data().url);
+        fetcher.set_body(&*get_app_data().search.lock().unwrap());
+        let mut search = get_app_data().search.lock().unwrap().query.to_string();
+        if search.starts_with("and:(") && search.ends_with(')') {
+            search = search
+                .strip_prefix("and:(")
+                .unwrap()
+                .strip_suffix(')')
+                .unwrap()
+                .to_string();
+        }
+        let searches = AvailableExternalSitesRequest::fetcher(&get_app_data().url);
         Self {
             bg: get_background(),
             titles: HashMap::new(),
@@ -84,7 +99,33 @@ impl AddMangaPage {
             uploaded_image: None,
             request2: Some(KindsRequest::fetcher(&get_app_data().url)),
             init: Default::default(),
-            available_searches: AvailableExternalSitesRequest::fetcher(&get_app_data().url),
+            search: SearchComponent {
+                internal: SearchData {
+                    searched: vec![],
+                    fetcher,
+                    search,
+                    end: false,
+                    require_new: false,
+                    reload: false,
+                },
+                external: SearchData {
+                    searched: vec![],
+                    fetcher: ExternalSearchRequest::fetcher(&get_app_data().url),
+                    search: "".to_string(),
+                    end: false,
+                    require_new: false,
+                    reload: false,
+                },
+                external_search: ExternalSearchRequest {
+                    data: ExternalSearchData::String(("".to_string(), 1)),
+                    uri: "asura".to_string(),
+                },
+                external_change: false,
+                reset_scroll: false,
+                selected_search: "anilist".to_string(),
+                searches,
+                init: Default::default(),
+            },
         }
     }
 
@@ -194,7 +235,6 @@ impl App for AddMangaPage {
             if let Some(v) = &mut self.request2 {
                 v.set_ctx(ctx.clone()).send();
             }
-            self.available_searches.set_ctx(ctx.clone()).send();
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             background(&self.bg, ui);
@@ -349,17 +389,6 @@ impl HoverBackground for AddMangaPage {
     const RENDER_SIDE: bool = true;
 
     fn side(&mut self, ui: &mut Ui, ctx: &egui::Context) {
-        if let Some(v) = self.available_searches.result() {
-            match v {
-                crate::fetcher::Complete::ApiError(_) => todo!(),
-                crate::fetcher::Complete::Error(_) => todo!(),
-                crate::fetcher::Complete::Bytes(_) => {}
-                crate::fetcher::Complete::Json(res) => {
-                    for (item, _) in res {
-                        ui.label(item);
-                    }
-                }
-            }
-        }
+        self.search.in_panel(ui, ctx, true)
     }
 }

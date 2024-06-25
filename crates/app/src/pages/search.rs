@@ -5,7 +5,8 @@ use crate::requests::{
     SearchRequestFetcher,
 };
 use crate::util::parser::search_parser;
-use crate::window_storage::Page;
+use crate::widgets::add::Group;
+use crate::window_storage::{Initter, Page};
 use api_structure::models::manga::external_search::{
     ExternalSearchData, SimpleSearch, ValidSearches,
 };
@@ -20,6 +21,7 @@ use api_structure::search::DisplaySearch;
 use eframe::emath::vec2;
 use eframe::{App, Frame};
 use egui::scroll_area::ScrollBarVisibility;
+use egui::Response;
 use egui::{
     Color32, ComboBox, Context, Grid, Label, OpenUrl, ScrollArea, Sense, Spinner, TextEdit, Ui,
 };
@@ -28,23 +30,16 @@ use std::mem;
 use std::sync::MutexGuard;
 
 pub struct SearchPage {
-    internal: SearchData<SearchResponse>,
-    external: SearchData<ScrapeSearchResponse>,
-    external_search: ExternalSearchRequest,
-    external_change: bool,
-    reset_scroll: bool,
-    selected_search: String,
-    searches: AvailableExternalSitesRequestFetcher,
-    init: bool,
+    search: SearchComponent,
 }
 
 pub struct SearchData<D: DisplaySearch> {
-    searched: Vec<D>,
-    fetcher: Fetcher<Vec<D>>,
-    search: String,
-    end: bool,
-    require_new: bool,
-    reload: bool,
+    pub searched: Vec<D>,
+    pub fetcher: Fetcher<Vec<D>>,
+    pub search: String,
+    pub end: bool,
+    pub require_new: bool,
+    pub reload: bool,
 }
 
 impl<D: DisplaySearch> SearchData<D> {
@@ -58,27 +53,9 @@ impl<D: DisplaySearch> SearchData<D> {
 }
 
 impl SearchPage {
-    pub fn search_field_parser<'a>(
-        search: &'a mut String,
-        allowed: &Vec<Field>,
-    ) -> (TextEdit<'a>, Array, Vec<String>) {
-        let (parsed, errors) = search_parser(search, false, allowed);
-        let color = if !errors.is_empty() {
-            Some(Color32::from_rgb(255, 64, 64))
-        } else {
-            None
-        };
-        let mut search_field = TextEdit::singleline(search);
-        if let Some(color) = color {
-            search_field = search_field.text_color(color)
-        }
-        (search_field, parsed, errors)
-    }
-
     pub fn new() -> Self {
         let mut fetcher: SearchRequestFetcher = SearchRequest::fetcher(&get_app_data().url);
         fetcher.set_body(&*get_app_data().search.lock().unwrap());
-        fetcher.send();
         let mut search = get_app_data().search.lock().unwrap().query.to_string();
         if search.starts_with("and:(") && search.ends_with(')') {
             search = search
@@ -88,43 +65,35 @@ impl SearchPage {
                 .unwrap()
                 .to_string();
         }
-        let mut searches = AvailableExternalSitesRequest::fetcher(&get_app_data().url);
-        searches.send();
+        let searches = AvailableExternalSitesRequest::fetcher(&get_app_data().url);
         Self {
-            internal: SearchData {
-                searched: vec![],
-                fetcher,
-                search,
-                end: false,
-                require_new: false,
-                reload: false,
+            search: SearchComponent {
+                internal: SearchData {
+                    searched: vec![],
+                    fetcher,
+                    search,
+                    end: false,
+                    require_new: false,
+                    reload: false,
+                },
+                external: SearchData {
+                    searched: vec![],
+                    fetcher: ExternalSearchRequest::fetcher(&get_app_data().url),
+                    search: "".to_string(),
+                    end: false,
+                    require_new: false,
+                    reload: false,
+                },
+                external_search: ExternalSearchRequest {
+                    data: ExternalSearchData::String(("".to_string(), 1)),
+                    uri: "asura".to_string(),
+                },
+                external_change: false,
+                reset_scroll: false,
+                selected_search: "internal".to_string(),
+                searches,
+                init: Default::default(),
             },
-            external: SearchData {
-                searched: vec![],
-                fetcher: ExternalSearchRequest::fetcher(&get_app_data().url),
-                search: "".to_string(),
-                end: false,
-                require_new: false,
-                reload: false,
-            },
-            external_search: ExternalSearchRequest {
-                data: ExternalSearchData::String(("".to_string(), 1)),
-                uri: "asura".to_string(),
-            },
-            external_change: false,
-            reset_scroll: false,
-            selected_search: "internal".to_string(),
-            searches,
-            init: false,
-        }
-    }
-
-    fn init(&mut self, ctx: &Context) {
-        if !&self.init {
-            self.init = true;
-            self.internal.fetcher.set_ctx(ctx.clone());
-            self.external.fetcher.set_ctx(ctx.clone());
-            self.searches.set_ctx(ctx.clone());
         }
     }
 }
@@ -189,9 +158,18 @@ impl<T: DisplaySearch> SearchData<T> {
     }
 }
 
-fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: bool) {
+fn display_grid<T: DisplaySearch>(
+    ui: &mut Ui,
+    data: &mut SearchData<T>,
+    reset: bool,
+    external_only: bool,
+) {
+    let width = match external_only {
+        true => 80.,
+        false => 200.,
+    };
     let height = ui.available_height();
-    let itemsxrow = (ui.available_width() / 200.).floor();
+    let itemsxrow = (ui.available_width() / width).floor();
     let size = (ui.available_width() + ui.spacing().item_spacing.x) / itemsxrow - 10.;
     let mut scroll_area = ScrollArea::vertical();
     if reset {
@@ -243,11 +221,11 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
 
                                 ui.put(rect, spinner);
                             }
-
-                            let v = ui.allocate_exact_size(vec2(size, 40.), Sense::hover());
+                            ui.set_max_width(size);
                             let label = Label::new(get_app_data().get_title(&item.titles()))
+                                .wrap()
                                 .sense(Sense::click());
-                            if ui.put(v.0, label).clicked() {
+                            if ui.add(label).clicked() {
                                 if item.internal() {
                                     get_app_data().open(Page::MangaInfo(item.id_url().clone()))
                                 } else {
@@ -265,8 +243,26 @@ fn display_grid<T: DisplaySearch>(ui: &mut Ui, data: &mut SearchData<T>, reset: 
     data.set_load(|| (v.content_size.y - v.state.offset.y) < (height * 3.));
 }
 
-impl App for SearchPage {
-    fn update(&mut self, ctx: &Context, _: &mut Frame) {
+pub struct SearchComponent {
+    pub internal: SearchData<SearchResponse>,
+    pub external: SearchData<ScrapeSearchResponse>,
+    pub external_search: ExternalSearchRequest,
+    pub external_change: bool,
+    pub reset_scroll: bool,
+    pub selected_search: String,
+    pub searches: AvailableExternalSitesRequestFetcher,
+    pub init: Initter,
+}
+
+impl SearchComponent {
+    fn init(&mut self, ctx: &Context) {
+        if self.init.init() {
+            self.internal.fetcher.set_ctx(ctx.clone());
+            self.external.fetcher.set_ctx(ctx.clone());
+            self.searches.set_ctx(ctx.clone()).send();
+        }
+    }
+    fn get_parser(&mut self, ctx: &Context) -> (Option<Vec<Field>>, bool) {
         self.init(ctx);
         let mut parser = None;
         let mut internal = false;
@@ -286,105 +282,64 @@ impl App for SearchPage {
                 ItemKind::String,
             )]);
         }
-        egui::CentralPanel::default().show(ctx, |ui| {
-            let search = match internal {
-                false => self.external.search.clone(),
-                true => "".to_string(),
-            };
-            let (search_field, parsed, errors) = match parser {
-                None => (
-                    TextEdit::singleline(match internal {
-                        true => &mut self.internal.search,
-                        false => &mut self.external.search,
-                    }),
-                    Array {
-                        or: false,
-                        items: vec![],
-                    },
-                    vec![],
-                ),
-                Some(ref binding) => Self::search_field_parser(
-                    match internal {
-                        true => &mut self.internal.search,
-                        false => &mut self.external.search,
-                    },
-                    binding,
-                ),
-            };
-            ui.horizontal(|ui| {
-                let resp = ui.add(
-                    search_field
-                        .margin(vec2(10., 10.))
-                        .hint_text("Advanced Search")
-                        .desired_width(ui.available_width() - 140.),
-                );
-                let selected = self.selected_search.clone();
-                ui.add_enabled_ui(self.searches.result().is_some(), |ui| {
-                    let padding = ui.style_mut().spacing.interact_size.y;
-                    ui.style_mut().spacing.interact_size.y = 33.0;
-                    ComboBox::new("search_selector", "")
-                        .wrap()
-                        .selected_text(display_label(&self.selected_search))
-                        .show_ui(ui, |ui| {
-                            let items = match self.searches.result() {
-                                None => vec![],
-                                Some(v) => match v {
-                                    Complete::Json(v) => v.keys().cloned().collect::<Vec<_>>(),
-                                    _ => vec!["error".to_string()],
-                                },
-                            };
-                            ui.selectable_value(
-                                &mut self.selected_search,
-                                "internal".to_string(),
-                                "Internal",
-                            );
-                            for item in items {
-                                let label = display_label(&item);
-                                ui.selectable_value(&mut self.selected_search, item, label);
-                            }
-                        });
-                    ui.style_mut().spacing.interact_size.y = padding;
-                });
-                if selected != self.selected_search && self.selected_search != "internal" {
-                    self.external_search.uri.clone_from(&self.selected_search);
-                    if let Some(Complete::Json(v)) = self.searches.result() {
-                        self.external_search.data = match v.get(&self.selected_search).unwrap() {
-                            ValidSearches::String => {
-                                ExternalSearchData::String(("".to_string(), 1))
-                            }
-                            ValidSearches::ValidSearch(_) => {
-                                ExternalSearchData::Simple(SimpleSearch {
-                                    search: "".to_string(),
-                                    sort: None,
-                                    desc: false,
-                                    status: None,
-                                    tags: vec![],
-                                    page: 1,
-                                })
-                            }
-                        };
-                        self.external_change = true;
-                        self.reset_scroll = true;
-                        self.external.reload = true;
-                        reset_ext(&mut self.external.fetcher, &self.external_search);
-                    } else {
-                        unreachable!()
-                    }
-                }
-                if !errors.is_empty() {
-                    resp.on_hover_text(errors.join("\n"));
-                }
-            });
+        (parser, internal)
+    }
 
-            if !internal && search != self.external.search {
-                self.external_search
-                    .data
-                    .update_query(&self.external.search);
-                self.external_change = true;
-            }
+    pub fn search_field_parser<'a>(
+        search: &'a mut String,
+        allowed: &Vec<Field>,
+    ) -> (TextEdit<'a>, Array, Vec<String>) {
+        let (parsed, errors) = search_parser(search, false, allowed);
+        let color = if !errors.is_empty() {
+            Some(Color32::from_rgb(255, 64, 64))
+        } else {
+            None
+        };
+        let mut search_field = TextEdit::singleline(search);
+        if let Some(color) = color {
+            search_field = search_field.text_color(color)
+        }
+        (search_field, parsed, errors)
+    }
 
-            if internal {
-                let item = ItemOrArray::Array(parsed);
+    pub fn in_panel(&mut self, ui: &mut Ui, ctx: &Context, external_only: bool) {
+        let (parser, internal) = self.get_parser(ctx);
+        let search = match internal {
+            false => self.external.search.clone(),
+            true => "".to_string(),
+        };
+        let (search_field, parsed, errors) = match parser {
+            None => (
+                TextEdit::singleline(match internal {
+                    true => &mut self.internal.search,
+                    false => &mut self.external.search,
+                }),
+                Array {
+                    or: false,
+                    items: vec![],
+                },
+                vec![],
+            ),
+            Some(ref binding) => Self::search_field_parser(
+                match internal {
+                    true => &mut self.internal.search,
+                    false => &mut self.external.search,
+                },
+                binding,
+            ),
+        };
+        let (selected, resp) = Self::render_search_bar(
+            ui,
+            search_field,
+            &mut self.selected_search,
+            &mut self.searches,
+            !external_only,
+        );
+        self.reset_external(resp, selected, errors);
+
+        let item = ItemOrArray::Array(parsed);
+        match internal {
+            true => {
                 let mut stored = get_app_data().search.lock().unwrap();
                 if item != stored.query {
                     debug!("{:?}", item);
@@ -394,22 +349,114 @@ impl App for SearchPage {
                     self.internal.reload = true;
                     reset(&mut self.internal.fetcher, stored);
                 }
-            } else if self.external_change {
-                self.external_search.reset_page();
-                self.reset_scroll = true;
-                self.external.reload = true;
-                self.external_change = false;
-                reset_ext(&mut self.external.fetcher, &self.external_search);
             }
-
-            ui.add_space(10.);
-            match internal {
-                true => display_grid(ui, &mut self.internal, self.reset_scroll),
-                false => display_grid(ui, &mut self.external, self.reset_scroll),
+            false => {
+                if search != self.external.search {
+                    self.external_search.data.update_query(&search);
+                    self.external_change = true;
+                }
+                if self.external_change {
+                    //TODO: duplicate
+                    self.external_search.reset_page();
+                    self.reset_scroll = true;
+                    self.external.reload = true;
+                    self.external_change = false;
+                    reset_ext(&mut self.external.fetcher, &self.external_search);
+                }
             }
+        }
 
-            self.reset_scroll = false;
-        });
+        ui.add_space(10.);
+        match internal {
+            true => display_grid(ui, &mut self.internal, self.reset_scroll, external_only),
+            false => display_grid(ui, &mut self.external, self.reset_scroll, external_only),
+        }
+
+        self.reset_scroll = false;
+    }
+
+    fn reset_external(&mut self, resp: Response, selected: String, errors: Vec<String>) {
+        //TODO: move to on change
+        // if selected != self.selected_search && self.selected_search != "internal" {
+        //     self.external_search.uri.clone_from(&self.selected_search);
+        //     if let Some(Complete::Json(v)) = self.searches.result() {
+        //         self.external_search.data = match v.get(&self.selected_search).unwrap() {
+        //             ValidSearches::String => ExternalSearchData::String(("".to_string(), 1)),
+        //             ValidSearches::ValidSearch(_) => ExternalSearchData::Simple(SimpleSearch {
+        //                 search: "".to_string(),
+        //                 sort: None,
+        //                 desc: false,
+        //                 status: None,
+        //                 tags: vec![],
+        //                 page: 1,
+        //             }),
+        //         };
+        //         self.external_change = true;
+        //         self.reset_scroll = true;
+        //         self.external.reload = true;
+        //         reset_ext(&mut self.external.fetcher, &self.external_search);
+        //     } else {
+        //         unreachable!()
+        //     }
+        // }
+        if !errors.is_empty() {
+            resp.on_hover_text(errors.join("\n"));
+        }
+    }
+
+    fn render_search_bar(
+        ui: &mut Ui,
+
+        search_field: TextEdit,
+        selected_search: &mut String,
+        searches: &mut AvailableExternalSitesRequestFetcher,
+        internal_available: bool,
+    ) -> (String, Response) {
+        ui.horizontal(|ui| {
+            let resp = ui.add(
+                search_field
+                    .margin(vec2(10., 10.))
+                    .hint_text("Advanced Search")
+                    .desired_width(ui.available_width() - 140.),
+            );
+            let selected = selected_search.clone();
+            ui.add_enabled_ui(searches.result().is_some(), |ui| {
+                let padding = ui.style_mut().spacing.interact_size.y;
+                ui.style_mut().spacing.interact_size.y = 33.0;
+                ComboBox::new("search_selector", "")
+                    .wrap()
+                    .selected_text(display_label(selected_search))
+                    .show_ui(ui, |ui| {
+                        let items = match searches.result() {
+                            None => vec![],
+                            Some(v) => match v {
+                                Complete::Json(v) => v.keys().cloned().collect::<Vec<_>>(),
+                                _ => vec!["error".to_string()],
+                            },
+                        };
+                        if internal_available {
+                            ui.selectable_value(
+                                selected_search,
+                                "internal".to_string(),
+                                "Internal",
+                            );
+                        }
+                        for item in items {
+                            let label = display_label(&item);
+                            ui.selectable_value(selected_search, item, label);
+                        }
+                    });
+                ui.style_mut().spacing.interact_size.y = padding;
+            });
+            (selected, resp)
+        })
+        .inner
+    }
+}
+
+impl App for SearchPage {
+    fn update(&mut self, ctx: &Context, _: &mut Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| self.search.in_panel(ui, ctx, false));
     }
 }
 
