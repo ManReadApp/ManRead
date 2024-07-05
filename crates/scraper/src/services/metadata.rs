@@ -9,6 +9,8 @@ use api_structure::error::{ApiErr, ApiErrorType};
 use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Default)]
 pub struct MetaDataService {
@@ -54,8 +56,15 @@ impl MetaDataService {
 pub enum ItemOrArray {
     Item(String),
     Array(Vec<String>),
+    ArrayDyn(Vec<Value>),
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(untagged)]
+enum StringOrArr {
+    String(String),
+    Arr(Vec<String>)
+}
 fn post_process(
     values: HashMap<String, String>,
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
@@ -63,43 +72,79 @@ fn post_process(
     for (key, value) in values {
         let v;
         if let Ok(value) = serde_json::from_str(&value) {
-            let value: Vec<String> = value;
-            v = ItemOrArray::Array(value);
+            let value: Vec<Value> = value;
+            let str = value.iter().all(|v|v.is_string());
+            if str {
+                v = ItemOrArray::Array(value.into_iter().map(|v|v.as_str().unwrap().to_string()).collect())
+            }else {
+                v = ItemOrArray::ArrayDyn(value);
+            }
         } else {
             v = ItemOrArray::Item(value);
         }
         res.insert(key, v);
     }
-    if let Some(ItemOrArray::Array(v)) = res.remove("fields_labels") {
-        if let Some(ItemOrArray::Array(vv)) = res.remove("labels") {
-            if v.len() == vv.len() {
-                for (i, data) in v.into_iter().enumerate() {
-                    let value = vv.get(i).unwrap().as_str();
-                    let text = clean_text(
-                        clean_text(data)
-                            .strip_prefix(value)
-                            .ok_or(ScrapeError::node_not_found())?
-                            .to_string(),
-                    );
-                    let key = value.replace(':', "");
-                    match value {
-                        "Genres:" | "Demographic:" | "Themes:" => {
-                            let genres: Vec<String> = text
-                                .split(',')
-                                .map(|v| v.split_once('\n').map(|v| v.0).unwrap_or(v).to_string())
-                                .map(clean_text)
-                                .collect();
-                            res.insert(key, ItemOrArray::Array(genres));
-                        }
-                        "Score:" | "Chapters:" | "Favorites:" | "Members:" | "Popularity:"
-                        | "Volumes:" | "Ranked:" => {}
-                        _ => {
-                            res.insert(key, ItemOrArray::Item(text));
+    let v = res.remove("rows");
+    match v {
+        Some(ItemOrArray::ArrayDyn(v)) => {
+            for v in v {
+                let v: (String, String) = serde_json::from_value(v).unwrap();
+                let value:StringOrArr = serde_json::from_str(&v.1).unwrap_or(StringOrArr::String(v.1));
+                res.insert(v.0, match value {
+                    StringOrArr::String(v) => ItemOrArray::Item(v),
+                    StringOrArr::Arr(v) => ItemOrArray::Array(v),
+                });
+            }
+        },
+        Some(ItemOrArray::Array(v)) => {
+            res.insert("rows".to_string(), ItemOrArray::Array(v));
+        }
+        Some(ItemOrArray::Item(v)) => {
+            res.insert("rows".to_string(), ItemOrArray::Item(v));
+        },
+        None => {}
+    }
+
+    let v = res.remove("fields_labels");
+    match v {
+        Some(ItemOrArray::Array(v)) => {
+            if let Some(ItemOrArray::Array(vv)) = res.remove("labels") {
+                if v.len() == vv.len() {
+                    for (i, data) in v.into_iter().enumerate() {
+                        let value = vv.get(i).unwrap().as_str();
+                        let text = clean_text(
+                            clean_text(data)
+                                .strip_prefix(value)
+                                .ok_or(ScrapeError::node_not_found())?
+                                .to_string(),
+                        );
+                        let key = value.replace(':', "");
+                        match value {
+                            "Genres:" | "Demographic:" | "Themes:" => {
+                                let genres: Vec<String> = text
+                                    .split(',')
+                                    .map(|v| v.split_once('\n').map(|v| v.0).unwrap_or(v).to_string())
+                                    .map(clean_text)
+                                    .collect();
+                                res.insert(key, ItemOrArray::Array(genres));
+                            }
+                            "Score:" | "Chapters:" | "Favorites:" | "Members:" | "Popularity:"
+                            | "Volumes:" | "Ranked:" => {}
+                            _ => {
+                                res.insert(key, ItemOrArray::Item(text));
+                            }
                         }
                     }
                 }
             }
         }
+        Some(ItemOrArray::ArrayDyn(v)) => {
+            res.insert("fields_labels".to_string(), ItemOrArray::ArrayDyn(v));
+        }
+        Some(ItemOrArray::Item(v)) => {
+            res.insert("fields_labels".to_string(), ItemOrArray::Item(v));
+        },
+        None => {}
     }
     Ok(res)
 }

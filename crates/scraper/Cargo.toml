@@ -23,6 +23,7 @@ urlencoding = {workspace = true}
 log = {workspace = true}
 pg-embed = {workspace = true}
 tokio-postgres = {workspace = true}
+url = "2.5.2"
 
 [dev-dependencies]
 walkdir = {workspace = true}

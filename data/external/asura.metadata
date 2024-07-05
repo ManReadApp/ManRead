@@ -5,4 +5,4 @@ tags[@text] span.mgen a
 cover[src] img.wp-post-image
 type[text] .imptdt a
 state[text] .imptdt i
-rows[@html] div.flex-wrap
+rows[@html_fn] div.flex-wrap .fmed => ["[strip_text] b", "[attr=datetime] span time | [strip_text] span"]

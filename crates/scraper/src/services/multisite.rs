@@ -1,5 +1,5 @@
 use crate::downloader::download;
-use crate::pages::{self, hidden};
+use crate::pages::{hidden};
 use crate::services::icon::get_uri;
 use crate::services::{config_to_request_builder, Service};
 use crate::{ExternalSite, ScrapeError};
@@ -21,7 +21,7 @@ pub struct MultiSiteService {
 impl MultiSiteService {
     pub fn new(services: HashMap<String, Service>) -> Self {
         Self {
-            internal: pages::hidden::multi::register().into_iter().collect(),
+            internal:hidden::multi::register().into_iter().collect(),
             client: Default::default(),
             services,
         }
@@ -75,7 +75,7 @@ impl MultiSiteService {
         let mut last = 0.0;
         let fix = false;
         for now in &mut now {
-            let mut increase = false;
+            let mut increase = true;
             if now.episode == 0.0 {
                 if fix {
                     increase = true;
@@ -204,6 +204,7 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
             for (i, url) in urls.into_iter().enumerate() {
                 let title = episodes.get(i).unwrap().replace('-', ".").to_string();
                 let episode = title.parse()?;
+
                 res.push(Info {
                     site: uri.to_string(),
                     url,

@@ -376,7 +376,7 @@ impl SearchComponent {
     }
 
     fn reset_external(&mut self, resp: Response, selected: String, errors: Vec<String>) {
-        //TODO: move to on change
+        //TODO: set self.external_search.data on change
         // if selected != self.selected_search && self.selected_search != "internal" {
         //     self.external_search.uri.clone_from(&self.selected_search);
         //     if let Some(Complete::Json(v)) = self.searches.result() {

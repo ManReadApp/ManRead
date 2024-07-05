@@ -7,6 +7,7 @@ use api_structure::models::manga::external_search::{
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use std::collections::HashMap;
+use crate::pages::hidden::multi;
 
 #[derive(Default)]
 pub struct SearchService {
@@ -61,7 +62,7 @@ impl SearchService {
                 "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
                 "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,
                 "anime-planet" => animeplanet::search(&self.client, search.get_simple()?).await,
-                _ => Err(ScrapeError::input_error("uri does not exist")),
+                _ => multi::manual_search(uri, &self.client, search).await,
             }
         }
     }

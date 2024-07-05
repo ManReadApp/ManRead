@@ -1,14 +1,20 @@
-use regex::Regex;
+use regex::{Captures, Regex};
 use scraper::{Html, Selector};
 
+#[derive(Debug)]
 pub struct Field {
     pub name: String,
-    target: Target,
-    selector: Selector,
+    target: Vec<(Target, Selector)>,
 }
 
+#[derive(Debug)]
 enum Target {
     Html(Prefix),
+    HtmlFn {
+        prefix: Prefix,
+        left: Box<Field>,
+        right: Box<Field>
+    },
     Text(Prefix),
     StripText(Prefix),
     Attr(Prefix, String),
@@ -21,10 +27,10 @@ enum Prefix {
     Num(usize),
 }
 
-impl TryFrom<&str> for Target {
+impl TryFrom<(&str, Option<&str>)> for Target {
     type Error = ();
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from((value, selector): (&str, Option<&str>)) -> Result<Self, Self::Error> {
         let mut value = value.to_lowercase();
         let prefix = value.chars().next();
         let mut pre = Prefix::None;
@@ -44,6 +50,17 @@ impl TryFrom<&str> for Target {
         }
         match value.as_str() {
             "html" => Ok(Self::Html(pre)),
+            "html_fn" => {
+                let (l, r): (String, String) = serde_json::from_str(selector.ok_or(())?).map_err(|_|())?;
+                let re = Field::regex();
+                let l = re.captures(&format!("left{}",l)).map(|v|Field::parse_inner(v)).ok_or(())?;
+                let r = re.captures(&format!("right{}",r)).map(|v|Field::parse_inner(v)).ok_or(())?;
+                Ok(Self::HtmlFn {
+                    prefix: pre,
+                    left: Box::new(l),
+                    right: Box::new(r),
+                })
+            },
             "text" => Ok(Self::Text(pre)),
             "strip_text" => Ok(Self::StripText(pre)),
             "src" => Ok(Self::Attr(pre, "src".to_string())),
@@ -58,98 +75,197 @@ impl TryFrom<&str> for Target {
         }
     }
 }
-
 impl Field {
     pub fn parse(text: &str) -> Vec<Field> {
-        let re = Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-zA-Z0-9@_=\-]+)]\s(.+)"#).unwrap();
+        let re = Self::regex();
         let mut res = vec![];
         for cap in re.captures_iter(text) {
-            if let Ok(v) = Target::try_from(&cap[2]) {
-                res.push(Field {
-                    name: cap[1].to_string(),
-                    target: v,
-                    selector: Selector::parse(&cap[3]).unwrap(),
-                });
-            } else {
-                panic!("Invalid target: {}", &cap[2])
-            }
+            res.push(Self::parse_inner(cap));
         }
         res
     }
+    fn regex()-> Regex {
+        Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-zA-Z0-9@_=\-]+)]\s(.+)"#).unwrap()
+    }
 
-    pub fn get(&self, html: &str) -> Option<String> {
-        let doc = Html::parse_document(html);
-        let mut select = doc.select(&self.selector);
-        Some(match &self.target {
-            Target::Html(prefix) => match prefix {
-                Prefix::None => select.next()?.html(),
+    fn parse_inner(cap: Captures) -> Field {
+        let (p1, p2) =match cap[3].split_once(" => ") {
+            None => (&cap[3], None),
+            Some((a, b)) => (a, Some(b))
+        };
+        let target = format!("[{}] {}", &cap[2], p1).split("|").map(|new|{
+            let hay = format!("name{}", new.trim());
+            let item = Self::regex().captures(&hay).unwrap();
+            (item[2].to_string(),
+            item[3].to_string())
+        }).map(|(target, selector)|{
+            if let Ok(v) = Target::try_from((target.as_str(), p2)) {
+                (v, Selector::parse(&selector).unwrap())
+            } else {
+                panic!("Invalid target: {}", &target)
+
+            }
+        }).collect::<Vec<_>>();
+        Field {
+            name: cap[1].to_string(),
+            target
+        }
+    }
+
+    fn get_single(&self, doc: &Html, target: &Target, selector: &Selector)-> Option<String> {
+        let mut select = doc.select(&selector);
+        Some(match target {
+            Target::HtmlFn {prefix, left, right} => match prefix {
+                Prefix::None => {
+                    let html = select.next()?.html();
+                    serde_json::to_string(&vec![(left.get(&html), right.get(&html))]).unwrap()
+                },
                 Prefix::All => {
-                    serde_json::to_string(&select.map(|v| v.html()).collect::<Vec<_>>()).unwrap()
+                    let htmls = select.map(|v| v.html()).map(|html|{
+                        match (left.get(&html), right.get(&html)) {
+                            (Some(l), Some(r)) => Some((l, r)),
+                            _ => None
+                        }
+                    }).flatten().collect::<Vec<_>>();
+                    if htmls.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(&htmls).unwrap()
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
-                    serde_json::to_string(&v[..*size].iter().map(|v| v.html()).collect::<Vec<_>>())
+                    let htmls = v[..*size].iter().map(|v| v.html()).map(|html|{
+                        match (left.get(&html), right.get(&html)) {
+                            (Some(l), Some(r)) => Some((l, r)),
+                            _ => None
+                        }
+                    }).flatten().collect::<Vec<_>>();
+                    if htmls.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(&htmls)
+                        .unwrap()
+                }
+            }
+            Target::Html(prefix) => match prefix {
+                Prefix::None => select.next()?.html(),
+                Prefix::All => {
+                    let htmls = select.map(|v| v.html()).collect::<Vec<_>>();
+                    if htmls.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(&htmls).unwrap()
+                }
+                Prefix::Num(size) => {
+                    let v = select.collect::<Vec<_>>();
+                    let htmls = v[..*size].iter().map(|v| v.html()).collect::<Vec<_>>();
+                    if htmls.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(&htmls)
                         .unwrap()
                 }
             },
             Target::Text(prefix) => match prefix {
                 Prefix::None => get_text(select.next()?.text()),
-                Prefix::All => serde_json::to_string(
-                    &select.map(|text| get_text(text.text())).collect::<Vec<_>>(),
-                )
-                .unwrap(),
+                Prefix::All => {
+                    let texts = select.map(|text| get_text(text.text())).collect::<Vec<_>>();
+                    if texts.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(
+                        &texts,
+                    )
+                        .unwrap()
+                },
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
+                    let texts = v[..*size]
+                        .iter()
+                        .map(|v| get_text(v.text()))
+                        .collect::<Vec<_>>();
+                    if texts.is_empty() {
+                        return None;
+                    }
                     serde_json::to_string(
-                        &v[..*size]
-                            .iter()
-                            .map(|v| get_text(v.text()))
-                            .collect::<Vec<_>>(),
+                        &texts,
                     )
-                    .unwrap()
+                        .unwrap()
                 }
             },
             Target::StripText(prefix) => match prefix {
                 Prefix::None => clean_text(get_text(select.next()?.text()))
                     .trim()
                     .to_string(),
-                Prefix::All => serde_json::to_string(
-                    &select
+                Prefix::All => {
+                    let texts = select
                         .map(|text| clean_text(get_text(text.text())).trim().to_string())
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap(),
+                        .collect::<Vec<_>>();
+                    if texts.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(
+                        &texts,
+                    )
+                        .unwrap()
+                },
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
+                    let texts = v[..*size]
+                        .iter()
+                        .map(|v| clean_text(get_text(v.text())).trim().to_string())
+                        .collect::<Vec<_>>();
+                    if texts.is_empty() {
+                        return None;
+                    }
                     serde_json::to_string(
-                        &v[..*size]
-                            .iter()
-                            .map(|v| clean_text(get_text(v.text())).trim().to_string())
-                            .collect::<Vec<_>>(),
+                        &texts,
                     )
-                    .unwrap()
+                        .unwrap()
                 }
             },
             Target::Attr(prefix, v) => match prefix {
                 Prefix::None => select.next()?.attr(v).unwrap_or_default().to_string(),
-                Prefix::All => serde_json::to_string(
-                    &select
+                Prefix::All => {
+                    let v = select
                         .map(|refr| refr.attr(v).unwrap_or_default().to_string())
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap(),
+                        .collect::<Vec<_>>();
+                    if v.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(
+                        &v,
+                    )
+                        .unwrap()
+                },
                 Prefix::Num(size) => {
                     let items = select.collect::<Vec<_>>();
+                    let v = items[..*size]
+                        .iter()
+                        .map(|refr| refr.attr(v).unwrap_or_default().to_string())
+                        .collect::<Vec<_>>();
+                    if v.is_empty() {
+                        return None;
+                    }
                     serde_json::to_string(
-                        &items[..*size]
-                            .iter()
-                            .map(|refr| refr.attr(v).unwrap_or_default().to_string())
-                            .collect::<Vec<_>>(),
+                        &v,
                     )
-                    .unwrap()
+                        .unwrap()
                 }
-            },
+            }
         })
+
+    }
+
+    pub fn get(&self, html: &str) -> Option<String> {
+        let doc = Html::parse_document(html);
+        for (target, selector) in &self.target {
+            if let Some(v) = self.get_single(&doc, target, selector) {
+                return Some(v);
+            }
+        }
+        None
+
     }
 }
 

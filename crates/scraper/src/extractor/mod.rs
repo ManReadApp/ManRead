@@ -8,6 +8,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::path::Path;
+use url::Url;
 
 pub mod parser;
 
@@ -85,10 +86,14 @@ impl SearchServiceScrapeData {
                 &((page - 1) * self.offset.unwrap_or(0)).to_string(),
             );
         let html = download(config_to_request_builder(client, &self.headers, &url)).await?;
+        let origin = Url::parse(&url).unwrap().origin().ascii_serialization();
         let doc = Html::parse_document(html.as_str());
         let urls = doc
             .select(&self.selector)
-            .map(|v| v.attr("href").unwrap_or_default().to_string())
+            .map(|v| v.attr("href").unwrap_or_default().to_string()).map(|v|match v.starts_with("/") {
+            true => format!("{origin}{v}"),
+            false => v
+        })
             .collect::<Vec<_>>();
 
         let cover = doc
@@ -106,7 +111,7 @@ impl SearchServiceScrapeData {
             .collect::<Vec<_>>();
         let labels: Vec<String> = if let Some(label) = &self.label_selector {
             doc.select(label)
-                .map(|v| v.text().collect())
+                .map(|v| v.text().collect::<String>().trim().to_string())
                 .collect::<Vec<_>>()
         } else {
             doc.select(&self.selector)
