@@ -1,5 +1,5 @@
 use crate::downloader::download;
-use crate::pages::{hidden};
+use crate::pages::hidden;
 use crate::services::icon::get_uri;
 use crate::services::{config_to_request_builder, Service};
 use crate::{ExternalSite, ScrapeError};
@@ -21,7 +21,7 @@ pub struct MultiSiteService {
 impl MultiSiteService {
     pub fn new(services: HashMap<String, Service>) -> Self {
         Self {
-            internal:hidden::multi::register().into_iter().collect(),
+            internal: hidden::multi::register().into_iter().collect(),
             client: Default::default(),
             services,
         }

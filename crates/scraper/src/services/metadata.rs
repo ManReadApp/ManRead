@@ -7,10 +7,10 @@ use crate::services::icon::{get_uri, ExternalSite};
 use crate::services::{config_to_request_builder, Service};
 use api_structure::error::{ApiErr, ApiErrorType};
 use reqwest::Client;
-use std::collections::HashMap;
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct MetaDataService {
@@ -63,7 +63,7 @@ pub enum ItemOrArray {
 #[serde(untagged)]
 enum StringOrArr {
     String(String),
-    Arr(Vec<String>)
+    Arr(Vec<String>),
 }
 fn post_process(
     values: HashMap<String, String>,
@@ -73,10 +73,15 @@ fn post_process(
         let v;
         if let Ok(value) = serde_json::from_str(&value) {
             let value: Vec<Value> = value;
-            let str = value.iter().all(|v|v.is_string());
+            let str = value.iter().all(|v| v.is_string());
             if str {
-                v = ItemOrArray::Array(value.into_iter().map(|v|v.as_str().unwrap().to_string()).collect())
-            }else {
+                v = ItemOrArray::Array(
+                    value
+                        .into_iter()
+                        .map(|v| v.as_str().unwrap().to_string())
+                        .collect(),
+                )
+            } else {
                 v = ItemOrArray::ArrayDyn(value);
             }
         } else {
@@ -89,19 +94,23 @@ fn post_process(
         Some(ItemOrArray::ArrayDyn(v)) => {
             for v in v {
                 let v: (String, String) = serde_json::from_value(v).unwrap();
-                let value:StringOrArr = serde_json::from_str(&v.1).unwrap_or(StringOrArr::String(v.1));
-                res.insert(v.0, match value {
-                    StringOrArr::String(v) => ItemOrArray::Item(v),
-                    StringOrArr::Arr(v) => ItemOrArray::Array(v),
-                });
+                let value: StringOrArr =
+                    serde_json::from_str(&v.1).unwrap_or(StringOrArr::String(v.1));
+                res.insert(
+                    v.0,
+                    match value {
+                        StringOrArr::String(v) => ItemOrArray::Item(v),
+                        StringOrArr::Arr(v) => ItemOrArray::Array(v),
+                    },
+                );
             }
-        },
+        }
         Some(ItemOrArray::Array(v)) => {
             res.insert("rows".to_string(), ItemOrArray::Array(v));
         }
         Some(ItemOrArray::Item(v)) => {
             res.insert("rows".to_string(), ItemOrArray::Item(v));
-        },
+        }
         None => {}
     }
 
@@ -123,7 +132,9 @@ fn post_process(
                             "Genres:" | "Demographic:" | "Themes:" => {
                                 let genres: Vec<String> = text
                                     .split(',')
-                                    .map(|v| v.split_once('\n').map(|v| v.0).unwrap_or(v).to_string())
+                                    .map(|v| {
+                                        v.split_once('\n').map(|v| v.0).unwrap_or(v).to_string()
+                                    })
                                     .map(clean_text)
                                     .collect();
                                 res.insert(key, ItemOrArray::Array(genres));
@@ -143,7 +154,7 @@ fn post_process(
         }
         Some(ItemOrArray::Item(v)) => {
             res.insert("fields_labels".to_string(), ItemOrArray::Item(v));
-        },
+        }
         None => {}
     }
     Ok(res)

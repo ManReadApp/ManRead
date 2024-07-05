@@ -1,4 +1,5 @@
 use crate::extractor::SearchServiceScrapeData;
+use crate::pages::hidden::multi;
 use crate::pages::{anilist, animeplanet, kitsu};
 use crate::ScrapeError;
 use api_structure::models::manga::external_search::{
@@ -7,7 +8,6 @@ use api_structure::models::manga::external_search::{
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use std::collections::HashMap;
-use crate::pages::hidden::multi;
 
 #[derive(Default)]
 pub struct SearchService {

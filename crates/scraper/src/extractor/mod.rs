@@ -90,10 +90,11 @@ impl SearchServiceScrapeData {
         let doc = Html::parse_document(html.as_str());
         let urls = doc
             .select(&self.selector)
-            .map(|v| v.attr("href").unwrap_or_default().to_string()).map(|v|match v.starts_with("/") {
-            true => format!("{origin}{v}"),
-            false => v
-        })
+            .map(|v| v.attr("href").unwrap_or_default().to_string())
+            .map(|v| match v.starts_with("/") {
+                true => format!("{origin}{v}"),
+                false => v,
+            })
             .collect::<Vec<_>>();
 
         let cover = doc

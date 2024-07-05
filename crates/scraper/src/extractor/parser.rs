@@ -13,7 +13,7 @@ enum Target {
     HtmlFn {
         prefix: Prefix,
         left: Box<Field>,
-        right: Box<Field>
+        right: Box<Field>,
     },
     Text(Prefix),
     StripText(Prefix),
@@ -51,16 +51,23 @@ impl TryFrom<(&str, Option<&str>)> for Target {
         match value.as_str() {
             "html" => Ok(Self::Html(pre)),
             "html_fn" => {
-                let (l, r): (String, String) = serde_json::from_str(selector.ok_or(())?).map_err(|_|())?;
+                let (l, r): (String, String) =
+                    serde_json::from_str(selector.ok_or(())?).map_err(|_| ())?;
                 let re = Field::regex();
-                let l = re.captures(&format!("left{}",l)).map(|v|Field::parse_inner(v)).ok_or(())?;
-                let r = re.captures(&format!("right{}",r)).map(|v|Field::parse_inner(v)).ok_or(())?;
+                let l = re
+                    .captures(&format!("left{}", l))
+                    .map(|v| Field::parse_inner(v))
+                    .ok_or(())?;
+                let r = re
+                    .captures(&format!("right{}", r))
+                    .map(|v| Field::parse_inner(v))
+                    .ok_or(())?;
                 Ok(Self::HtmlFn {
                     prefix: pre,
                     left: Box::new(l),
                     right: Box::new(r),
                 })
-            },
+            }
             "text" => Ok(Self::Text(pre)),
             "strip_text" => Ok(Self::StripText(pre)),
             "src" => Ok(Self::Attr(pre, "src".to_string())),
@@ -84,49 +91,57 @@ impl Field {
         }
         res
     }
-    fn regex()-> Regex {
+    fn regex() -> Regex {
         Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-zA-Z0-9@_=\-]+)]\s(.+)"#).unwrap()
     }
 
     fn parse_inner(cap: Captures) -> Field {
-        let (p1, p2) =match cap[3].split_once(" => ") {
+        let (p1, p2) = match cap[3].split_once(" => ") {
             None => (&cap[3], None),
-            Some((a, b)) => (a, Some(b))
+            Some((a, b)) => (a, Some(b)),
         };
-        let target = format!("[{}] {}", &cap[2], p1).split("|").map(|new|{
-            let hay = format!("name{}", new.trim());
-            let item = Self::regex().captures(&hay).unwrap();
-            (item[2].to_string(),
-            item[3].to_string())
-        }).map(|(target, selector)|{
-            if let Ok(v) = Target::try_from((target.as_str(), p2)) {
-                (v, Selector::parse(&selector).unwrap())
-            } else {
-                panic!("Invalid target: {}", &target)
-
-            }
-        }).collect::<Vec<_>>();
+        let target = format!("[{}] {}", &cap[2], p1)
+            .split("|")
+            .map(|new| {
+                let hay = format!("name{}", new.trim());
+                let item = Self::regex().captures(&hay).unwrap();
+                (item[2].to_string(), item[3].to_string())
+            })
+            .map(|(target, selector)| {
+                if let Ok(v) = Target::try_from((target.as_str(), p2)) {
+                    (v, Selector::parse(&selector).unwrap())
+                } else {
+                    panic!("Invalid target: {}", &target)
+                }
+            })
+            .collect::<Vec<_>>();
         Field {
             name: cap[1].to_string(),
-            target
+            target,
         }
     }
 
-    fn get_single(&self, doc: &Html, target: &Target, selector: &Selector)-> Option<String> {
+    fn get_single(&self, doc: &Html, target: &Target, selector: &Selector) -> Option<String> {
         let mut select = doc.select(&selector);
         Some(match target {
-            Target::HtmlFn {prefix, left, right} => match prefix {
+            Target::HtmlFn {
+                prefix,
+                left,
+                right,
+            } => match prefix {
                 Prefix::None => {
                     let html = select.next()?.html();
                     serde_json::to_string(&vec![(left.get(&html), right.get(&html))]).unwrap()
-                },
+                }
                 Prefix::All => {
-                    let htmls = select.map(|v| v.html()).map(|html|{
-                        match (left.get(&html), right.get(&html)) {
+                    let htmls = select
+                        .map(|v| v.html())
+                        .map(|html| match (left.get(&html), right.get(&html)) {
                             (Some(l), Some(r)) => Some((l, r)),
-                            _ => None
-                        }
-                    }).flatten().collect::<Vec<_>>();
+                            _ => None,
+                        })
+                        .flatten()
+                        .collect::<Vec<_>>();
                     if htmls.is_empty() {
                         return None;
                     }
@@ -134,19 +149,21 @@ impl Field {
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
-                    let htmls = v[..*size].iter().map(|v| v.html()).map(|html|{
-                        match (left.get(&html), right.get(&html)) {
+                    let htmls = v[..*size]
+                        .iter()
+                        .map(|v| v.html())
+                        .map(|html| match (left.get(&html), right.get(&html)) {
                             (Some(l), Some(r)) => Some((l, r)),
-                            _ => None
-                        }
-                    }).flatten().collect::<Vec<_>>();
+                            _ => None,
+                        })
+                        .flatten()
+                        .collect::<Vec<_>>();
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls)
-                        .unwrap()
+                    serde_json::to_string(&htmls).unwrap()
                 }
-            }
+            },
             Target::Html(prefix) => match prefix {
                 Prefix::None => select.next()?.html(),
                 Prefix::All => {
@@ -162,8 +179,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls)
-                        .unwrap()
+                    serde_json::to_string(&htmls).unwrap()
                 }
             },
             Target::Text(prefix) => match prefix {
@@ -173,11 +189,8 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(
-                        &texts,
-                    )
-                        .unwrap()
-                },
+                    serde_json::to_string(&texts).unwrap()
+                }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
                     let texts = v[..*size]
@@ -187,10 +200,7 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(
-                        &texts,
-                    )
-                        .unwrap()
+                    serde_json::to_string(&texts).unwrap()
                 }
             },
             Target::StripText(prefix) => match prefix {
@@ -204,11 +214,8 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(
-                        &texts,
-                    )
-                        .unwrap()
-                },
+                    serde_json::to_string(&texts).unwrap()
+                }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
                     let texts = v[..*size]
@@ -218,10 +225,7 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(
-                        &texts,
-                    )
-                        .unwrap()
+                    serde_json::to_string(&texts).unwrap()
                 }
             },
             Target::Attr(prefix, v) => match prefix {
@@ -233,11 +237,8 @@ impl Field {
                     if v.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(
-                        &v,
-                    )
-                        .unwrap()
-                },
+                    serde_json::to_string(&v).unwrap()
+                }
                 Prefix::Num(size) => {
                     let items = select.collect::<Vec<_>>();
                     let v = items[..*size]
@@ -247,14 +248,10 @@ impl Field {
                     if v.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(
-                        &v,
-                    )
-                        .unwrap()
+                    serde_json::to_string(&v).unwrap()
                 }
-            }
+            },
         })
-
     }
 
     pub fn get(&self, html: &str) -> Option<String> {
@@ -265,7 +262,6 @@ impl Field {
             }
         }
         None
-
     }
 }
 
