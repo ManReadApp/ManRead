@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::pages;
 
 #[derive(Default)]
 pub struct MetaDataService {
@@ -166,7 +167,7 @@ async fn manual(
     url: &str,
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
     match uri {
-        "manga-updates" => todo!(),
+        "manga-updates" => pages::mangaupdates::data::get_data(&client, url).await,
         "kitsu" => kitsu::get_data(client, url).await,
         "anilist" => anilist::get_data(client, url).await,
         _ => Err(ApiErr {
