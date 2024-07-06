@@ -389,6 +389,8 @@ impl HoverBackground for AddMangaPage {
     const RENDER_SIDE: bool = true;
 
     fn side(&mut self, ui: &mut Ui, ctx: &egui::Context) {
-        self.search.in_panel(ui, ctx, true)
+        self.search.in_panel(ui, ctx, true, |v| {
+            self.sources.insert(0, v);
+        })
     }
 }

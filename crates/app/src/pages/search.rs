@@ -163,7 +163,9 @@ fn display_grid<T: DisplaySearch>(
     data: &mut SearchData<T>,
     reset: bool,
     external_only: bool,
+    callback: impl FnOnce(String),
 ) {
+    let mut callback = Some(callback);
     let width = match external_only {
         true => 80.,
         false => 200.,
@@ -205,13 +207,12 @@ fn display_grid<T: DisplaySearch>(
                             if let Some(img) = image {
                                 let img = img.fit_to_exact_size(vec2(size, size * 1.5));
                                 if ui.add(img).clicked() {
-                                    if item.internal() {
-                                        get_app_data().open(Page::Reader {
-                                            manga_id: item.id_url().clone(),
-                                            chapter_id: None,
-                                        })
-                                    } else {
-                                        todo!("display infos in app")
+                                    if callback.is_some() {
+                                        let mut n = None;
+                                        mem::swap(&mut n, &mut callback);
+                                        if let Some(n) = n {
+                                            n(item.id_url().clone());
+                                        }
                                     }
                                 }
                             } else {
@@ -302,7 +303,13 @@ impl SearchComponent {
         (search_field, parsed, errors)
     }
 
-    pub fn in_panel(&mut self, ui: &mut Ui, ctx: &Context, external_only: bool) {
+    pub fn in_panel(
+        &mut self,
+        ui: &mut Ui,
+        ctx: &Context,
+        external_only: bool,
+        callback: impl FnOnce(String),
+    ) {
         let (parser, internal) = self.get_parser(ctx);
         let search = match internal {
             false => self.external.search.clone(),
@@ -368,8 +375,20 @@ impl SearchComponent {
 
         ui.add_space(10.);
         match internal {
-            true => display_grid(ui, &mut self.internal, self.reset_scroll, external_only),
-            false => display_grid(ui, &mut self.external, self.reset_scroll, external_only),
+            true => display_grid(
+                ui,
+                &mut self.internal,
+                self.reset_scroll,
+                external_only,
+                callback,
+            ),
+            false => display_grid(
+                ui,
+                &mut self.external,
+                self.reset_scroll,
+                external_only,
+                callback,
+            ),
         }
 
         self.reset_scroll = false;
@@ -406,7 +425,6 @@ impl SearchComponent {
 
     fn render_search_bar(
         ui: &mut Ui,
-
         search_field: TextEdit,
         selected_search: &mut String,
         searches: &mut AvailableExternalSitesRequestFetcher,
@@ -456,7 +474,14 @@ impl SearchComponent {
 
 impl App for SearchPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| self.search.in_panel(ui, ctx, false));
+        egui::CentralPanel::default().show(ctx, |ui| {
+            self.search.in_panel(ui, ctx, false, |id| {
+                get_app_data().open(Page::Reader {
+                    manga_id: id,
+                    chapter_id: None,
+                })
+            })
+        });
     }
 }
 
