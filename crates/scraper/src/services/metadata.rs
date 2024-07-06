@@ -57,6 +57,8 @@ impl MetaDataService {
 pub enum ItemOrArray {
     Item(String),
     Array(Vec<String>),
+    Map(HashMap<String, String>),
+
     ArrayDyn(Vec<Value>),
 }
 
@@ -113,6 +115,9 @@ fn post_process(
             res.insert("rows".to_string(), ItemOrArray::Item(v));
         }
         None => {}
+        Some(ItemOrArray::Map(v)) => {
+            res.insert("rows".to_string(), ItemOrArray::Map(v));
+        }
     }
 
     let v = res.remove("fields_labels");
@@ -153,6 +158,9 @@ fn post_process(
         Some(ItemOrArray::ArrayDyn(v)) => {
             res.insert("fields_labels".to_string(), ItemOrArray::ArrayDyn(v));
         }
+        Some(ItemOrArray::Map(v)) => {
+            res.insert("fields_labels".to_string(), ItemOrArray::Map(v));
+        }
         Some(ItemOrArray::Item(v)) => {
             res.insert("fields_labels".to_string(), ItemOrArray::Item(v));
         }
@@ -168,6 +176,7 @@ async fn manual(
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
     match uri {
         "manga-updates" => pages::mangaupdates::data::get_data(&client, url).await,
+        "mangadex" => pages::mangadex::get_data(&client, url).await,
         "kitsu" => kitsu::get_data(client, url).await,
         "anilist" => anilist::get_data(client, url).await,
         _ => Err(ApiErr {
