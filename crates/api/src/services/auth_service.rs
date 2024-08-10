@@ -13,7 +13,7 @@ pub async fn validator(
     let secret = req
         .app_data::<Data<CryptoService>>()
         .expect("CryptoService is missing");
-    match secret.decode_claim(cred.token()) {
+    match secret.get_claim(cred.token()) {
         Ok(v) => {
             {
                 if matches!(v.jwt_type, JwtType::AccessToken) {

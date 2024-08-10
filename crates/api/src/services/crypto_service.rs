@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
+
 use crate::errors::{ApiError, ApiResult};
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::models::auth::jwt::Claim;
@@ -5,9 +8,10 @@ use api_structure::now_timestamp;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CryptoService {
     pub secret: Vec<u8>,
+    claims: Mutex<HashMap<String, Claim>>,
 }
 
 impl CryptoService {
@@ -18,6 +22,24 @@ impl CryptoService {
 
     pub fn verify_hash(&self, password: String, hash: String) -> bool {
         verify(password, &hash).unwrap_or(false)
+    }
+
+    pub fn get_claim(&self, token: &str) -> ApiResult<Claim> {
+        if let Some(v) = self.claims.lock().unwrap().get(token) {
+            if v.exp < now_timestamp()?.as_millis() {
+                self.claims.lock().unwrap().remove(token);
+                return Err(ApiError::expired_token_error("token expired"));
+            }
+            return Ok(v.clone());
+        }
+        let claim = self.decode_claim(token);
+        if let Ok(claim) = &claim {
+            self.claims
+                .lock()
+                .unwrap()
+                .insert(token.to_string(), claim.clone());
+        }
+        claim
     }
 
     pub fn decode_claim(&self, token: &str) -> ApiResult<Claim> {
