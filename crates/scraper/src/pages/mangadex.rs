@@ -64,6 +64,9 @@ pub fn extract_uuid(url: &str) -> Result<String, ScrapeError> {
 }
 
 use serde_json::Value;
+use api_structure::models::manga::external_search::ExternalSearchData;
+use api_structure::resp::manga::external_search::ScrapeSearchResponse;
+use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
 
 #[derive(Serialize, Deserialize)]
@@ -129,8 +132,10 @@ pub struct Attributes3 {
     pub locale: Option<String>,
     pub biography: Option<HashMap<String, String>>,
     version: Option<Value>,
-    createdAt: Option<Value>,
-    updatedAt: Option<Value>,
+    #[serde(rename = "createdAt")]
+    created_at: Option<Value>,
+    #[serde(rename = "updatedAt")]
+    updated_at: Option<Value>,
     volume: Option<Value>,
     #[serde(flatten)]
     other: HashMap<String, Value>
@@ -144,4 +149,66 @@ impl Display for Attributes3 {
         }
         write!(f, "{}\n{}", str, self.other.iter().filter(|v|!v.1.is_null()).map(|(key, value)|format!("{key}: {}\n", value.to_string())).collect::<String>())
     }
+}
+
+pub async fn search(client: &Client, query: ExternalSearchData) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
+    let (query, page) = query.get_query();
+    let limit = 25;
+    let offset = (page - 1) * limit;
+    let text = download(client.get(format!("https://api.mangadex.org/manga?limit={limit}&offset={offset}&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&title={query}&includedTagsMode=AND&excludedTagsMode=OR")).header(USER_AGENT, UA)).await?;
+    let json:Root1 = serde_json::from_str(&text)?;
+    Ok(json.data.into_iter().map(|manga|ScrapeSearchResponse {
+        title: manga.attributes.title.get("en").map(|v|v.to_string()).unwrap_or(manga.attributes.title.iter().next().map(|v|v.1.to_string()).unwrap_or_default()),
+        url: format!("https://mangadex.org/title/{}", manga.id),
+        cover: manga.relationships.iter().find_map(|v|match v {
+            Relationship1::Data(v) => match v.r#type == "cover_art" {
+                true => Some(format!("https://mangadex.org/covers/{}/{}", manga.id,v.attributes.file_name)),
+                false => None
+            }
+            Relationship1::Other(_) => None
+        }).unwrap_or_default(),
+        r#type: None,
+        status: Some(manga.attributes.status),
+    }).collect())
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(untagged)]
+enum Relationship1 {
+    Data(RelationshipStruct),
+    Other(Value)
+}
+
+#[derive(Serialize, Deserialize)]
+struct Attributes1 {
+    #[serde(rename = "fileName")]
+    pub file_name: String,
+}
+#[derive(Serialize, Deserialize)]
+struct Attributes2 {
+    pub title: HashMap<String, String>,
+    pub status: String,
+}
+
+
+#[derive(Serialize, Deserialize)]
+struct RelationshipStruct {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub attributes: Attributes1,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Manga {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub attributes: Attributes2,
+    relationships: Vec<Relationship1>
+}
+
+#[derive(Serialize, Deserialize)]
+struct Root1 {
+    pub data: Vec<Manga>,
 }
