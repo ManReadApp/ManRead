@@ -3,4 +3,4 @@ title[text] .h1-title > span
 description[text] [itemprop="description"]
 labels[@text] .leftside .spaceit_pad .dark_text
 fields_labels[@text] .leftside .spaceit_pad
-imgs@[src] img.lazyloaded
+img[src] img.lazyloaded

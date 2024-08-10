@@ -1,8 +1,8 @@
 "request_config": "headers.json"
-title[text] h1.entry-title
-summery[strip_text] div.wd-full
-tags[@text] span.mgen a
-cover[src] img.wp-post-image
-type[text] .imptdt a
-state[text] .imptdt i
-rows[@html_fn] div.flex-wrap .fmed => ["[strip_text] b", "[attr=datetime] span time | [strip_text] span"]
+title[text] span.text-xl.font-bold
+summery[strip_text] span.font-medium
+genres[@text] button.text-white.text-sm.cursor-pointer
+cover[src] div.relative > img.rounded.mx-auto
+type[text] h3.text-sm.text-white.capitalize.cursor-pointer
+status[text] h3.text-sm.capitalize
+rows2[@text] .grid.grid-cols-1.gap-5.mt-8 > div > h3

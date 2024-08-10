@@ -1,0 +1,21 @@
+"request_config": "headers.json"
+title[strip_text] .seriestitlenu
+img[src] div.seriesimg > img
+type[strip_text] #showtype
+genres[@strip_text] #seriesgenre .genre
+tags[@strip_text] #showtags .genre
+language[strip_text] #showlang
+authors[@strip_text] #showauthors .genre
+artists[@strip_text] #showartists .genre
+year[strip_text] #edityear
+status[strip_text] #editstatus
+licensed[strip_text] #showlicensed
+completely_translated[strip_text] #showtranslated
+original_publisher[strip_text] #showopublisher
+english_publisher[strip_text] #showepublisher
+description[strip_text] #editdescription
+alternative[inner_html] #editassociated
+rating[inner_html] .uvotes
+recomendation_lists[@inner_html] .ulc_sp li a
+recomendation_list_links[@href] .ulc_sp li a
+related_recommendations[@href] .wpb_wrapper > .genre
