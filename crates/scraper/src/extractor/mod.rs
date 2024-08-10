@@ -21,6 +21,7 @@ pub struct SearchServiceDeserialized {
     label_selector: Option<String>,
     #[serde(rename = "type")]
     type_: Option<String>,
+    cover_data_src: Option<bool>,
     status: Option<String>,
     cover: String,
     offset: Option<u32>,
@@ -41,6 +42,7 @@ impl SearchServiceDeserialized {
             url: self.url,
             selector: Selector::parse(&self.selector).unwrap(),
             cover: Selector::parse(&self.cover).unwrap(),
+            cover_data_src: self.cover_data_src.unwrap_or_default(),
             label_selector: self.label_selector.map(|v| Selector::parse(&v).unwrap()),
             type_: self.type_.map(|v| Selector::parse(&v).unwrap()),
             status: self.status.map(|v| Selector::parse(&v).unwrap()),
@@ -55,6 +57,7 @@ pub struct SearchServiceScrapeData {
     url: String,
     selector: Selector,
     cover: Selector,
+    cover_data_src: bool,
     label_selector: Option<Selector>,
     type_: Option<Selector>,
     status: Option<Selector>,
@@ -100,9 +103,15 @@ impl SearchServiceScrapeData {
         let cover = doc
             .select(&self.cover)
             .map(|v| {
-                v.attr("src")
-                    .unwrap_or(v.attr("data-src").unwrap_or_default())
-                    .to_string()
+                match self.cover_data_src {
+                    true => {
+                        v.attr("data-src").unwrap_or_default().to_string()
+                    },
+                    false =>  v.attr("src")
+                        .unwrap_or(v.attr("data-src").unwrap_or_default())
+                        .to_string()
+                }
+
             })
             .map(|v| {
                 v.split_once("/https://")

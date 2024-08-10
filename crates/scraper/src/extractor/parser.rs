@@ -4,12 +4,34 @@ use scraper::{Html, Selector};
 #[derive(Debug)]
 pub struct Field {
     pub name: String,
-    target: Vec<(Target, Selector)>,
+    target: Vec<(Target, Sel)>,
+}
+
+#[derive(Debug)]
+enum Sel {
+    Sel(Selector),
+    Re(Regex)
+}
+
+impl Sel {
+    fn as_regex(&self) -> &Regex {
+        match self {
+            Sel::Sel(_) => unreachable!(),
+            Sel::Re(re) => &re
+        }
+    }
+    fn as_sel(&self) -> &Selector {
+        match self {
+            Sel::Sel(sel) => &sel,
+            Sel::Re(_) => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug)]
 enum Target {
     Html(Prefix),
+    InnerHtml(Prefix),
     HtmlFn {
         prefix: Prefix,
         left: Box<Field>,
@@ -17,6 +39,7 @@ enum Target {
     },
     Text(Prefix),
     StripText(Prefix),
+    Regex(Prefix),
     Attr(Prefix, String),
 }
 
@@ -50,6 +73,7 @@ impl TryFrom<(&str, Option<&str>)> for Target {
         }
         match value.as_str() {
             "html" => Ok(Self::Html(pre)),
+            "inner_html" => Ok(Self::InnerHtml(pre)),
             "html_fn" => {
                 let (l, r): (String, String) =
                     serde_json::from_str(selector.ok_or(())?).map_err(|_| ())?;
@@ -70,6 +94,7 @@ impl TryFrom<(&str, Option<&str>)> for Target {
             }
             "text" => Ok(Self::Text(pre)),
             "strip_text" => Ok(Self::StripText(pre)),
+            "regex" => Ok(Self::Regex(pre)),
             "src" => Ok(Self::Attr(pre, "src".to_string())),
             "href" => Ok(Self::Attr(pre, "href".to_string())),
             _ => {
@@ -82,6 +107,7 @@ impl TryFrom<(&str, Option<&str>)> for Target {
         }
     }
 }
+
 impl Field {
     pub fn parse(text: &str) -> Vec<Field> {
         let re = Self::regex();
@@ -109,7 +135,11 @@ impl Field {
             })
             .map(|(target, selector)| {
                 if let Ok(v) = Target::try_from((target.as_str(), p2)) {
-                    (v, Selector::parse(&selector).unwrap())
+                    let sel = match &v {
+                        Target::Regex(_) => Sel::Re(Regex::new(&selector).unwrap()),
+                        _ => Sel::Sel(Selector::parse(&selector).unwrap())
+                    };
+                    (v, sel)
                 } else {
                     panic!("Invalid target: {}", &target)
                 }
@@ -176,6 +206,24 @@ impl Field {
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
                     let htmls = v[..*size].iter().map(|v| v.html()).collect::<Vec<_>>();
+                    if htmls.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(&htmls).unwrap()
+                }
+            },
+            Target::InnerHtml(prefix) => match prefix {
+                Prefix::None => select.next()?.inner_html(),
+                Prefix::All => {
+                    let htmls = select.map(|v| v.inner_html()).collect::<Vec<_>>();
+                    if htmls.is_empty() {
+                        return None;
+                    }
+                    serde_json::to_string(&htmls).unwrap()
+                }
+                Prefix::Num(size) => {
+                    let v = select.collect::<Vec<_>>();
+                    let htmls = v[..*size].iter().map(|v| v.inner_html()).collect::<Vec<_>>();
                     if htmls.is_empty() {
                         return None;
                     }
@@ -251,13 +299,35 @@ impl Field {
                     serde_json::to_string(&v).unwrap()
                 }
             },
+            Target::Regex(_) => {
+                unreachable!()
+            }
         })
     }
 
     pub fn get(&self, html: &str) -> Option<String> {
         let doc = Html::parse_document(html);
         for (target, selector) in &self.target {
-            if let Some(v) = self.get_single(&doc, target, selector) {
+            let temp = if let Target::Regex(pre) = target {
+                let re = selector.as_regex();
+                match pre {
+                    Prefix::None => {
+                        let data = &re.captures(html)?[1];
+                        Some(data.to_string())
+                    }
+                    Prefix::All => {
+                        let items:Vec<_> = re.captures_iter(html).map(|v|v[1].to_string()).collect();
+                        Some(serde_json::to_string(&items).unwrap())
+                    }
+                    Prefix::Num(num) => {
+                        let items:Vec<_> = re.captures_iter(html).map(|v|v[1].to_string()).collect();
+                        Some(serde_json::to_string(&items[..*num]).unwrap())
+                    }
+                }
+            } else {
+                self.get_single(&doc, target, selector.as_sel())
+            };
+            if let Some(v) = temp  {
                 return Some(v);
             }
         }
