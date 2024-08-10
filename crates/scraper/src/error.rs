@@ -16,6 +16,25 @@ impl From<ApiErr> for ScrapeError {
     }
 }
 
+#[cfg(feature = "curl")]
+pub fn status_code_err(code: u32) -> ScrapeError{
+    ScrapeError(ApiErr {
+        message: Some(format!("failed with status code {code}")),
+        cause: None,
+        err_type: ApiErrorType::ScrapeErrorStatus,
+    })
+}
+
+impl From<curl::Error> for ScrapeError {
+    fn from(value: curl::Error) -> Self {
+        ScrapeError(ApiErr {
+            message: Some("failed the curl request".to_string()),
+            cause: Some(value.to_string()),
+            err_type: ApiErrorType::ScrapeErrorCurl,
+        })
+    }
+}
+
 impl From<JsError> for ScrapeError {
     fn from(value: JsError) -> Self {
         ScrapeError(ApiErr {
