@@ -10,6 +10,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use serde_json::Value;
+use url::Url;
 
 #[derive(Default)]
 pub struct MultiSiteService {
@@ -44,29 +46,35 @@ impl MultiSiteService {
             if let Some(v) = self.services.get(&uri) {
                 let req = config_to_request_builder(&self.client, &v.config, &url);
                 let html = download(req).await?;
-                let fields = v.process(html.as_str());
-                let items = post_process(uri.as_str(), fields)
+                let mut fields = v.process(html.as_str());
+                fields.insert("req_url".to_string(), url.clone());
+                let items = post_process(&self.client, uri.as_str(), fields).await
                     .map(|v| {
                         v.into_iter()
                             .map(|mut v| {
-                                if v.url.starts_with('/') {
-                                    let url_base =
-                                        url.replace("http://", "").replace("https://", "");
+                                if v.url.starts_with('/') || !v.url.starts_with("http"){
+                                    let mut url_base = Url::parse(&url).unwrap();
+                                    url_base.set_scheme("https").unwrap();
                                     v.url = format!(
-                                        "https://{}{}",
-                                        url_base
-                                            .split_once('/')
-                                            .map(|v| v.0.to_string())
-                                            .unwrap_or(url_base),
-                                        v.url
+                                        "{}/{}",
+                                        url_base.origin().ascii_serialization(),
+                                        v.url.strip_prefix("/").unwrap_or(&v.url)
                                     );
                                 }
                                 v
                             })
                             .collect::<Vec<_>>()
                     })
-                    .map(|v| (v, vec![]))?;
-                Ok(items)
+                    .map(|v| (v, vec![]));
+                match items {
+                    Ok(v) => Ok(v),
+                    Err(e) => {
+                        match manual(&self.client, uri.as_str(), &url).await {
+                            Ok(v) => Ok(v),
+                            Err(_) => Err(e)
+                        }
+                    }
+                }
             } else {
                 manual(&self.client, uri.as_str(), &url).await
             }
@@ -117,7 +125,7 @@ impl MultiSiteService {
             let req = config_to_request_builder(&self.client, &v.config, &info.url);
             let html = download(req).await?;
             let fields = v.process(html.as_str());
-            post_process_pages(info.site.as_str(), fields)
+            post_process_pages(&self.client, info.site.as_str(), fields).await
         } else {
             manual_pages(&self.client, info, acc).await
         }
@@ -168,7 +176,7 @@ pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
     }
 }
 
-fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>, ScrapeError> {
+async fn post_process(client: &Client, uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>, ScrapeError> {
     let err = |len1, len2| {
         if len1 != len2 || len2 == 0 {
             Err(ApiErr {
@@ -181,7 +189,10 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
         }
     };
     if let Some(urls) = fields.get("urls") {
-        let urls: Vec<String> = serde_json::from_str(urls)?;
+        let mut urls: Vec<String> = serde_json::from_str(urls)?;
+        if uri == "asura" {
+            urls = urls.into_iter().map(|v|format!("/series/{v}")).collect();
+        }
         let mut res = vec![];
         if let Some(labels) = fields.get("labels") {
             let labels: Vec<String> = serde_json::from_str(labels)?;
@@ -216,7 +227,7 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
             return Ok(res);
         }
     }
-    hidden::multi::post_process_info(uri, fields)
+    hidden::multi::post_process_info(client, uri, fields).await
 }
 
 async fn manual(
@@ -235,10 +246,21 @@ async fn manual_pages(
     hidden::multi::manual_pages(client, info, acc).await
 }
 
-fn post_process_pages(
+async fn post_process_pages(
+    client: &Client,
     uri: &str,
     fields: HashMap<String, String>,
 ) -> Result<Vec<String>, ScrapeError> {
+    if let Some(v) = fields.get("imgs_gen") {
+        let map:HashMap<String, Value> = serde_json::from_str(v)?;
+        let items = map.get("sources").ok_or(ScrapeError::node_not_found())?.as_array().ok_or(ScrapeError::node_not_found())?;
+        let imgs = items.first().ok_or(ScrapeError::node_not_found())?.get("images").ok_or(ScrapeError::node_not_found())?.as_array().ok_or(ScrapeError::node_not_found())?;
+        let imgs = imgs.into_iter().filter_map(|v|v.as_str()).collect::<Vec<_>>();
+        if imgs.is_empty() {
+           return Err(ScrapeError::node_not_found());
+        }
+        return Ok(imgs.into_iter().map(|v|v.to_string()).collect());
+    }
     if let Some(v) = fields.get("imgs_back").cloned() {
         let back: Vec<String> = serde_json::from_str(&v)?;
         if let Some(v) = fields.get("imgs") {
@@ -254,7 +276,7 @@ fn post_process_pages(
                 .collect();
             Ok(urls)
         } else {
-            hidden::multi::post_process_pages(uri, fields)
+            hidden::multi::post_process_pages(client, uri, fields).await
         }
     } else if let Some(v) = fields.get("imgs") {
         let urls: Vec<String> = serde_json::from_str(v)?;
@@ -263,7 +285,7 @@ fn post_process_pages(
             .map(|url| url.replace(['\t', '\n'], ""))
             .collect())
     } else {
-        hidden::multi::post_process_pages(uri, fields)
+        hidden::multi::post_process_pages(client, uri, fields).await
     }
 }
 

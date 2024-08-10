@@ -9,8 +9,10 @@ use api_structure::error::{ApiErr, ApiErrorType};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use tokio_postgres::types::ToSql;
+use url::Url;
 use crate::pages;
 
 #[derive(Default)]
@@ -38,15 +40,15 @@ impl MetaDataService {
             let req = config_to_request_builder(&self.client, &v.config, url.as_str());
             let html = download(req).await?;
             let fields = v.process(html.as_str());
-            post_process(fields)
+            post_process(&url, fields)
         } else {
             manual(&self.client, &uri, &url).await
         }
     }
     async fn process_url(&self, uri: &str, url: String) -> String {
         if uri == "asura" {
-            let html = download(self.client.get(url)).await.unwrap();
-            get_first_url(&html).unwrap().to_string()
+            let html = download(self.client.get(&url)).await.unwrap();
+            get_first_url(&Url::parse(&url).unwrap().origin().ascii_serialization(), &html).unwrap().to_string()
         } else {
             url
         }
@@ -69,6 +71,7 @@ enum StringOrArr {
     Arr(Vec<String>),
 }
 fn post_process(
+    url: &str,
     values: HashMap<String, String>,
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
     let mut res = HashMap::new();
@@ -117,6 +120,59 @@ fn post_process(
         None => {}
         Some(ItemOrArray::Map(v)) => {
             res.insert("rows".to_string(), ItemOrArray::Map(v));
+        }
+    }
+
+    if let Some(ItemOrArray::Array(v)) = res.get("titles") {
+        let mut titles = v.iter().map(|v|v.to_string()).collect::<HashSet<_>>();
+        titles.remove("/");
+        res.insert("titles".to_string(), ItemOrArray::Array(titles.into_iter().collect()));
+    }
+    if let Some(ItemOrArray::Array(v)) = res.get("tags") {
+        let mut tags = v.iter().map(|v|v.to_string()).collect::<HashSet<_>>();
+        tags.remove(",");
+        res.insert("tags".to_string(), ItemOrArray::Array(tags.into_iter().collect()));
+    }
+    let v = res.remove("rows2");
+    if let Some(ItemOrArray::Item(v)) = res.get("cover") {
+        let origin = Url::parse(url).unwrap().origin().ascii_serialization();
+        if v.starts_with("/") || !v.starts_with("http") {
+            res.insert("cover".to_string(), ItemOrArray::Item(format!("{origin}/{}", v.strip_prefix("/").unwrap_or(v))));
+        }
+    }
+    if let Some(ItemOrArray::Item(v)) = res.get("cover") {
+        let cont = |input: &str|{
+            match input.rfind("?") {
+                None => false,
+                Some(v) => input[v..].contains("q=75")
+            }
+        };
+        if cont(v) {
+            res.insert("cover".to_string(), ItemOrArray::Item(v.replace("q=75", "q=100")));
+        }
+    }
+    match v {
+        None => {}
+        Some(ItemOrArray::Array(v)) => {
+            if v.len() % 2 != 0 {
+                return Err(ScrapeError::input_error("not same ammount of keys & values"))
+            }
+
+            let mut key = true;
+            let mut key_v = "".to_string();
+            for item in v {
+                match key {
+                    true => {
+                        key_v = item;
+                    },
+                    false => {
+                        res.insert(key_v.clone(), ItemOrArray::Item(item));
+                    }
+                }
+                key = !key;
+            }
+        }
+        Some(_) => {
         }
     }
 
