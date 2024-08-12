@@ -17,7 +17,7 @@ impl From<ApiErr> for ScrapeError {
 }
 
 #[cfg(feature = "curl")]
-pub fn status_code_err(code: u32) -> ScrapeError{
+pub fn status_code_err(code: u32) -> ScrapeError {
     ScrapeError(ApiErr {
         message: Some(format!("failed with status code {code}")),
         cause: None,

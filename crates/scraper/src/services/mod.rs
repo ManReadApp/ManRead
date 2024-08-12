@@ -27,6 +27,9 @@ pub struct Service {
 }
 
 impl Service {
+    fn cf_bypass(&self) -> bool {
+        self.config.get("cf_bypass") == Some(&"true".to_string())
+    }
     fn process(&self, html: &str) -> HashMap<String, String> {
         let html = html.replace("<noscript>", "").replace("</noscript>", "");
         self.fields

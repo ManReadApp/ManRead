@@ -13,11 +13,11 @@ pub async fn get_data(
     client: &Client,
     url: &str,
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
-    let text = download(client.get(url)).await?;
+    let text = download(client.get(url), false).await?;
     let re = Regex::new(r#"https://api\.mangaupdates\.com/v1/series/([a-zA-Z0-9]+)/rss"#).unwrap();
     if let Some(v) = re.captures(&text) {
         let url = format!("https://api.mangaupdates.com/v1/series/{}", &v[1]);
-        let text = download(client.get(url)).await?;
+        let text = download(client.get(url), false).await?;
         let mut hm = HashMap::new();
         let json: InfoResponse = serde_json::from_str(&text)?;
         let mut titles = vec![json.title];

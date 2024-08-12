@@ -10,14 +10,14 @@ pub struct Field {
 #[derive(Debug)]
 enum Sel {
     Sel(Selector),
-    Re(Regex)
+    Re(Regex),
 }
 
 impl Sel {
     fn as_regex(&self) -> &Regex {
         match self {
             Sel::Sel(_) => unreachable!(),
-            Sel::Re(re) => &re
+            Sel::Re(re) => &re,
         }
     }
     fn as_sel(&self) -> &Selector {
@@ -137,7 +137,7 @@ impl Field {
                 if let Ok(v) = Target::try_from((target.as_str(), p2)) {
                     let sel = match &v {
                         Target::Regex(_) => Sel::Re(Regex::new(&selector).unwrap()),
-                        _ => Sel::Sel(Selector::parse(&selector).unwrap())
+                        _ => Sel::Sel(Selector::parse(&selector).unwrap()),
                     };
                     (v, sel)
                 } else {
@@ -223,7 +223,10 @@ impl Field {
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
-                    let htmls = v[..*size].iter().map(|v| v.inner_html()).collect::<Vec<_>>();
+                    let htmls = v[..*size]
+                        .iter()
+                        .map(|v| v.inner_html())
+                        .collect::<Vec<_>>();
                     if htmls.is_empty() {
                         return None;
                     }
@@ -316,18 +319,20 @@ impl Field {
                         Some(data.to_string())
                     }
                     Prefix::All => {
-                        let items:Vec<_> = re.captures_iter(html).map(|v|v[1].to_string()).collect();
+                        let items: Vec<_> =
+                            re.captures_iter(html).map(|v| v[1].to_string()).collect();
                         Some(serde_json::to_string(&items).unwrap())
                     }
                     Prefix::Num(num) => {
-                        let items:Vec<_> = re.captures_iter(html).map(|v|v[1].to_string()).collect();
+                        let items: Vec<_> =
+                            re.captures_iter(html).map(|v| v[1].to_string()).collect();
                         Some(serde_json::to_string(&items[..*num]).unwrap())
                     }
                 }
             } else {
                 self.get_single(&doc, target, selector.as_sel())
             };
-            if let Some(v) = temp  {
+            if let Some(v) = temp {
                 return Some(v);
             }
         }

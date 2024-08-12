@@ -8,9 +8,9 @@ use api_structure::scrape::ScrapeAccount;
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use serde_json::Value;
 use url::Url;
 
 #[derive(Default)]
@@ -45,14 +45,15 @@ impl MultiSiteService {
         let (mut now, mut later) = {
             if let Some(v) = self.services.get(&uri) {
                 let req = config_to_request_builder(&self.client, &v.config, &url);
-                let html = download(req).await?;
+                let html = download(req, v.cf_bypass()).await?;
                 let mut fields = v.process(html.as_str());
                 fields.insert("req_url".to_string(), url.clone());
-                let items = post_process(&self.client, uri.as_str(), fields).await
+                let items = post_process(&self.client, uri.as_str(), fields)
+                    .await
                     .map(|v| {
                         v.into_iter()
                             .map(|mut v| {
-                                if v.url.starts_with('/') || !v.url.starts_with("http"){
+                                if v.url.starts_with('/') || !v.url.starts_with("http") {
                                     let mut url_base = Url::parse(&url).unwrap();
                                     url_base.set_scheme("https").unwrap();
                                     v.url = format!(
@@ -68,12 +69,10 @@ impl MultiSiteService {
                     .map(|v| (v, vec![]));
                 match items {
                     Ok(v) => Ok(v),
-                    Err(e) => {
-                        match manual(&self.client, uri.as_str(), &url).await {
-                            Ok(v) => Ok(v),
-                            Err(_) => Err(e)
-                        }
-                    }
+                    Err(e) => match manual(&self.client, uri.as_str(), &url).await {
+                        Ok(v) => Ok(v),
+                        Err(_) => Err(e),
+                    },
                 }
             } else {
                 manual(&self.client, uri.as_str(), &url).await
@@ -123,7 +122,7 @@ impl MultiSiteService {
     ) -> Result<Vec<String>, ScrapeError> {
         if let Some(v) = self.services.get(&info.site) {
             let req = config_to_request_builder(&self.client, &v.config, &info.url);
-            let html = download(req).await?;
+            let html = download(req, v.cf_bypass()).await?;
             let fields = v.process(html.as_str());
             post_process_pages(&self.client, info.site.as_str(), fields).await
         } else {
@@ -176,7 +175,11 @@ pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
     }
 }
 
-async fn post_process(client: &Client, uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>, ScrapeError> {
+async fn post_process(
+    client: &Client,
+    uri: &str,
+    fields: HashMap<String, String>,
+) -> Result<Vec<Info>, ScrapeError> {
     let err = |len1, len2| {
         if len1 != len2 || len2 == 0 {
             Err(ApiErr {
@@ -191,7 +194,7 @@ async fn post_process(client: &Client, uri: &str, fields: HashMap<String, String
     if let Some(urls) = fields.get("urls") {
         let mut urls: Vec<String> = serde_json::from_str(urls)?;
         if uri == "asura" {
-            urls = urls.into_iter().map(|v|format!("/series/{v}")).collect();
+            urls = urls.into_iter().map(|v| format!("/series/{v}")).collect();
         }
         let mut res = vec![];
         if let Some(labels) = fields.get("labels") {
@@ -252,14 +255,27 @@ async fn post_process_pages(
     fields: HashMap<String, String>,
 ) -> Result<Vec<String>, ScrapeError> {
     if let Some(v) = fields.get("imgs_gen") {
-        let map:HashMap<String, Value> = serde_json::from_str(v)?;
-        let items = map.get("sources").ok_or(ScrapeError::node_not_found())?.as_array().ok_or(ScrapeError::node_not_found())?;
-        let imgs = items.first().ok_or(ScrapeError::node_not_found())?.get("images").ok_or(ScrapeError::node_not_found())?.as_array().ok_or(ScrapeError::node_not_found())?;
-        let imgs = imgs.into_iter().filter_map(|v|v.as_str()).collect::<Vec<_>>();
+        let map: HashMap<String, Value> = serde_json::from_str(v)?;
+        let items = map
+            .get("sources")
+            .ok_or(ScrapeError::node_not_found())?
+            .as_array()
+            .ok_or(ScrapeError::node_not_found())?;
+        let imgs = items
+            .first()
+            .ok_or(ScrapeError::node_not_found())?
+            .get("images")
+            .ok_or(ScrapeError::node_not_found())?
+            .as_array()
+            .ok_or(ScrapeError::node_not_found())?;
+        let imgs = imgs
+            .into_iter()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>();
         if imgs.is_empty() {
-           return Err(ScrapeError::node_not_found());
+            return Err(ScrapeError::node_not_found());
         }
-        return Ok(imgs.into_iter().map(|v|v.to_string()).collect());
+        return Ok(imgs.into_iter().map(|v| v.to_string()).collect());
     }
     if let Some(v) = fields.get("imgs_back").cloned() {
         let back: Vec<String> = serde_json::from_str(&v)?;

@@ -1,5 +1,5 @@
 {
-    "headers": "headers.json",
+    "headers": "cfheaders.json",
     "url": "https://www.novelupdates.com/series-finder/?sf=1&sh={query}&sort=sdate&order=desc&pg={page}",
     "url_empty": "https://www.novelupdates.com/series-finder/?sf=1&sh=&sort=sdate&order=desc&pg={page}",
     "selector": "div.search_title > a",

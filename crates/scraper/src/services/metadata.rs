@@ -1,6 +1,7 @@
 use crate::downloader::download;
 use crate::error::ScrapeError;
 use crate::extractor::parser::clean_text;
+use crate::pages;
 use crate::pages::asuratoon::get_first_url;
 use crate::pages::{anilist, kitsu};
 use crate::services::icon::{get_uri, ExternalSite};
@@ -11,9 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use tokio_postgres::types::ToSql;
 use url::Url;
-use crate::pages;
 
 #[derive(Default)]
 pub struct MetaDataService {
@@ -38,7 +37,7 @@ impl MetaDataService {
         let url = self.process_url(&uri, url.to_string()).await;
         if let Some(v) = self.services.get(&uri) {
             let req = config_to_request_builder(&self.client, &v.config, url.as_str());
-            let html = download(req).await?;
+            let html = download(req, v.cf_bypass()).await?;
             let fields = v.process(html.as_str());
             post_process(&url, fields)
         } else {
@@ -47,8 +46,13 @@ impl MetaDataService {
     }
     async fn process_url(&self, uri: &str, url: String) -> String {
         if uri == "asura" {
-            let html = download(self.client.get(&url)).await.unwrap();
-            get_first_url(&Url::parse(&url).unwrap().origin().ascii_serialization(), &html).unwrap().to_string()
+            let html = download(self.client.get(&url), false).await.unwrap();
+            get_first_url(
+                &Url::parse(&url).unwrap().origin().ascii_serialization(),
+                &html,
+            )
+            .unwrap()
+            .to_string()
         } else {
             url
         }
@@ -124,38 +128,50 @@ fn post_process(
     }
 
     if let Some(ItemOrArray::Array(v)) = res.get("titles") {
-        let mut titles = v.iter().map(|v|v.to_string()).collect::<HashSet<_>>();
+        let mut titles = v.iter().map(|v| v.to_string()).collect::<HashSet<_>>();
         titles.remove("/");
-        res.insert("titles".to_string(), ItemOrArray::Array(titles.into_iter().collect()));
+        res.insert(
+            "titles".to_string(),
+            ItemOrArray::Array(titles.into_iter().collect()),
+        );
     }
     if let Some(ItemOrArray::Array(v)) = res.get("tags") {
-        let mut tags = v.iter().map(|v|v.to_string()).collect::<HashSet<_>>();
+        let mut tags = v.iter().map(|v| v.to_string()).collect::<HashSet<_>>();
         tags.remove(",");
-        res.insert("tags".to_string(), ItemOrArray::Array(tags.into_iter().collect()));
+        res.insert(
+            "tags".to_string(),
+            ItemOrArray::Array(tags.into_iter().collect()),
+        );
     }
     let v = res.remove("rows2");
     if let Some(ItemOrArray::Item(v)) = res.get("cover") {
         let origin = Url::parse(url).unwrap().origin().ascii_serialization();
         if v.starts_with("/") || !v.starts_with("http") {
-            res.insert("cover".to_string(), ItemOrArray::Item(format!("{origin}/{}", v.strip_prefix("/").unwrap_or(v))));
+            res.insert(
+                "cover".to_string(),
+                ItemOrArray::Item(format!("{origin}/{}", v.strip_prefix("/").unwrap_or(v))),
+            );
         }
     }
     if let Some(ItemOrArray::Item(v)) = res.get("cover") {
-        let cont = |input: &str|{
-            match input.rfind("?") {
-                None => false,
-                Some(v) => input[v..].contains("q=75")
-            }
+        let cont = |input: &str| match input.rfind("?") {
+            None => false,
+            Some(v) => input[v..].contains("q=75"),
         };
         if cont(v) {
-            res.insert("cover".to_string(), ItemOrArray::Item(v.replace("q=75", "q=100")));
+            res.insert(
+                "cover".to_string(),
+                ItemOrArray::Item(v.replace("q=75", "q=100")),
+            );
         }
     }
     match v {
         None => {}
         Some(ItemOrArray::Array(v)) => {
             if v.len() % 2 != 0 {
-                return Err(ScrapeError::input_error("not same ammount of keys & values"))
+                return Err(ScrapeError::input_error(
+                    "not same ammount of keys & values",
+                ));
             }
 
             let mut key = true;
@@ -164,7 +180,7 @@ fn post_process(
                 match key {
                     true => {
                         key_v = item;
-                    },
+                    }
                     false => {
                         res.insert(key_v.clone(), ItemOrArray::Item(item));
                     }
@@ -172,8 +188,7 @@ fn post_process(
                 key = !key;
             }
         }
-        Some(_) => {
-        }
+        Some(_) => {}
     }
 
     let v = res.remove("fields_labels");

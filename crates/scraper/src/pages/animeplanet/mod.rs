@@ -96,7 +96,7 @@ pub async fn search(
         ))
     }
     let url = format!("https://www.anime-planet.com/manga/all?{}", items.join("&"));
-    let html = download(client.get(url).header(USER_AGENT, UA_ERR)).await?;
+    let html = download(client.get(url).header(USER_AGENT, UA_ERR), false).await?;
     let doc = Html::parse_document(html.as_str());
     let mangas = Selector::parse(".card").unwrap();
     let title = Selector::parse(".cardName").unwrap();

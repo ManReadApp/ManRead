@@ -1,48 +1,97 @@
+use api_structure::error::{ApiErr, ApiErrorType};
+use reqwest::header::USER_AGENT;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use reqwest::Client;
-use reqwest::header::USER_AGENT;
-use serde::{Deserialize, Serialize};
-use api_structure::error::{ApiErr, ApiErrorType};
 pub const UA: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:12.0) Gecko/20100101 Firefox/12.0";
 
 use crate::ScrapeError;
 
-pub async fn get_data(client: &Client, url: &str) -> Result<HashMap<String, ItemOrArray>,ScrapeError>{
+pub async fn get_data(
+    client: &Client,
+    url: &str,
+) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
     let uuid = extract_uuid(url)?;
     let url = format!("https://api.mangadex.org/manga/{uuid}?includes[]=artist&includes[]=author&includes[]=cover_art");
-    let json: Root = client.get(url).header(USER_AGENT, UA).send().await?.json().await?;
+    let json: Root = client
+        .get(url)
+        .header(USER_AGENT, UA)
+        .send()
+        .await?
+        .json()
+        .await?;
     let mut out = HashMap::new();
-    let alt: HashMap<_, _> = json.data.attributes.alt_titles.into_iter().flat_map(|v|v.into_iter()).collect();
+    let alt: HashMap<_, _> = json
+        .data
+        .attributes
+        .alt_titles
+        .into_iter()
+        .flat_map(|v| v.into_iter())
+        .collect();
     for d in json.data.relationships {
         if let Some(attr) = d.attributes {
-            let v = out.entry(d.type_field).or_insert(ItemOrArray::Array(vec![]));
+            let v = out
+                .entry(d.type_field)
+                .or_insert(ItemOrArray::Array(vec![]));
             if let ItemOrArray::Array(v) = v {
                 v.push(attr.to_string())
             }
         }
     }
     for tag in json.data.attributes.tags {
-        let v = tag.attributes.name.get("en").or_else(||tag.attributes.name.iter().next().map(|v|v.1));
+        let v = tag
+            .attributes
+            .name
+            .get("en")
+            .or_else(|| tag.attributes.name.iter().next().map(|v| v.1));
         if let Some(v) = v {
-            let entry = out.entry(tag.attributes.group).or_insert(ItemOrArray::Array(vec![]));
+            let entry = out
+                .entry(tag.attributes.group)
+                .or_insert(ItemOrArray::Array(vec![]));
             if let ItemOrArray::Array(arr) = entry {
                 arr.push(v.to_string());
             }
         }
-
     }
     out.insert("type".to_string(), ItemOrArray::Item(json.data.type_field));
-    out.insert("title".to_string(), ItemOrArray::Map(json.data.attributes.title));
+    out.insert(
+        "title".to_string(),
+        ItemOrArray::Map(json.data.attributes.title),
+    );
     out.insert("titles".to_string(), ItemOrArray::Map(alt));
-    out.insert("descriptions".to_string(), ItemOrArray::Map(json.data.attributes.description));
-    out.insert("links".to_string(), ItemOrArray::Map(json.data.attributes.links));
-    out.insert("original_language".to_string(), ItemOrArray::Item(json.data.attributes.original_language));
-    out.insert("status".to_string(), ItemOrArray::Item(json.data.attributes.status));
-    out.insert("year".to_string(), ItemOrArray::Item(json.data.attributes.year.to_string()));
-    out.insert("content_rating".to_string(), ItemOrArray::Item(json.data.attributes.content_rating));
-    out.insert("state".to_string(), ItemOrArray::Item(json.data.attributes.state));
-    out.insert("target_audience".to_string(), ItemOrArray::Item(json.data.attributes.publication_demographic));
+    out.insert(
+        "descriptions".to_string(),
+        ItemOrArray::Map(json.data.attributes.description),
+    );
+    out.insert(
+        "links".to_string(),
+        ItemOrArray::Map(json.data.attributes.links),
+    );
+    out.insert(
+        "original_language".to_string(),
+        ItemOrArray::Item(json.data.attributes.original_language),
+    );
+    out.insert(
+        "status".to_string(),
+        ItemOrArray::Item(json.data.attributes.status),
+    );
+    out.insert(
+        "year".to_string(),
+        ItemOrArray::Item(json.data.attributes.year.to_string()),
+    );
+    out.insert(
+        "content_rating".to_string(),
+        ItemOrArray::Item(json.data.attributes.content_rating),
+    );
+    out.insert(
+        "state".to_string(),
+        ItemOrArray::Item(json.data.attributes.state),
+    );
+    out.insert(
+        "target_audience".to_string(),
+        ItemOrArray::Item(json.data.attributes.publication_demographic),
+    );
 
     Ok(out)
 }
@@ -63,11 +112,11 @@ pub fn extract_uuid(url: &str) -> Result<String, ScrapeError> {
     }))
 }
 
-use serde_json::Value;
-use api_structure::models::manga::external_search::ExternalSearchData;
-use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
+use api_structure::models::manga::external_search::ExternalSearchData;
+use api_structure::resp::manga::external_search::ScrapeSearchResponse;
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize)]
 pub struct Root {
@@ -138,45 +187,90 @@ pub struct Attributes3 {
     updated_at: Option<Value>,
     volume: Option<Value>,
     #[serde(flatten)]
-    other: HashMap<String, Value>
+    other: HashMap<String, Value>,
 }
 
 impl Display for Attributes3 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut str = format!("{} from {}\n", self.name.as_ref().map(|c|c.as_str()).unwrap_or_default(), self.locale.as_ref().map(|c|c.as_str()).unwrap_or("unkown"));
+        let mut str = format!(
+            "{} from {}\n",
+            self.name.as_ref().map(|c| c.as_str()).unwrap_or_default(),
+            self.locale.as_ref().map(|c| c.as_str()).unwrap_or("unkown")
+        );
         if let Some(v) = &self.biography {
-            str = format!("{str}\n{}", v.iter().map(|(key, value)| format!("{key}: {value}\n")).collect::<String>());
+            str = format!(
+                "{str}\n{}",
+                v.iter()
+                    .map(|(key, value)| format!("{key}: {value}\n"))
+                    .collect::<String>()
+            );
         }
-        write!(f, "{}\n{}", str, self.other.iter().filter(|v|!v.1.is_null()).map(|(key, value)|format!("{key}: {}\n", value.to_string())).collect::<String>())
+        write!(
+            f,
+            "{}\n{}",
+            str,
+            self.other
+                .iter()
+                .filter(|v| !v.1.is_null())
+                .map(|(key, value)| format!("{key}: {}\n", value.to_string()))
+                .collect::<String>()
+        )
     }
 }
 
-pub async fn search(client: &Client, query: ExternalSearchData) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
+pub async fn search(
+    client: &Client,
+    query: ExternalSearchData,
+) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
     let (query, page) = query.get_query();
     let limit = 25;
     let offset = (page - 1) * limit;
-    let text = download(client.get(format!("https://api.mangadex.org/manga?limit={limit}&offset={offset}&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&title={query}&includedTagsMode=AND&excludedTagsMode=OR")).header(USER_AGENT, UA)).await?;
-    let json:Root1 = serde_json::from_str(&text)?;
-    Ok(json.data.into_iter().map(|manga|ScrapeSearchResponse {
-        title: manga.attributes.title.get("en").map(|v|v.to_string()).unwrap_or(manga.attributes.title.iter().next().map(|v|v.1.to_string()).unwrap_or_default()),
-        url: format!("https://mangadex.org/title/{}", manga.id),
-        cover: manga.relationships.iter().find_map(|v|match v {
-            Relationship1::Data(v) => match v.r#type == "cover_art" {
-                true => Some(format!("https://mangadex.org/covers/{}/{}", manga.id,v.attributes.file_name)),
-                false => None
-            }
-            Relationship1::Other(_) => None
-        }).unwrap_or_default(),
-        r#type: None,
-        status: Some(manga.attributes.status),
-    }).collect())
+    let text = download(client.get(format!("https://api.mangadex.org/manga?limit={limit}&offset={offset}&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&title={query}&includedTagsMode=AND&excludedTagsMode=OR")).header(USER_AGENT, UA), false).await?;
+    let json: Root1 = serde_json::from_str(&text)?;
+    Ok(json
+        .data
+        .into_iter()
+        .map(|manga| ScrapeSearchResponse {
+            title: manga
+                .attributes
+                .title
+                .get("en")
+                .map(|v| v.to_string())
+                .unwrap_or(
+                    manga
+                        .attributes
+                        .title
+                        .iter()
+                        .next()
+                        .map(|v| v.1.to_string())
+                        .unwrap_or_default(),
+                ),
+            url: format!("https://mangadex.org/title/{}", manga.id),
+            cover: manga
+                .relationships
+                .iter()
+                .find_map(|v| match v {
+                    Relationship1::Data(v) => match v.r#type == "cover_art" {
+                        true => Some(format!(
+                            "https://mangadex.org/covers/{}/{}",
+                            manga.id, v.attributes.file_name
+                        )),
+                        false => None,
+                    },
+                    Relationship1::Other(_) => None,
+                })
+                .unwrap_or_default(),
+            r#type: None,
+            status: Some(manga.attributes.status),
+        })
+        .collect())
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(untagged)]
 enum Relationship1 {
     Data(RelationshipStruct),
-    Other(Value)
+    Other(Value),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -189,7 +283,6 @@ struct Attributes2 {
     pub title: HashMap<String, String>,
     pub status: String,
 }
-
 
 #[derive(Serialize, Deserialize)]
 struct RelationshipStruct {
@@ -205,7 +298,7 @@ struct Manga {
     #[serde(rename = "type")]
     pub r#type: String,
     pub attributes: Attributes2,
-    relationships: Vec<Relationship1>
+    relationships: Vec<Relationship1>,
 }
 
 #[derive(Serialize, Deserialize)]

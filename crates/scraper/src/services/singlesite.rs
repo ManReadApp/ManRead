@@ -37,7 +37,7 @@ impl SingleSiteService {
         let uri = get_uri(&data, url)?;
         if let Some(v) = self.services.get(&uri) {
             let req = config_to_request_builder(&self.client, &v.config, url);
-            let html = download(req).await?;
+            let html = download(req, v.cf_bypass()).await?;
             let fields = v.process(html.as_str());
             post_process(&uri, fields)
         } else {

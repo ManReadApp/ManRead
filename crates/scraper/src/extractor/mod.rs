@@ -37,6 +37,7 @@ impl SearchServiceDeserialized {
         };
 
         SearchServiceScrapeData {
+            cf_bypass: headers.get("cf_bypass") == Some(&"true".to_string()),
             headers,
             url_empty: self.url_empty,
             url: self.url,
@@ -62,6 +63,7 @@ pub struct SearchServiceScrapeData {
     type_: Option<Selector>,
     status: Option<Selector>,
     offset: Option<u32>,
+    cf_bypass: bool
 }
 
 impl SearchServiceScrapeData {
@@ -88,7 +90,8 @@ impl SearchServiceScrapeData {
                 "{offset}",
                 &((page - 1) * self.offset.unwrap_or(0)).to_string(),
             );
-        let html = download(config_to_request_builder(client, &self.headers, &url)).await?;
+
+        let html = download(config_to_request_builder(client, &self.headers, &url), self.cf_bypass).await?;
         let origin = Url::parse(&url).unwrap().origin().ascii_serialization();
         let doc = Html::parse_document(html.as_str());
         let urls = doc
@@ -102,16 +105,12 @@ impl SearchServiceScrapeData {
 
         let cover = doc
             .select(&self.cover)
-            .map(|v| {
-                match self.cover_data_src {
-                    true => {
-                        v.attr("data-src").unwrap_or_default().to_string()
-                    },
-                    false =>  v.attr("src")
-                        .unwrap_or(v.attr("data-src").unwrap_or_default())
-                        .to_string()
-                }
-
+            .map(|v| match self.cover_data_src {
+                true => v.attr("data-src").unwrap_or_default().to_string(),
+                false => v
+                    .attr("src")
+                    .unwrap_or(v.attr("data-src").unwrap_or_default())
+                    .to_string(),
             })
             .map(|v| {
                 v.split_once("/https://")

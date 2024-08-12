@@ -1,13 +1,36 @@
-#[cfg(feature = "curl")]
-use std::sync::{Arc, Mutex};
-#[cfg(feature = "curl")]
-use curl::easy::List;
-use reqwest::{Method, RequestBuilder};
+use std::collections::HashMap;
 #[cfg(feature = "curl")]
 use crate::error::status_code_err;
 use crate::ScrapeError;
+#[cfg(feature = "curl")]
+use curl::easy::List;
+#[cfg(feature = "curl")]
+use reqwest::Method;
+use reqwest::RequestBuilder;
+#[cfg(feature = "curl")]
+use std::sync::{Arc, Mutex};
+use reqwest::header::COOKIE;
 
-pub async fn download(v: RequestBuilder) -> Result<String, ScrapeError> {
+pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, ScrapeError> {
+    let data = download_(v.try_clone().unwrap()).await;
+    if cloudflare {
+        if let Ok(data)  = &data {
+            if data.contains("<title>Just a moment...</title>") {
+                let (client, req) = v.try_clone().unwrap().build_split();
+                let url = req.unwrap().url().to_string();
+                let cookies: HashMap<String, String> = client.get(format!("http://127.0.0.1:8000/cookie?url={}", urlencoding::encode(url.as_str()))).send().await?.json().await?;
+                let cookies = cookies.iter()
+                    .map(|(key, value)| format!("{}={}", key, value))
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                return download_(v.header(COOKIE, cookies)).await;
+            }
+        }
+    }
+
+    data
+}
+pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
     for i in 0..5 {
         #[cfg(feature = "curl")]
         let data = {
@@ -16,7 +39,7 @@ pub async fn download(v: RequestBuilder) -> Result<String, ScrapeError> {
             let mut handle = curl::easy::Easy::new();
             handle.url(data.url().as_str())?;
             let b = buf.clone();
-            handle.write_function(move|data| {
+            handle.write_function(move |data| {
                 b.lock().unwrap().extend_from_slice(data);
                 Ok(data.len())
             })?;
@@ -61,12 +84,10 @@ pub async fn download(v: RequestBuilder) -> Result<String, ScrapeError> {
             Err(v) => Err(v),
         };
         #[cfg(not(feature = "curl"))]
-
         if let Ok(v) = data {
             return Ok(v);
         }
         #[cfg(not(feature = "curl"))]
-
         if i == 4 {
             return Ok(data?);
         }

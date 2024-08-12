@@ -1,4 +1,4 @@
-"request_config": "headers.json"
+"request_config": "cfheaders.json"
 title[strip_text] .seriestitlenu
 img[src] div.seriesimg > img
 type[strip_text] #showtype

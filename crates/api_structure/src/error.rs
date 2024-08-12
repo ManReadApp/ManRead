@@ -62,7 +62,7 @@ pub enum ApiErrorType {
     ScrapeErrorParseError,
     ScrapeErrorReadError,
     ScrapeErrorCurl,
-    ScrapeErrorStatus
+    ScrapeErrorStatus,
 }
 
 impl Display for ApiErrorType {

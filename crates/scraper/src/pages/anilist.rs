@@ -86,6 +86,7 @@ pub async fn get_data(
             .post("https://graphql.anilist.co/")
             .header("Accept", "application/json")
             .json(&json),
+        false
     )
     .await?;
     let parsed: InfoResponse = serde_json::from_str(&resp)?;
@@ -408,6 +409,7 @@ pub async fn search(
             .post("https://graphql.anilist.co/")
             .header("Accept", "application/json")
             .json(&json),
+        false
     )
     .await?;
     let data: SearchResponse = serde_json::from_str(&resp)?;

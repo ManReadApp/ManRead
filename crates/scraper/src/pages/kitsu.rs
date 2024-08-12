@@ -21,7 +21,7 @@ pub async fn get_data(
         slug = slug.split_once('/').unwrap().0;
     }
     let url = format!("https://kitsu.io/api/edge/manga?fields%5Bcategories%5D=slug%2Ctitle&filter%5Bslug%5D={slug}&include=categories,genres");
-    let text = download(client.get(url)).await?;
+    let text = download(client.get(url), false).await?;
     let mut parsed: MangaResponse = serde_json::from_str(&text)?;
     let data = parsed.data.remove(0);
     let mut hm = HashMap::new();
@@ -154,7 +154,7 @@ pub async fn search(
     if let Some(sort) = &search.sort {
         url = format!("{url}&sort={}", get_sort(&sort))
     }
-    let text = download(client.get(url)).await?;
+    let text = download(client.get(url), false).await?;
     let data: SearchResponse = serde_json::from_str(&text)?;
     let data = data.data;
     Ok(data
