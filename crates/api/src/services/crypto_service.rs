@@ -11,7 +11,7 @@ use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validati
 #[derive(Debug)]
 pub struct CryptoService {
     pub secret: Vec<u8>,
-    claims: Mutex<HashMap<String, Claim>>,
+    pub claims: Mutex<HashMap<String, Claim>>,
 }
 
 impl CryptoService {

@@ -44,6 +44,7 @@ mod util;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    //TODO: start cf_bypass
     let config = env::config::get_env().expect("Server configuration failed");
     create_folders(
         &config.root_folder,
@@ -124,6 +125,7 @@ async fn main() -> std::io::Result<()> {
         let app = app
             .app_data(Data::from(dbc.clone()))
             .app_data(Data::new(CryptoService {
+                claims: Default::default(),
                 secret: cfgc.secret_key.as_bytes().to_vec(),
             }))
             .app_data(Data::new(cfgc.clone()))

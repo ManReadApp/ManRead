@@ -48,6 +48,8 @@ impl ResponseError for ApiError {
             ApiErrorType::ScrapeErrorFetchError => StatusCode::INTERNAL_SERVER_ERROR,
             ApiErrorType::ScrapeErrorParseError => StatusCode::INTERNAL_SERVER_ERROR,
             ApiErrorType::ScrapeErrorReadError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorCurl => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorType::ScrapeErrorStatus => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
