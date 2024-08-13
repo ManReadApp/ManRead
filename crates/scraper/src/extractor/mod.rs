@@ -82,8 +82,11 @@ impl SearchServiceScrapeData {
         if url.is_none() {
             url = Some(self.url.clone())
         }
+        let url = url.unwrap();
+        if !url.contains("{page}") && !url.contains("{offset}") && page > 1 {
+            return Ok(vec![]);
+        }
         let url = url
-            .unwrap()
             .replace("{query}", &urlencoding::encode(&query))
             .replace("{page}", &page.to_string())
             .replace(
