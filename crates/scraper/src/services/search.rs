@@ -67,7 +67,14 @@ impl SearchService {
             if page > 1 {
                 return Ok(vec![]);
             }
-            let values = service.values().filter(|v|v.title.contains(&query)).map(|v|ScrapeSearchResponse {
+            let query = match query.trim() {
+                "" => None,
+                _ => Some(query.to_lowercase())
+            };
+            let values = service.values().filter(|v|match &query {
+                None => true,
+                Some(query) => v.title.to_lowercase().contains(query)
+            }).map(|v|ScrapeSearchResponse {
                 title: v.title.clone(),
                 url: v.url.clone(),
                 cover: v.cover.clone().unwrap_or_default(),
