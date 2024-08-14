@@ -5,7 +5,7 @@ use crate::pages;
 use crate::pages::asuratoon::get_first_url;
 use crate::pages::{anilist, kitsu};
 use crate::services::icon::{get_uri, ExternalSite};
-use crate::services::{config_to_request_builder, Service};
+use crate::services::{config_to_request_builder, MangaData, Service};
 use api_structure::error::{ApiErr, ApiErrorType};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -18,13 +18,15 @@ use url::Url;
 pub struct MetaDataService {
     client: Client,
     services: HashMap<String, Service>,
+    local_services: Arc<HashMap<String, HashMap<String, MangaData>>>
 }
 
 impl MetaDataService {
-    pub fn new(services: HashMap<String, Service>) -> Self {
+    pub fn new(services: HashMap<String, Service>, local_services: Arc<HashMap<String, HashMap<String, MangaData>>>) -> Self {
         Self {
             client: Default::default(),
             services,
+            local_services
         }
     }
 
@@ -34,13 +36,30 @@ impl MetaDataService {
         data: Arc<Vec<ExternalSite>>,
     ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
         let uri = get_uri(&data, url)?;
-        let url = self.process_url(&uri, url.to_string()).await;
+        let mut url = self.process_url(&uri, url.to_string()).await;
         if let Some(v) = self.services.get(&uri) {
             let req = config_to_request_builder(&self.client, &v.config, url.as_str());
             let html = download(req, v.cf_bypass()).await?;
             let fields = v.process(html.as_str());
             post_process(&url, fields)
-        } else {
+        } else if let Some(v) = self.local_services.get(&uri){
+            if !url.ends_with("/") {
+                url = format!("{url}/");
+            }
+            v.get(&url).ok_or(ScrapeError::invalid_url("url not found")).map(|v|{
+                let mut data = HashMap::new();
+                data.insert("title".to_string(), ItemOrArray::Item(v.title.clone()));
+                data.insert("url".to_string(), ItemOrArray::Item(v.url.clone()));
+                data.insert("cover".to_string(), ItemOrArray::Item(v.cover.clone().unwrap_or_default()));
+                for (key, value) in v.data.iter() {
+                    data.insert(key.clone(), match value {
+                        StringOrArr::String(v) =>  ItemOrArray::Item(v.clone()),
+                        StringOrArr::Arr(v) =>  ItemOrArray::Array(v.clone())
+                    });
+                }
+                data
+            })
+        }else{
             manual(&self.client, &uri, &url).await
         }
     }
@@ -64,13 +83,12 @@ pub enum ItemOrArray {
     Item(String),
     Array(Vec<String>),
     Map(HashMap<String, String>),
-
     ArrayDyn(Vec<Value>),
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(untagged)]
-enum StringOrArr {
+pub enum StringOrArr {
     String(String),
     Arr(Vec<String>),
 }

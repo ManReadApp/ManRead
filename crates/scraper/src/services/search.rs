@@ -8,18 +8,22 @@ use api_structure::models::manga::external_search::{
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use std::collections::HashMap;
+use std::sync::Arc;
+use crate::services::MangaData;
 
 #[derive(Default)]
 pub struct SearchService {
     client: Client,
     services: HashMap<String, SearchServiceScrapeData>,
+    local_services: Arc<HashMap<String, HashMap<String, MangaData>>>
 }
 
 impl SearchService {
-    pub fn new(services: HashMap<String, SearchServiceScrapeData>) -> Self {
+    pub fn new(services: HashMap<String, SearchServiceScrapeData>, local_services: Arc<HashMap<String, HashMap<String, MangaData>>>) -> Self {
         Self {
             client: Default::default(),
             services,
+            local_services
         }
     }
 
@@ -57,7 +61,9 @@ impl SearchService {
         if let Some(service) = self.services.get(uri) {
             let (query, page) = search.get_query();
             service.search(&self.client, query, page).await
-        } else {
+        } else if let Some(service) = self.local_services.get(uri) {
+            todo!()
+        }else {
             match uri {
                 "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
                 "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,
