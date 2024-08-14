@@ -10,6 +10,7 @@ use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
 use crate::services::MangaData;
+use crate::services::metadata::StringOrArr;
 
 #[derive(Default)]
 pub struct SearchService {
@@ -62,7 +63,24 @@ impl SearchService {
             let (query, page) = search.get_query();
             service.search(&self.client, query, page).await
         } else if let Some(service) = self.local_services.get(uri) {
-            todo!()
+            let (query, page) =search.get_query();
+            if page > 1 {
+                return Ok(vec![]);
+            }
+            let values = service.values().filter(|v|v.title.contains(&query)).map(|v|ScrapeSearchResponse {
+                title: v.title.clone(),
+                url: v.url.clone(),
+                cover: v.cover.clone().unwrap_or_default(),
+                r#type: v.data.get("type").and_then(|v|match v {
+                    StringOrArr::String(v) => Some(v.clone()),
+                    StringOrArr::Arr(_) => None
+                }),
+                status: v.data.get("status").and_then(|v|match v {
+                    StringOrArr::String(v) => Some(v.clone()),
+                    StringOrArr::Arr(_) => None
+                }),
+            }).collect::<Vec<_>>();
+            Ok(values)
         }else {
             match uri {
                 "anilist" => anilist::search(&self.client, &search.get_simple()?).await,

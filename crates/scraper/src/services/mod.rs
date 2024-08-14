@@ -110,6 +110,7 @@ pub fn init(
                         .collect::<Vec<_>>()).unwrap_or_default();
                     let data:Vec<MangaData> = serde_json::from_str(&read_to_string(data)?)?;
                     let data = data.into_iter().map(|mut v|{
+                        v.data = v.data.into_iter().map(|(k, v)|(k.to_lowercase(), v)).collect();
                         if v.cover.is_some() {
                             let id = generate_id_from_url(&v.url).to_string();
                             if let Some(cover) = covers.iter().find(|v|v.starts_with(&id)) {
