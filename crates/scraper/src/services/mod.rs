@@ -1,6 +1,6 @@
 use crate::error::ScrapeError;
 use crate::extractor::parser::Field;
-use crate::extractor::{SearchServiceDeserialized};
+use crate::extractor::SearchServiceDeserialized;
 use crate::services::metadata::{MetaDataService, StringOrArr};
 use crate::services::multisite::MultiSiteService;
 use crate::services::search::SearchService;
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::fs::{read_dir, read_to_string, File};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io;
-use std::io::{BufRead};
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -29,7 +29,7 @@ struct MangaData {
     url: String,
     cover: Option<String>,
     #[serde(flatten)]
-    data: HashMap<String, StringOrArr>
+    data: HashMap<String, StringOrArr>,
 }
 
 pub struct Service {
@@ -99,30 +99,40 @@ pub fn init(
                     search.insert(v.to_string(), data.convert(&folder));
                 }
             }
-        }else {
+        } else {
             let uri = path.iter().last();
             if let Some(uri) = uri {
                 let uri = uri.to_str().unwrap_or_default();
                 let data = path.join("items.json");
                 if data.is_file() {
-                    let covers = read_dir(path.join("covers")).map(|v|v.filter_map(|v| v.ok())
-                        .filter_map(|v| v.file_name().to_str().map(|v| v.to_string()))
-                        .collect::<Vec<_>>()).unwrap_or_default();
-                    let data:Vec<MangaData> = serde_json::from_str(&read_to_string(data)?)?;
-                    let data = data.into_iter().map(|mut v|{
-                        v.data = v.data.into_iter().map(|(k, v)|(k.to_lowercase(), v)).collect();
-                        if v.cover.is_some() {
-                            let id = generate_id_from_url(&v.url).to_string();
-                            if let Some(cover) = covers.iter().find(|v|v.starts_with(&id)) {
-                                v.cover = Some(format!("/external/cover/{uri}/{}", cover));
+                    let covers = read_dir(path.join("covers"))
+                        .map(|v| {
+                            v.filter_map(|v| v.ok())
+                                .filter_map(|v| v.file_name().to_str().map(|v| v.to_string()))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    let data: Vec<MangaData> = serde_json::from_str(&read_to_string(data)?)?;
+                    let data = data
+                        .into_iter()
+                        .map(|mut v| {
+                            v.data = v
+                                .data
+                                .into_iter()
+                                .map(|(k, v)| (k.to_lowercase(), v))
+                                .collect();
+                            if v.cover.is_some() {
+                                let id = generate_id_from_url(&v.url).to_string();
+                                if let Some(cover) = covers.iter().find(|v| v.starts_with(&id)) {
+                                    v.cover = Some(format!("/external/cover/{uri}/{}", cover));
+                                }
                             }
-                        }
-                        (v.url.clone(), v)
-                    }).collect::<HashMap<_, _>>();
+                            (v.url.clone(), v)
+                        })
+                        .collect::<HashMap<_, _>>();
                     meta_local.insert(uri.to_string(), data);
                 }
             }
-
         }
     }
     let meta_local = Arc::new(meta_local);

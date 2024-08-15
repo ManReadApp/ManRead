@@ -51,8 +51,8 @@ fn post_process(uri: &str, values: HashMap<String, String>) -> Result<Vec<String
         return Ok(serde_json::from_str(v)?);
     }
     if let Some(v) = values.get("imgs_filter") {
-        let items:Vec<String> = serde_json::from_str(v)?;
-        return Ok(items.into_iter().filter(|v|!v.is_empty()).collect());
+        let items: Vec<String> = serde_json::from_str(v)?;
+        return Ok(items.into_iter().filter(|v| !v.is_empty()).collect());
     }
     pages::hidden::single::post_process(uri, values)
 }

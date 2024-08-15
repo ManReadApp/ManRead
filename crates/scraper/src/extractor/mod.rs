@@ -63,7 +63,7 @@ pub struct SearchServiceScrapeData {
     type_: Option<Selector>,
     status: Option<Selector>,
     offset: Option<u32>,
-    cf_bypass: bool
+    cf_bypass: bool,
 }
 
 impl SearchServiceScrapeData {
@@ -94,7 +94,11 @@ impl SearchServiceScrapeData {
                 &((page - 1) * self.offset.unwrap_or(0)).to_string(),
             );
 
-        let html = download(config_to_request_builder(client, &self.headers, &url), self.cf_bypass).await?;
+        let html = download(
+            config_to_request_builder(client, &self.headers, &url),
+            self.cf_bypass,
+        )
+        .await?;
         let origin = Url::parse(&url).unwrap().origin().ascii_serialization();
         let doc = Html::parse_document(html.as_str());
         let urls = doc

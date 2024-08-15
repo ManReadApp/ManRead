@@ -1,6 +1,8 @@
 use crate::extractor::SearchServiceScrapeData;
 use crate::pages::hidden::multi;
 use crate::pages::{anilist, animeplanet, kitsu, mangadex};
+use crate::services::metadata::StringOrArr;
+use crate::services::MangaData;
 use crate::ScrapeError;
 use api_structure::models::manga::external_search::{
     ExternalSearchData, ValidSearch, ValidSearches,
@@ -9,22 +11,23 @@ use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::services::MangaData;
-use crate::services::metadata::StringOrArr;
 
 #[derive(Default)]
 pub struct SearchService {
     client: Client,
     services: HashMap<String, SearchServiceScrapeData>,
-    local_services: Arc<HashMap<String, HashMap<String, MangaData>>>
+    local_services: Arc<HashMap<String, HashMap<String, MangaData>>>,
 }
 
 impl SearchService {
-    pub fn new(services: HashMap<String, SearchServiceScrapeData>, local_services: Arc<HashMap<String, HashMap<String, MangaData>>>) -> Self {
+    pub fn new(
+        services: HashMap<String, SearchServiceScrapeData>,
+        local_services: Arc<HashMap<String, HashMap<String, MangaData>>>,
+    ) -> Self {
         Self {
             client: Default::default(),
             services,
-            local_services
+            local_services,
         }
     }
 
@@ -63,32 +66,36 @@ impl SearchService {
             let (query, page) = search.get_query();
             service.search(&self.client, query, page).await
         } else if let Some(service) = self.local_services.get(uri) {
-            let (query, page) =search.get_query();
+            let (query, page) = search.get_query();
             if page > 1 {
                 return Ok(vec![]);
             }
             let query = match query.trim() {
                 "" => None,
-                _ => Some(query.to_lowercase())
+                _ => Some(query.to_lowercase()),
             };
-            let values = service.values().filter(|v|match &query {
-                None => true,
-                Some(query) => v.title.to_lowercase().contains(query)
-            }).map(|v|ScrapeSearchResponse {
-                title: v.title.clone(),
-                url: v.url.clone(),
-                cover: v.cover.clone().unwrap_or_default(),
-                r#type: v.data.get("type").and_then(|v|match v {
-                    StringOrArr::String(v) => Some(v.clone()),
-                    StringOrArr::Arr(_) => None
-                }),
-                status: v.data.get("status").and_then(|v|match v {
-                    StringOrArr::String(v) => Some(v.clone()),
-                    StringOrArr::Arr(_) => None
-                }),
-            }).collect::<Vec<_>>();
+            let values = service
+                .values()
+                .filter(|v| match &query {
+                    None => true,
+                    Some(query) => v.title.to_lowercase().contains(query),
+                })
+                .map(|v| ScrapeSearchResponse {
+                    title: v.title.clone(),
+                    url: v.url.clone(),
+                    cover: v.cover.clone().unwrap_or_default(),
+                    r#type: v.data.get("type").and_then(|v| match v {
+                        StringOrArr::String(v) => Some(v.clone()),
+                        StringOrArr::Arr(_) => None,
+                    }),
+                    status: v.data.get("status").and_then(|v| match v {
+                        StringOrArr::String(v) => Some(v.clone()),
+                        StringOrArr::Arr(_) => None,
+                    }),
+                })
+                .collect::<Vec<_>>();
             Ok(values)
-        }else {
+        } else {
             match uri {
                 "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
                 "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,

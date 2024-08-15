@@ -18,15 +18,18 @@ use url::Url;
 pub struct MetaDataService {
     client: Client,
     services: HashMap<String, Service>,
-    local_services: Arc<HashMap<String, HashMap<String, MangaData>>>
+    local_services: Arc<HashMap<String, HashMap<String, MangaData>>>,
 }
 
 impl MetaDataService {
-    pub fn new(services: HashMap<String, Service>, local_services: Arc<HashMap<String, HashMap<String, MangaData>>>) -> Self {
+    pub fn new(
+        services: HashMap<String, Service>,
+        local_services: Arc<HashMap<String, HashMap<String, MangaData>>>,
+    ) -> Self {
         Self {
             client: Default::default(),
             services,
-            local_services
+            local_services,
         }
     }
 
@@ -42,24 +45,32 @@ impl MetaDataService {
             let html = download(req, v.cf_bypass()).await?;
             let fields = v.process(html.as_str());
             post_process(&url, fields)
-        } else if let Some(v) = self.local_services.get(&uri){
+        } else if let Some(v) = self.local_services.get(&uri) {
             if !url.ends_with("/") {
                 url = format!("{url}/");
             }
-            v.get(&url).ok_or(ScrapeError::invalid_url("url not found")).map(|v|{
-                let mut data = HashMap::new();
-                data.insert("title".to_string(), ItemOrArray::Item(v.title.clone()));
-                data.insert("url".to_string(), ItemOrArray::Item(v.url.clone()));
-                data.insert("cover".to_string(), ItemOrArray::Item(v.cover.clone().unwrap_or_default()));
-                for (key, value) in v.data.iter() {
-                    data.insert(key.clone(), match value {
-                        StringOrArr::String(v) =>  ItemOrArray::Item(v.clone()),
-                        StringOrArr::Arr(v) =>  ItemOrArray::Array(v.clone())
-                    });
-                }
-                data
-            })
-        }else{
+            v.get(&url)
+                .ok_or(ScrapeError::invalid_url("url not found"))
+                .map(|v| {
+                    let mut data = HashMap::new();
+                    data.insert("title".to_string(), ItemOrArray::Item(v.title.clone()));
+                    data.insert("url".to_string(), ItemOrArray::Item(v.url.clone()));
+                    data.insert(
+                        "cover".to_string(),
+                        ItemOrArray::Item(v.cover.clone().unwrap_or_default()),
+                    );
+                    for (key, value) in v.data.iter() {
+                        data.insert(
+                            key.clone(),
+                            match value {
+                                StringOrArr::String(v) => ItemOrArray::Item(v.clone()),
+                                StringOrArr::Arr(v) => ItemOrArray::Array(v.clone()),
+                            },
+                        );
+                    }
+                    data
+                })
+        } else {
             manual(&self.client, &uri, &url).await
         }
     }
