@@ -9,7 +9,7 @@ use pg_embed::postgres::PgSettings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -401,10 +401,12 @@ impl Display for SearchRequest {
         };
 
         //TODO: order
+        let order = self.order.to_string();
 
         let sql = format!(
-            "SELECT * FROM public.info{} LIMIT {} OFFSET {};",
+            "SELECT * FROM public.info{} {} LIMIT {} OFFSET {};",
             query,
+            order,
             self.limit.size,
             (self.limit.page - 1) * self.limit.size
         );
@@ -519,6 +521,31 @@ pub enum ItemData {
 pub enum IdOrValue {
     Value(String),
     Id(i32),
+}
+
+impl Display for Order {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let d = match self.desc {
+            true => "DESC",
+            false => "ASC",
+        };
+        write!(f, "{} {}", self.kind, d)
+    }
+}
+
+impl Display for OrderKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                OrderKind::Id => "id",
+                OrderKind::PrivateId => "private_id",
+                OrderKind::Title => "title",
+                OrderKind::LastUpdatedMU => todo!(),
+            }
+        )
+    }
 }
 
 impl Display for Item {
