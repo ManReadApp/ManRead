@@ -2,6 +2,7 @@ use api_structure::error::{ApiErr, ApiErrorType};
 use base64::DecodeError;
 use js_sandbox::JsError;
 use openssl::error::ErrorStack;
+use pg_embed::pg_errors::PgEmbedError;
 use std::io;
 use std::io::Error;
 use std::num::ParseFloatError;
@@ -13,6 +14,18 @@ pub struct ScrapeError(pub ApiErr);
 impl From<ApiErr> for ScrapeError {
     fn from(value: ApiErr) -> Self {
         Self(value)
+    }
+}
+
+impl From<tokio_postgres::Error> for ScrapeError {
+    fn from(value: tokio_postgres::Error) -> Self {
+        todo!()
+    }
+}
+
+impl From<PgEmbedError> for ScrapeError {
+    fn from(value: PgEmbedError) -> Self {
+        todo!()
     }
 }
 
