@@ -6,11 +6,10 @@ A mangareader completly written in rust
 ![Auth GIF](assets/auth.gif)
 ## Download
 ```sh
-git clone https://github.com/ManReadApp/ManRead
-cd ManRead
-chmod 700 ./download.sh
-./download.sh
+curl -O https://raw.githubusercontent.com/ManReadApp/ManRead/master/install.sh && bash install.sh
 ```
+download `https://huggingface.co/datasets/GriddleDean/mangaupdates/resolve/main/postgres.sql?download=true` and place in `data/external`
+
 
 ## Run Server
 ```sh

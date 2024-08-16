@@ -1,6 +1,6 @@
 use crate::extractor::SearchServiceScrapeData;
 use crate::pages::hidden::multi;
-use crate::pages::{anilist, animeplanet, kitsu, mangadex};
+use crate::pages::{anilist, animeplanet, kitsu, mangadex, mangaupdates};
 use crate::services::metadata::StringOrArr;
 use crate::services::MangaData;
 use crate::ScrapeError;
@@ -101,6 +101,7 @@ impl SearchService {
                 "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,
                 "anime-planet" => animeplanet::search(&self.client, search.get_simple()?).await,
                 "mangadex" => mangadex::search(&self.client, search).await,
+                "mangaupdates" => mangaupdates::search(search).await,
                 _ => multi::manual_search(uri, &self.client, search).await,
             }
         }

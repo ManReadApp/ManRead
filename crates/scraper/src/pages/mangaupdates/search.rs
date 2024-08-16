@@ -1,4 +1,4 @@
-use crate::ScrapeError;
+use crate::{find_workspace_root, ScrapeError};
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use bytes::Bytes;
 use futures::{pin_mut, stream, SinkExt};
@@ -13,12 +13,14 @@ use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::ptr::addr_of;
+use std::sync::{Arc, Once};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::OnceCell;
 use tokio_postgres::types::{FromSql, Kind, Type};
 use tokio_postgres::{Client, CopyInSink, NoTls};
 
 async fn init_postgres(path: &Path, port: u16) -> Result<Client, ScrapeError> {
-    //https://huggingface.co/datasets/GriddleDean/mangaupdates/resolve/main/postgres.sql?download=true
     let mut pg = pg_embed::postgres::PgEmbed::new(
         PgSettings {
             database_dir: path.join("external/mangaupdates"),
@@ -209,7 +211,19 @@ async fn test() {
     let res = search(&client, req).await.unwrap();
     println!("{:?}", res);
 }
-async fn search(
+
+static CLIENT: OnceCell<Client> = OnceCell::new();
+
+pub async fn get_client() -> &'static Client {
+    CLIENT
+        .get_or_init(async {
+            init_postgres(&find_workspace_root().unwrap().join("data"), 5437)
+                .await
+                .unwrap()
+        })
+        .await
+}
+pub async fn search(
     client: &Client,
     req: SearchRequest,
 ) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
