@@ -463,6 +463,19 @@ pub(crate) enum ItemOrArray {
     Array(Array),
 }
 
+impl TryFrom<api_structure::models::manga::search::ItemOrArray> for ItemOrArray {
+    type Error = ScrapeError;
+
+    fn try_from(
+        value: api_structure::models::manga::search::ItemOrArray,
+    ) -> Result<Self, Self::Error> {
+        Ok(match value {
+            ItemOrArray::Item(v) => Self::Item(Item::try_from(v)?),
+            ItemOrArray::Array(v) => Self::Array(Array::try_from(v)?),
+        })
+    }
+}
+
 impl ItemOrArray {
     fn or(&self) -> Option<bool> {
         match self {
@@ -489,7 +502,15 @@ impl TryFrom<api_structure::models::manga::search::Array> for Array {
     type Error = ScrapeError;
 
     fn try_from(value: api_structure::models::manga::search::Array) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            or: value.or,
+            or_post: value.or_post,
+            items: value
+                .items
+                .into_iter()
+                .map(ItemOrArray::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
     }
 }
 
@@ -521,6 +542,14 @@ pub struct Item {
     pub(crate) not: bool,
     pub(crate) data: ItemData,
     or: Option<bool>,
+}
+
+impl TryFrom<api_structure::models::manga::search::Item> for Item {
+    type Error = ScrapeError;
+
+    fn try_from(value: api_structure::models::manga::search::Item) -> Result<Self, Self::Error> {
+        todo!()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
