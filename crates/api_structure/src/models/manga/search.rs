@@ -66,7 +66,7 @@ impl Display for Array {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Item {
     pub not: bool,
-    or_post: Option<bool>,
+    pub or_post: Option<bool>,
     pub data: ItemData,
 }
 

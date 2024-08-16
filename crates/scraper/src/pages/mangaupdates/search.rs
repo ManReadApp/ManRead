@@ -548,6 +548,18 @@ impl TryFrom<api_structure::models::manga::search::Item> for Item {
     type Error = ScrapeError;
 
     fn try_from(value: api_structure::models::manga::search::Item) -> Result<Self, Self::Error> {
+        Ok(Self {
+            not: value.not,
+            data: ItemData::try_from(value.data)?,
+            or: value.or_post,
+        })
+    }
+}
+
+impl TryFrom<api_structure::models::manga::search::ItemData> for ItemData {
+    type Error = ScrapeError;
+
+    fn try_from(value: api_structure::models::manga::search::ItemData) -> Result<Self, Self::Error> {
         todo!()
     }
 }
