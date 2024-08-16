@@ -1,29 +1,54 @@
-use std::collections::HashMap;
 #[cfg(feature = "curl")]
 use crate::error::status_code_err;
 use crate::ScrapeError;
 #[cfg(feature = "curl")]
 use curl::easy::List;
 #[cfg(feature = "curl")]
+use log::warn;
+use reqwest::header::{COOKIE, USER_AGENT};
+#[cfg(feature = "curl")]
 use reqwest::Method;
 use reqwest::RequestBuilder;
+use serde::Deserialize;
+use std::collections::HashMap;
 #[cfg(feature = "curl")]
 use std::sync::{Arc, Mutex};
-use reqwest::header::COOKIE;
+
+#[derive(Deserialize)]
+struct CfBypassResponse {
+    cookies: HashMap<String, String>,
+    user_agent: String,
+}
 
 pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, ScrapeError> {
     let data = download_(v.try_clone().unwrap()).await;
     if cloudflare {
-        if let Ok(data)  = &data {
+        if let Ok(data) = &data {
             if data.contains("<title>Just a moment...</title>") {
                 let (client, req) = v.try_clone().unwrap().build_split();
                 let url = req.unwrap().url().to_string();
-                let cookies: HashMap<String, String> = client.get(format!("http://127.0.0.1:8000/cookie?url={}", urlencoding::encode(url.as_str()))).send().await?.json().await?;
-                let cookies = cookies.iter()
-                    .map(|(key, value)| format!("{}={}", key, value))
-                    .collect::<Vec<String>>()
-                    .join("; ");
-                return download_(v.header(COOKIE, cookies)).await;
+                let headers: CfBypassResponse = client
+                    .get(format!(
+                        "http://127.0.0.1:8000/cookies?url={}",
+                        urlencoding::encode(url.as_str())
+                    ))
+                    .send()
+                    .await?
+                    .json()
+                    .await?;
+                let (client, req) = v.build_split();
+                let req = req.unwrap();
+                let req = client
+                    .get(req.url().to_string())
+                    .header(
+                        COOKIE,
+                        format!(
+                            "cf_clearance={}",
+                            headers.cookies.get("cf_clearance").unwrap().to_string()
+                        ),
+                    )
+                    .header(USER_AGENT, headers.user_agent);
+                return download_(req).await;
             }
         }
     }

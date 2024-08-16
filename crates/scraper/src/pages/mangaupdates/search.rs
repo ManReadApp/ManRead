@@ -191,27 +191,6 @@ impl<'a> FromSql<'a> for Multi {
     }
 }
 
-#[tokio::test]
-async fn test() {
-    let client = init_postgres(&PathBuf::from("../../data"), 5437)
-        .await
-        .unwrap();
-    let req = SearchRequest {
-        data: Array {
-            or: false,
-            or_post: None,
-            items: vec![],
-        },
-        order: Order {
-            desc: false,
-            kind: OrderKind::Id,
-        },
-        limit: Limit { size: 50, page: 1 },
-    };
-    let res = search(&client, req).await.unwrap();
-    println!("{:?}", res);
-}
-
 static CLIENT: OnceCell<Client> = OnceCell::new();
 
 pub async fn get_client() -> &'static Client {
@@ -392,13 +371,13 @@ pub async fn search(
 pub struct SearchRequest {
     pub(crate) data: Array,
     pub(crate) order: Order,
-    limit: Limit,
+    pub limit: Limit,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Limit {
-    size: u64,
-    page: u64,
+pub struct Limit {
+    pub size: u64,
+    pub page: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -414,7 +393,6 @@ impl Display for SearchRequest {
             None => String::new(),
         };
 
-        //TODO: order
         let order = self.order.to_string();
 
         let sql = format!(
@@ -449,6 +427,35 @@ pub enum OrderKind {
     LastUpdatedMU,
 }
 
+impl TryFrom<String> for OrderKind {
+    type Error = ScrapeError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "id" => Ok(Self::Id),
+            "private_id" => Ok(Self::PrivateId),
+            "title" => Ok(Self::Title),
+            "last_updated_mu" => Ok(Self::LastUpdatedMU),
+            _ => Err(ScrapeError::input_error("not valid order")),
+        }
+    }
+}
+
+impl Display for OrderKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                OrderKind::Id => "id",
+                OrderKind::PrivateId => "private_id",
+                OrderKind::Title => "title",
+                OrderKind::LastUpdatedMU => "last_updated_mu",
+            }
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub(crate) enum ItemOrArray {
@@ -476,6 +483,14 @@ pub struct Array {
     pub(crate) or: bool,
     pub or_post: Option<bool>,
     pub(crate) items: Vec<ItemOrArray>,
+}
+
+impl TryFrom<api_structure::models::manga::search::Array> for Array {
+    type Error = ScrapeError;
+
+    fn try_from(value: api_structure::models::manga::search::Array) -> Result<Self, Self::Error> {
+        todo!()
+    }
 }
 
 impl Array {

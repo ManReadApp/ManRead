@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::error::{ApiErr, ApiErrorType};
-
 use super::search::Field;
+use crate::error::{ApiErr, ApiErrorType};
+use crate::req::manga::search::SearchRequest;
 
 #[derive(Serialize, Deserialize)]
 pub enum ExternalSearchData {
+    Advanced(SearchRequest),
     Simple(SimpleSearch),
     String((String, u32)),
 }
@@ -18,6 +19,9 @@ impl ExternalSearchData {
             }
             Self::String((query, _)) => {
                 *query = new.to_string();
+            }
+            ExternalSearchData::Advanced(v) => {
+                todo!()
             }
         }
     }
@@ -36,6 +40,7 @@ impl ExternalSearchData {
         match self {
             Self::Simple(s) => (s.search, s.page),
             Self::String(s) => s,
+            ExternalSearchData::Advanced(v) => ("".to_string(), v.page),
         }
     }
 }

@@ -13,6 +13,7 @@ impl ExternalSearchRequest {
         match &mut self.data {
             ExternalSearchData::Simple(simple) => simple.page += 1,
             ExternalSearchData::String((_, page)) => *page += 1,
+            ExternalSearchData::Advanced(v) => v.page += 1,
         }
     }
 
@@ -20,6 +21,7 @@ impl ExternalSearchRequest {
         match &mut self.data {
             ExternalSearchData::Simple(simple) => simple.page = 1,
             ExternalSearchData::String((_, page)) => *page = 1,
+            ExternalSearchData::Advanced(v) => v.page = 1,
         }
     }
 }

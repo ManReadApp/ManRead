@@ -40,6 +40,7 @@ impl Display for ItemOrArray {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Array {
     pub or: bool,
+    pub or_post: Option<bool>,
     pub items: Vec<ItemOrArray>,
 }
 
@@ -65,6 +66,7 @@ impl Display for Array {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Item {
     pub not: bool,
+    or_post: Option<bool>,
     pub data: ItemData,
 }
 
@@ -85,11 +87,19 @@ impl Display for Item {
 
 impl Item {
     pub fn new(data: ItemData) -> Self {
-        Self { not: false, data }
+        Self {
+            not: false,
+            or: None,
+            data,
+        }
     }
 
     pub fn new_exclude(data: ItemData) -> Self {
-        Self { not: true, data }
+        Self {
+            not: true,
+            or: None,
+            data,
+        }
     }
 }
 
