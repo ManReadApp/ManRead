@@ -534,9 +534,14 @@ impl Array {
             false => "and",
         };
         let default = generate(self.or);
+        let len = arr.len();
         let v = arr
             .into_iter()
-            .map(|(a, b)| format!("{a} {} ", b.map(|v| generate(v)).unwrap_or(default)))
+            .enumerate()
+            .map(|(index, (a, b))| match index + 1 >= len {
+                false => format!("{a} {} ", b.map(|v| generate(v)).unwrap_or(default)),
+                true => a.to_string(),
+            })
             .collect::<String>();
         Some(format!("({})", v))
     }
