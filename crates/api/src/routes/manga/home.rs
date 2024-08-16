@@ -7,7 +7,7 @@ use actix_web::post;
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_grants::protect;
 use api_structure::models::auth::jwt::Claim;
-use api_structure::models::manga::search::{Array, ItemOrArray, Order};
+use api_structure::models::manga::search::Array;
 use api_structure::models::manga::status::Status;
 use api_structure::req::manga::search::SearchRequest;
 use api_structure::resp::manga::home::HomeResponse;

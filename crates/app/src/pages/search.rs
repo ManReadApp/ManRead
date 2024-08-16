@@ -5,12 +5,9 @@ use crate::requests::{
     SearchRequestFetcher,
 };
 use crate::util::parser::search_parser;
-use crate::widgets::add::Group;
 use crate::window_storage::{Initter, Page};
-use api_structure::models::manga::external_search::{
-    ExternalSearchData, SimpleSearch, ValidSearches,
-};
-use api_structure::models::manga::search::{Array, Field, ItemKind, ItemOrArray};
+use api_structure::models::manga::external_search::ExternalSearchData;
+use api_structure::models::manga::search::{Array, Field, ItemKind};
 use api_structure::req::manga::external_search::ExternalSearchRequest;
 use api_structure::req::manga::search::SearchRequest;
 use api_structure::req::manga::AvailableExternalSitesRequest;

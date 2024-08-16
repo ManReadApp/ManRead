@@ -192,15 +192,13 @@ impl<'a> FromSql<'a> for Multi {
 static CLIENT: OnceCell<Client> = OnceCell::const_new();
 
 pub async fn get_client() -> &'static Client {
-    unsafe {
-        CLIENT
-            .get_or_init(|| async {
-                init_postgres(&find_workspace_root().unwrap().join("data"), 5437)
-                    .await
-                    .unwrap()
-            })
-            .await
-    }
+    CLIENT
+        .get_or_init(|| async {
+            init_postgres(&find_workspace_root().unwrap().join("data"), 5437)
+                .await
+                .unwrap()
+        })
+        .await
 }
 pub async fn search(
     client: &Client,
