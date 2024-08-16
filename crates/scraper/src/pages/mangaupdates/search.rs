@@ -1,4 +1,5 @@
 use crate::{find_workspace_root, ScrapeError};
+use api_structure::models::manga::search::IdOrValue;
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use bytes::Bytes;
 use futures::{pin_mut, stream, SinkExt};
@@ -11,10 +12,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::ptr::addr_of;
-use std::sync::{Arc, Once};
+use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::OnceCell;
 use tokio_postgres::types::{FromSql, Kind, Type};
@@ -123,7 +121,7 @@ enum Multi {
 impl<'a> FromSql<'a> for Multi {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, Box<dyn Error + Sync + Send>> {
         match *ty.kind() {
-            Kind::Array(ref member) => {
+            Kind::Array(_) => {
                 return Ok(Self::Arr(Vec::from_sql(ty, raw)?));
             }
             _ => {}
@@ -191,16 +189,18 @@ impl<'a> FromSql<'a> for Multi {
     }
 }
 
-static CLIENT: OnceCell<Client> = OnceCell::new();
+static CLIENT: OnceCell<Client> = OnceCell::const_new();
 
 pub async fn get_client() -> &'static Client {
-    CLIENT
-        .get_or_init(async {
-            init_postgres(&find_workspace_root().unwrap().join("data"), 5437)
-                .await
-                .unwrap()
-        })
-        .await
+    unsafe {
+        CLIENT
+            .get_or_init(|| async {
+                init_postgres(&find_workspace_root().unwrap().join("data"), 5437)
+                    .await
+                    .unwrap()
+            })
+            .await
+    }
 }
 pub async fn search(
     client: &Client,
@@ -470,8 +470,12 @@ impl TryFrom<api_structure::models::manga::search::ItemOrArray> for ItemOrArray 
         value: api_structure::models::manga::search::ItemOrArray,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
-            ItemOrArray::Item(v) => Self::Item(Item::try_from(v)?),
-            ItemOrArray::Array(v) => Self::Array(Array::try_from(v)?),
+            api_structure::models::manga::search::ItemOrArray::Item(v) => {
+                Self::Item(Item::try_from(v)?)
+            }
+            api_structure::models::manga::search::ItemOrArray::Array(v) => {
+                Self::Array(Array::try_from(v)?)
+            }
         })
     }
 }
@@ -559,8 +563,140 @@ impl TryFrom<api_structure::models::manga::search::Item> for Item {
 impl TryFrom<api_structure::models::manga::search::ItemData> for ItemData {
     type Error = ScrapeError;
 
-    fn try_from(value: api_structure::models::manga::search::ItemData) -> Result<Self, Self::Error> {
-        todo!()
+    fn try_from(
+        value: api_structure::models::manga::search::ItemData,
+    ) -> Result<Self, Self::Error> {
+        Ok(match value.name.as_str() {
+            "id" => Self::Id(
+                value
+                    .value
+                    .get_int()
+                    .ok_or(ScrapeError::input_error("invalid type"))? as i32,
+            ),
+            "private_id" => Self::Pid(
+                value
+                    .value
+                    .get_int()
+                    .ok_or(ScrapeError::input_error("invalid type"))? as i32,
+            ),
+            "public_id" => Self::PublicId(
+                value
+                    .value
+                    .get_int()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "forum_id" => Self::ForumId(
+                value
+                    .value
+                    .get_int()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "key" => Self::Key(
+                value
+                    .value
+                    .get_string()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "title" => Self::Title(
+                value
+                    .value
+                    .get_string()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "description" => Self::Description(
+                value
+                    .value
+                    .get_string()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "type" => Self::Type(
+                value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "year" => {
+                let (eq, bigger, value) = value
+                    .value
+                    .get_cmp_int()
+                    .ok_or(ScrapeError::input_error("invalid type"))?;
+                Self::Year {
+                    eq,
+                    bigger,
+                    value: value as i32,
+                }
+            }
+            "latest_chapter" => {
+                let (eq, bigger, value) = value
+                    .value
+                    .get_cmp_int()
+                    .ok_or(ScrapeError::input_error("invalid type"))?;
+                Self::LatestChapter {
+                    eq,
+                    bigger,
+                    value: value as i32,
+                }
+            }
+            "tag" => Self::Tag(
+                value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "genre" => Self::Genre(
+                value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "licensed" => Self::Licensed(
+                value
+                    .value
+                    .get_bool()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "completed" => Self::Completed(
+                value
+                    .value
+                    .get_bool()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "artist" => Self::Artist(
+                value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "author" => Self::Author(
+                value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+            ),
+            "publisher_eng" => Self::Publisher {
+                value: value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+                eng: true,
+            },
+            "publisher_original" => Self::Publisher {
+                value: value
+                    .value
+                    .get_id_or_value()
+                    .ok_or(ScrapeError::input_error("invalid type"))?,
+                eng: false,
+            },
+            "rating" => {
+                let (eq, bigger, rating) = value
+                    .value
+                    .get_cmp_float()
+                    .ok_or(ScrapeError::input_error("invalid type"))?;
+
+                Self::Rating { eq, bigger, rating }
+            }
+            _ => Err(ScrapeError::input_error("invalid field name"))?,
+        })
     }
 }
 
@@ -583,14 +719,7 @@ pub enum ItemData {
     Artist(IdOrValue),
     Author(IdOrValue),
     Publisher { value: IdOrValue, eng: bool },
-    Rating { eq: bool, bigger: bool, rating: f32 },
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(untagged)]
-pub enum IdOrValue {
-    Value(String),
-    Id(i32),
+    Rating { eq: bool, bigger: bool, rating: f64 },
 }
 
 impl Display for Order {
@@ -600,21 +729,6 @@ impl Display for Order {
             false => "ASC",
         };
         write!(f, "{} {}", self.kind, d)
-    }
-}
-
-impl Display for OrderKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                OrderKind::Id => "id",
-                OrderKind::PrivateId => "private_id",
-                OrderKind::Title => "title",
-                OrderKind::LastUpdatedMU => todo!(),
-            }
-        )
     }
 }
 

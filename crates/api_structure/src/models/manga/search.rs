@@ -89,7 +89,7 @@ impl Item {
     pub fn new(data: ItemData) -> Self {
         Self {
             not: false,
-            or: None,
+            or_post: None,
             data,
         }
     }
@@ -97,7 +97,7 @@ impl Item {
     pub fn new_exclude(data: ItemData) -> Self {
         Self {
             not: true,
-            or: None,
+            or_post: None,
             data,
         }
     }
@@ -156,8 +156,68 @@ pub enum ItemValue {
     Int(i64),
     Float(f64),
     String(String),
-    CmpFloat { eq: bool, bigger: bool, value: f32 },
+    CmpFloat { eq: bool, bigger: bool, value: f64 },
     CmpInt { eq: bool, bigger: bool, value: i64 },
+}
+
+impl ItemValue {
+    pub fn get_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+    pub fn get_int(&self) -> Option<i64> {
+        match self {
+            Self::Int(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn get_float(&self) -> Option<f64> {
+        match self {
+            Self::Float(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn get_string(&self) -> Option<String> {
+        match self {
+            Self::String(i) => Some(i.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn get_cmp_float(&self) -> Option<(bool, bool, f64)> {
+        match self {
+            Self::CmpFloat { eq, bigger, value } => Some((*eq, *bigger, *value)),
+            _ => None,
+        }
+    }
+    pub fn get_cmp_int(&self) -> Option<(bool, bool, i64)> {
+        match self {
+            Self::CmpInt { eq, bigger, value } => Some((*eq, *bigger, *value)),
+            _ => None,
+        }
+    }
+
+    pub fn get_id_or_value(&self) -> Option<IdOrValue> {
+        let id = self.get_int();
+        if let Some(v) = id {
+            Some(IdOrValue::Id(v))
+        } else if let Some(v) = self.get_string() {
+            Some(IdOrValue::Value(v))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum IdOrValue {
+    Value(String),
+    Id(i64),
 }
 
 /// mostly auto generated

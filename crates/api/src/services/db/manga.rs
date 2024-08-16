@@ -305,13 +305,14 @@ async fn query_builder(
 ) -> ApiResult<String> {
     let asc = if r.desc { "DESC" } else { "ASC" };
     //TODO: list_count
+    let order = Order::try_from(r.order)?;
 
-    let (order, table) = if Order::LastRead != r.order {
-        let order = match r.order {
+    let (order, table) = if Order::LastRead != order {
+        let order = match order {
             Order::Random => "ORDER BY RAND()".to_string(),
             _ => format!(
                 "ORDER BY {} {}",
-                match r.order {
+                match order {
                     Order::Created => "created",
                     Order::Alphabetical => "title",
                     Order::Updated => "updated",
