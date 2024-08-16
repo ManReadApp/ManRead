@@ -164,6 +164,7 @@ fn render_row(label: &str, ui: &mut Ui) {
                 "Reading" => (vec![], Order::LastRead, true),
                 "Favorites" => (
                     vec![ItemOrArray::Item(Item {
+                        or_post: None,
                         not: false,
                         data: ItemData::enum_("Favorites"),
                     })],
@@ -176,14 +177,15 @@ fn render_row(label: &str, ui: &mut Ui) {
             };
 
             *get_app_data().search.lock().unwrap() = SearchRequest {
-                order,
+                order: order.to_string(),
                 desc,
                 limit: 20,
                 page: 1,
-                query: ItemOrArray::Array(Array {
+                query: Array {
+                    or_post: None,
                     or: false,
                     items: search,
-                }),
+                },
             };
             get_app_data().open(Page::Search)
         }

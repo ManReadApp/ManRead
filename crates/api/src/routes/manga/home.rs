@@ -36,10 +36,11 @@ pub async fn home(
 ) -> ApiResult<Json<HomeResponse>> {
     let generate = |order, desc, query| {
         let query = match query {
-            None => ItemOrArray::Array(Array {
+            None => Array {
+                or_post: None,
                 or: false,
                 items: vec![],
-            }),
+            },
             Some(v) => v,
         };
         SearchRequest {
@@ -51,7 +52,7 @@ pub async fn home(
         }
     };
     //let trending = generate(Order::Popularity, true, None);
-    let newest = generate(Order::Created, true, None);
+    let newest = generate(Order::Created.to_string(), true, None);
     //let reading = generate(Order::LastRead, true, None);
     // let favorites = generate(
     // Order::Alphabetical,
@@ -61,8 +62,8 @@ pub async fn home(
     //     data: ItemData::enum_("Favorites"),
     // })),
     // );
-    let latest_updates = generate(Order::Updated, true, None);
-    let random = generate(Order::Random, false, None);
+    let latest_updates = generate(Order::Updated.to_string(), true, None);
+    let random = generate(Order::Random.to_string(), false, None);
     Ok(Json(HomeResponse {
         trending: vec![], //format(manga.search(trending, &user.id).await?, &tags).await,
         newest: format(

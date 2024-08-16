@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::{ApiErr, ApiErrorType};
+
 #[derive(Deserialize, Serialize, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Order {
     Created,
@@ -13,6 +15,44 @@ pub enum Order {
     LastRead,
     Popularity,
     Random,
+}
+
+impl TryFrom<String> for Order {
+    type Error = ApiErr;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Ok(match value.as_str() {
+            "created" => Self::Created,
+            "alphabetical" => Self::Alphabetical,
+            "updated" => Self::Updated,
+            "last_read" => Self::LastRead,
+            "popularity" => Self::Popularity,
+            "random" => Self::Random,
+
+            _ => Err(ApiErr {
+                message: Some(format!("{value} is not a valid order")),
+                cause: None,
+                err_type: ApiErrorType::InvalidInput,
+            })?,
+        })
+    }
+}
+
+impl Display for Order {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Order::Created => "created",
+                Order::Alphabetical => "alphabetical",
+                Order::Updated => "updated",
+                Order::LastRead => "last_read",
+                Order::Popularity => "popularity",
+                Order::Random => "random",
+            }
+        )
+    }
 }
 
 /// can contain item or array

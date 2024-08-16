@@ -339,7 +339,14 @@ async fn query_builder(
         // };
         ("".to_string(), reading(user_id))
     };
-    let query = to_sql(r.query, user_id, user_service, kind_service, tag_service).await?;
+    let query = to_sql(
+        ItemOrArray::Array(r.query),
+        user_id,
+        user_service,
+        kind_service,
+        tag_service,
+    )
+    .await?;
     let limit = format!("LIMIT {} START {}", r.limit, (r.page - 1) * r.limit);
     let base = format!("SELECT {fields} FROM {table}");
     if query.is_empty() {

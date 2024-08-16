@@ -142,14 +142,15 @@ impl SharedData {
                 "ko_ascii".to_string(),
             ],
             search: Arc::new(Mutex::new(SearchRequest {
-                order: Order::Created,
+                order: Order::Created.to_string(),
                 desc: false,
                 limit: 20,
                 page: 1,
-                query: ItemOrArray::Array(Array {
+                query: Array {
                     or: false,
+                    or_post: None,
                     items: vec![],
-                }),
+                },
             })),
             fonts: Arc::new(Mutex::new(vec![])),
         }

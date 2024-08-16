@@ -322,6 +322,7 @@ impl SearchComponent {
                     false => &mut self.external.search,
                 }),
                 Array {
+                    or_post: None,
                     or: false,
                     items: vec![],
                 },
@@ -344,13 +345,12 @@ impl SearchComponent {
         );
         self.reset_external(resp, selected, errors);
 
-        let item = ItemOrArray::Array(parsed);
         match internal {
             true => {
                 let mut stored = get_app_data().search.lock().unwrap();
-                if item != stored.query {
-                    debug!("{:?}", item);
-                    stored.query = item;
+                if parsed != stored.query {
+                    debug!("{:?}", parsed);
+                    stored.query = parsed;
                     stored.page = 1;
                     self.reset_scroll = true;
                     self.internal.reload = true;

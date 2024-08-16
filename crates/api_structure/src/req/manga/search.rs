@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::manga::search::{Array, ItemOrArray, Order};
+use crate::models::manga::search::Array;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct SearchRequest {
