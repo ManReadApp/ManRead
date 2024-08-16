@@ -3,7 +3,7 @@ use api_structure::models::manga::search::IdOrValue;
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use bytes::Bytes;
 use futures::{pin_mut, stream, SinkExt};
-use log::warn;
+use log::{info, warn};
 use pg_embed::pg_enums::PgAuthMethod;
 use pg_embed::pg_fetch::{PgFetchSettings, PG_V15};
 use pg_embed::postgres::PgSettings;
@@ -207,6 +207,7 @@ pub async fn search(
     req: SearchRequest,
 ) -> Result<Vec<ScrapeSearchResponse>, ScrapeError> {
     let query = req.to_string();
+    info!("EXECUTING QUERY: {}", query);
     let tags = client.query(&query, &vec![]).await?;
     let mut tags = tags
         .into_iter()
@@ -445,7 +446,7 @@ impl Display for OrderKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}",
+            "ORDER BY {}",
             match self {
                 OrderKind::Id => "id",
                 OrderKind::PrivateId => "private_id",
