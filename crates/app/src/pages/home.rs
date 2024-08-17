@@ -182,6 +182,7 @@ fn render_row(label: &str, ui: &mut Ui) {
                 limit: 20,
                 page: 1,
                 query: Array {
+                    not: false,
                     or_post: None,
                     or: false,
                     items: search,

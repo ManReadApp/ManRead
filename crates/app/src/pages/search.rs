@@ -4,8 +4,9 @@ use crate::requests::{
     AvailableExternalSitesRequestFetcher, ExternalSearchRequestFetcher, RequestImpl,
     SearchRequestFetcher,
 };
-use crate::util::parser::search_parser;
+use crate::util::new_parser::search_parser;
 use crate::window_storage::{Initter, Page};
+use api_structure::error::ApiErr;
 use api_structure::models::manga::external_search::ExternalSearchData;
 use api_structure::models::manga::search::{Array, Field, ItemKind};
 use api_structure::req::manga::external_search::ExternalSearchRequest;
@@ -286,9 +287,9 @@ impl SearchComponent {
     pub fn search_field_parser<'a>(
         search: &'a mut String,
         allowed: &Vec<Field>,
-    ) -> (TextEdit<'a>, Array, Vec<String>) {
-        let (parsed, errors) = search_parser(search, false, allowed);
-        let color = if !errors.is_empty() {
+    ) -> (TextEdit<'a>, Result<Array, String>) {
+        let parsed = search_parser(search, false, allowed);
+        let color = if parsed.is_err() {
             Some(Color32::from_rgb(255, 64, 64))
         } else {
             None
@@ -297,7 +298,7 @@ impl SearchComponent {
         if let Some(color) = color {
             search_field = search_field.text_color(color)
         }
-        (search_field, parsed, errors)
+        (search_field, parsed)
     }
 
     pub fn in_panel(
@@ -312,18 +313,18 @@ impl SearchComponent {
             false => self.external.search.clone(),
             true => "".to_string(),
         };
-        let (search_field, parsed, errors) = match parser {
+        let (search_field, parsed) = match parser {
             None => (
                 TextEdit::singleline(match internal {
                     true => &mut self.internal.search,
                     false => &mut self.external.search,
                 }),
-                Array {
+                Ok(Array {
+                    not: false,
                     or_post: None,
                     or: false,
                     items: vec![],
-                },
-                vec![],
+                }),
             ),
             Some(ref binding) => Self::search_field_parser(
                 match internal {
@@ -340,18 +341,20 @@ impl SearchComponent {
             &mut self.searches,
             !external_only,
         );
-        self.reset_external(resp, selected, errors);
+        self.reset_external(resp, selected, parsed.as_ref().err());
 
         match internal {
             true => {
                 let mut stored = get_app_data().search.lock().unwrap();
-                if parsed != stored.query {
-                    debug!("{:?}", parsed);
-                    stored.query = parsed;
-                    stored.page = 1;
-                    self.reset_scroll = true;
-                    self.internal.reload = true;
-                    reset(&mut self.internal.fetcher, stored);
+                if let Ok(parsed) = parsed {
+                    if parsed != stored.query {
+                        debug!("{:?}", parsed);
+                        stored.query = parsed;
+                        stored.page = 1;
+                        self.reset_scroll = true;
+                        self.internal.reload = true;
+                        reset(&mut self.internal.fetcher, stored);
+                    }
                 }
             }
             false => {
@@ -391,7 +394,7 @@ impl SearchComponent {
         self.reset_scroll = false;
     }
 
-    fn reset_external(&mut self, resp: Response, selected: String, errors: Vec<String>) {
+    fn reset_external(&mut self, resp: Response, selected: String, error: Option<&String>) {
         //TODO: set self.external_search.data on change
         // if selected != self.selected_search && self.selected_search != "internal" {
         //     self.external_search.uri.clone_from(&self.selected_search);
@@ -415,8 +418,8 @@ impl SearchComponent {
         //         unreachable!()
         //     }
         // }
-        if !errors.is_empty() {
-            resp.on_hover_text(errors.join("\n"));
+        if let Some(error) = error {
+            resp.on_hover_text(error);
         }
     }
 

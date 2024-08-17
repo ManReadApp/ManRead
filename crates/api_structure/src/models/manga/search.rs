@@ -80,6 +80,7 @@ impl Display for ItemOrArray {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Array {
     pub or: bool,
+    pub not: bool,
     pub or_post: Option<bool>,
     pub items: Vec<ItemOrArray>,
 }
@@ -370,8 +371,16 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn new(name: String, abbr: Vec<String>, kind: ItemKind) -> Self {
-        Self { name, abbr, kind }
+    pub fn new(name: impl ToString, abbr: Vec<impl ToString>, kind: ItemKind) -> Self {
+        Self {
+            name: name.to_string(),
+            abbr: abbr.into_iter().map(|v| v.to_string()).collect(),
+            kind,
+        }
+    }
+
+    pub fn matches(&self, s: &str) -> bool {
+        s == self.name || self.abbr.iter().find(|v| v == &s).is_some()
     }
 }
 

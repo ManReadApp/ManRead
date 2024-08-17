@@ -147,6 +147,7 @@ impl SharedData {
                 limit: 20,
                 page: 1,
                 query: Array {
+                    not: false,
                     or: false,
                     or_post: None,
                     items: vec![],

@@ -1,2 +1,2 @@
-pub mod parser;
+pub mod new_parser;
 pub mod validator;

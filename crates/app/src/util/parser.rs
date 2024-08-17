@@ -91,6 +91,7 @@ pub fn search_parser(s: &str, or_default: bool, field: &Vec<Field>) -> (Array, V
     ));
     (
         Array {
+            not: false,
             or_post: None,
             or: or_default,
             items,
@@ -174,6 +175,7 @@ fn try_from_str(s: UnparsedItem, fields: &[Field]) -> Result<ItemOrArray, String
         }
         UnparsedItem::List(or) => ItemOrArray::Array(Array {
             or,
+            not: false,
             items: vec![],
             or_post: None,
         }),

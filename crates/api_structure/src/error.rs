@@ -10,6 +10,16 @@ pub struct ApiErr {
 }
 
 impl ApiErr {
+    pub fn input_err(s: impl ToString) -> ApiErr {
+        ApiErr {
+            message: Some(s.to_string()),
+            cause: None,
+            err_type: ApiErrorType::InvalidInput,
+        }
+    }
+}
+
+impl ApiErr {
     pub fn message(&self) -> String {
         if matches!(self.err_type, ApiErrorType::NotFoundError) {
             return "Page not found".to_string();
