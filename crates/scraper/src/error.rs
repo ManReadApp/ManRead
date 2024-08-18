@@ -1,6 +1,5 @@
 use api_structure::error::{ApiErr, ApiErrorType};
 use base64::DecodeError;
-use js_sandbox::JsError;
 use openssl::error::ErrorStack;
 use pg_embed::pg_errors::PgEmbedError;
 use std::io;
@@ -44,16 +43,6 @@ impl From<curl::Error> for ScrapeError {
             message: Some("failed the curl request".to_string()),
             cause: Some(value.to_string()),
             err_type: ApiErrorType::ScrapeErrorCurl,
-        })
-    }
-}
-
-impl From<JsError> for ScrapeError {
-    fn from(value: JsError) -> Self {
-        ScrapeError(ApiErr {
-            message: Some("failed to execute js".to_string()),
-            cause: Some(value.to_string()),
-            err_type: ApiErrorType::ScrapeErrorJsSandboxError,
         })
     }
 }

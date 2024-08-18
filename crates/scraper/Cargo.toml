@@ -9,7 +9,6 @@ version.workspace = true
 scraper = {workspace = true}
 api_structure = {workspace = true}
 openssl = {workspace = true}
-js-sandbox = {workspace = true}
 base64 = {workspace = true}
 serde_json = {workspace = true}
 serde = {workspace = true}
