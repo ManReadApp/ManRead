@@ -28,6 +28,6 @@ impl eframe::App for TemplateApp {
         // get page
         let page = get_app_data().page();
         // render page
-        self.windows.get_app(page).update(ctx, frame);
+        self.windows.get_app(page, ctx).update(ctx, frame);
     }
 }

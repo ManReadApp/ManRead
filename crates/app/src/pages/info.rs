@@ -1,30 +1,203 @@
+use crate::fetcher::Complete;
 use crate::requests::MangaInfoRequestFetcher;
+use crate::widgets::reader::settings::get_screen_dim;
+use crate::widgets::three_dots::ThreeDot;
+use crate::window_storage::Page;
 use crate::{get_app_data, requests::RequestImpl as _};
 use api_structure::req::manga::info::MangaInfoRequest;
 use eframe::{App, Frame};
-use egui::Context;
+use egui::{
+    include_image, pos2, vec2, Align, Context, Image, Layout, Rect, RichText, Sense, Spinner, Ui,
+};
+use egui_extras::{Column, TableBuilder};
 
 #[allow(dead_code)]
 //TODO: implement
 pub struct InfoPage {
     info: MangaInfoRequestFetcher,
+    fav: Option<bool>,
 }
 
 impl InfoPage {
-    pub fn new(page: String) -> Self {
+    pub fn new(page: String, ctx: Context) -> Self {
         let mut info = MangaInfoRequest::fetcher(&get_app_data().url);
         info.set_body(MangaInfoRequest { manga_id: page });
+        info.set_ctx(ctx);
         info.send();
-        Self { info }
+        Self { info, fav: None }
+    }
+
+    fn top_bar(&mut self, ui: &mut Ui, title: &str) {
+        let v = get_screen_dim(ui.ctx());
+        let size = 20.;
+        ui.allocate_ui_at_rect(Rect::from_min_max(pos2(0.0, 0.0), pos2(v.x, size)), |ui| {
+            ui.add_space(5.0);
+            TableBuilder::new(ui)
+                .column(Column::exact(size + 5.))
+                .column(Column::exact(v.x - size * 3. - 16. - 10. - 10.))
+                .column(Column::exact(size * 2. + 5. + 10.))
+                .body(|mut body| {
+                    body.row(size, |mut row| {
+                        row.col(|ui| {
+                            ui.horizontal_top(|ui| {
+                                let img = Image::new(match ui.style().visuals.dark_mode {
+                                    true => include_image!(
+                                        "../assets/icons/back-svgrepo-com-white.svg"
+                                    ),
+                                    false => include_image!(
+                                        "../assets/icons/back-svgrepo-com-black.svg"
+                                    ),})
+                                .sense(Sense::click());
+                                ui.add_space(4.);
+                                if ui.add_sized([size -2., size-2.], img).clicked() {
+                                    get_app_data().change(Page::Home, vec![Page::MangaInfo(String::default())])
+                                }
+                            });
+                        });
+                        row.col(|ui| {
+                            let text = RichText::new(title).size(size - 2.).strong();
+                            ui.label(text);
+                        });
+                        row.col(|ui| {
+                            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                                ui.add_space(5.);
+                                ThreeDot::new("threedot", size - 2., ui.style().visuals.dark_mode).show(
+                                    ui,
+                                    Actions::None,
+                                    |ui, data| {
+                                        ui.selectable_value(
+                                            data,
+                                            Actions::EditManga,
+                                            "Edit Manga",
+                                        );
+                                        ui.selectable_value(
+                                            data,
+                                            Actions::AddChapter,
+                                            "Add Chapter",
+                                        );
+                                        ui.selectable_value(
+                                            data,
+                                            Actions::AddToList,
+                                            "Add to list",
+                                        );
+                                        ui.selectable_value(
+                                            data,
+                                            Actions::ResetProgress,
+                                            "Reset progress",
+                                        );
+                                    },
+                                );
+
+                                if let Some(v) = &mut self.fav {
+                                    if ui
+                                        .add_sized(
+                                            [size, size],
+                                            Image::new(match *v {
+                                                false => match ui.style().visuals.dark_mode {
+                                                    true => include_image!(
+                                                        "../assets/icons/heart-svgrepo-com-white.svg"
+                                                    ),
+                                                    false => include_image!(
+                                                        "../assets/icons/heart-svgrepo-com-black.svg"
+                                                    ),
+                                                },
+                                                true => include_image!(
+                                                "../assets/icons/heart-svgrepo-com-full.svg"
+                                            ),
+                                            })
+                                            .sense(Sense::click()),
+                                        )
+                                        .clicked()
+                                    {
+                                        //TODO: send fav
+                                        *v = !*v;
+                                    }
+                                }
+                            });
+                        });
+                    });
+                });
+        });
     }
 }
 
 impl App for InfoPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Info");
+            let copy = unsafe { (self as *mut InfoPage).as_mut().unwrap() };
+            if let Some(Complete::Json(v)) = self.info.result() {
+                if self.fav.is_none() {
+                    self.fav = Some(v.favorite);
+                }
+                let app = get_app_data();
+                let title = app.get_title(&v.titles);
+                copy.top_bar(ui, &title);
+
+                ui.label(&v.kind);
+                if let Some(v) = &v.description {
+                    ui.label(v);
+                }
+                ui.label(&v.uploader);
+                let image = {
+                    app.covers.lock().unwrap().get(
+                        &v.manga_id,
+                        &v.status,
+                        &v.cover_ext,
+                        v.cover,
+                        ctx,
+                    )
+                };
+                if let Some(img) = image {
+                    let img = img.fit_to_exact_size(vec2(200., 300.));
+                    ui.add(img);
+                } else {
+                    let (rect, _) = ui.allocate_exact_size(vec2(200., 300.), Sense::hover());
+                    let spinner = Spinner::new();
+
+                    ui.put(rect, spinner);
+                }
+                if match &v.progress {
+                    Some(_) => ui.button("Continue Reading"),
+                    None => ui.button("Start Reading"),
+                }
+                .clicked()
+                {
+                    app.change(
+                        Page::Reader {
+                            manga_id: v.manga_id.clone(),
+                            chapter_id: None,
+                        },
+                        vec![Page::MangaInfo(String::new())],
+                    );
+                }
+                if !v.tags.is_empty() {
+                    buttons(v.tags.iter().map(|v| v.to_string()).collect(), ui);
+                }
+                if !v.authors.is_empty() {
+                    buttons(v.authors.clone(), ui);
+                }
+                if !v.artists.is_empty() {
+                    buttons(v.artists.clone(), ui);
+                }
+                //title bar: favorite,visibility,my
+                //custom_grid: chapters,v.progress
+                //icon: sources,scraper
+                //duno: relations,
+            } else {
+                self.top_bar(ui, "Loading...");
+                ui.spinner();
+            }
         });
     }
+}
+
+fn buttons(items: Vec<String>, ui: &mut Ui) {
+    //TODO: color
+    ui.horizontal_wrapped(|ui| {
+        for label in items {
+            let _ = ui.selectable_label(true, label);
+        }
+    });
 }
 
 #[derive(PartialEq)]
@@ -165,25 +338,6 @@ enum Actions {
 //                         self.cover.retry(ctx);
 //                     }
 //                 }
-//                 ui.allocate_ui_at_rect(Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(ui.available_width(), 200.0)), |ui| {
-//                     ui.add_space(5.0);
-//                     ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-//                         let action = ThreeDot::new("threedot", 14.0).show(ui, Actions::None, |ui, data| {
-//                             ui.selectable_value(data, Actions::EditManga, "Edit Manga");
-//                             ui.selectable_value(data, Actions::AddChapter, "Add Chapter");
-//                             ui.selectable_value(data, Actions::AddToList, "Add to list");
-//                             ui.selectable_value(data, Actions::ResetProgress, "Reset progress");
-//
-//                         });
-//                         match action {
-//                             Actions::None => {}
-//                             Actions::AddChapter => replace_page(&self.gd.page_management, vec![], Page::AddChapterPage),
-//                             Actions::EditManga => { /*TODO */ }
-//                             Actions::AddToList => { /*TODO */ }
-//                             Actions::ResetProgress => { /*TODO */ }
-//                         };
-//                     });
-//                 });
 //                 ScrollArea::vertical()
 //                     .auto_shrink([true; 2])
 //                     .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)

@@ -9,6 +9,7 @@ use crate::pages::{
     HomePage, InfoPage, LoadingInitRefreshPage, MangaReaderPage, PlaygroundPage, SearchPage,
 };
 use eframe::App;
+use egui::Context;
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -110,7 +111,7 @@ impl Windows {
         };
     }
 
-    pub fn get_app(&mut self, page: Page) -> &mut dyn App {
+    pub fn get_app(&mut self, page: Page, ctx: &Context) -> &mut dyn App {
         match page {
             Page::LoadingInitRefresh => {
                 self.loading.get_or_insert_with(LoadingInitRefreshPage::new) as &mut dyn App
@@ -154,9 +155,10 @@ impl Windows {
                 self.verfiy_account
                     .get_or_insert_with(VerifyAccountPage::default) as &mut dyn App
             }
-            Page::MangaInfo(v) => {
-                self.manga_info.get_or_insert_with(|| InfoPage::new(v)) as &mut dyn App
-            }
+            Page::MangaInfo(v) => self
+                .manga_info
+                .get_or_insert_with(|| InfoPage::new(v, ctx.clone()))
+                as &mut dyn App,
             Page::Search => self.search.get_or_insert_with(SearchPage::new) as &mut dyn App,
             Page::AddManga => self.add_manga.get_or_insert_with(AddMangaPage::new) as &mut dyn App,
             Page::You => todo!(),

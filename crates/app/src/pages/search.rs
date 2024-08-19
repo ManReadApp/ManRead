@@ -6,7 +6,6 @@ use crate::requests::{
 };
 use crate::util::new_parser::search_parser;
 use crate::window_storage::{Initter, Page};
-use api_structure::error::ApiErr;
 use api_structure::models::manga::external_search::ExternalSearchData;
 use api_structure::models::manga::search::{Array, Field, ItemKind};
 use api_structure::req::manga::external_search::ExternalSearchRequest;
@@ -475,6 +474,9 @@ impl SearchComponent {
 impl App for SearchPage {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            if ui.button("Back").clicked() {
+                get_app_data().change(Page::Home, vec![Page::Search])
+            }
             self.search.in_panel(ui, ctx, false, |id| {
                 get_app_data().open(Page::Reader {
                     manga_id: id,

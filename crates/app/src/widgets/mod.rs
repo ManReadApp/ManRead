@@ -6,3 +6,4 @@ pub mod image_overlay;
 pub mod or_continue_with;
 pub mod reader;
 pub mod submit_button;
+pub mod three_dots;

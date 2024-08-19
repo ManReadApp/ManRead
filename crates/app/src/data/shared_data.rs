@@ -105,7 +105,7 @@ impl SharedData {
         self.page.lock().unwrap().clone()
     }
     pub fn new() -> Self {
-        let default_url = Url::from_str("http://127.0.0.1:8082").unwrap();
+        let default_url = Url::from_str("http://127.0.0.1:8081").unwrap();
         #[cfg(target_arch = "wasm32")]
         let default_url = {
             let window = window().expect("should have a window in this context");
