@@ -11,11 +11,17 @@ use egui::{
 };
 use egui_extras::{Column, TableBuilder};
 
-#[allow(dead_code)]
-//TODO: implement
 pub struct InfoPage {
     info: MangaInfoRequestFetcher,
     fav: Option<bool>,
+    active_tab: Tab,
+}
+#[derive(PartialEq, Eq)]
+enum Tab {
+    Chapter,
+    Art,
+    Info,
+    Related,
 }
 
 impl InfoPage {
@@ -24,7 +30,11 @@ impl InfoPage {
         info.set_body(MangaInfoRequest { manga_id: page });
         info.set_ctx(ctx);
         info.send();
-        Self { info, fav: None }
+        Self {
+            info,
+            fav: None,
+            active_tab: Tab::Chapter,
+        }
     }
 
     fn top_bar(&mut self, ui: &mut Ui, title: &str) {
@@ -133,11 +143,6 @@ impl App for InfoPage {
                 let title = app.get_title(&v.titles);
                 copy.top_bar(ui, &title);
 
-                ui.label(&v.kind);
-                if let Some(v) = &v.description {
-                    ui.label(v);
-                }
-                ui.label(&v.uploader);
                 let image = {
                     app.covers.lock().unwrap().get(
                         &v.manga_id,
@@ -147,42 +152,94 @@ impl App for InfoPage {
                         ctx,
                     )
                 };
-                if let Some(img) = image {
-                    let img = img.fit_to_exact_size(vec2(200., 300.));
-                    ui.add(img);
-                } else {
-                    let (rect, _) = ui.allocate_exact_size(vec2(200., 300.), Sense::hover());
-                    let spinner = Spinner::new();
+                ui.horizontal(|ui| {
+                    if let Some(img) = image {
+                        let img = img.fit_to_exact_size(vec2(200., 300.));
+                        ui.add(img);
+                    } else {
+                        let (rect, _) = ui.allocate_exact_size(vec2(200., 300.), Sense::hover());
+                        let spinner = Spinner::new();
 
-                    ui.put(rect, spinner);
+                        ui.put(rect, spinner);
+                    }
+                    ui.vertical(|ui| {
+                        ui.label(&v.kind);
+                        ui.label(&v.uploader);
+                        if !v.tags.is_empty() {
+                            buttons(v.tags.iter().map(|v| v.to_string()).collect(), ui);
+                        }
+                        if match &v.progress {
+                            Some(_) => ui.button("Continue Reading"),
+                            None => ui.button("Start Reading"),
+                        }
+                        .clicked()
+                        {
+                            app.change(
+                                Page::Reader {
+                                    manga_id: v.manga_id.clone(),
+                                    chapter_id: None,
+                                },
+                                vec![Page::MangaInfo(String::new())],
+                            );
+                        }
+                    });
+                });
+
+                if let Some(v) = &v.description {
+                    ui.label(v);
                 }
-                if match &v.progress {
-                    Some(_) => ui.button("Continue Reading"),
-                    None => ui.button("Start Reading"),
+
+                ui.horizontal(|ui| {
+                    ui.group(|ui| {
+                        //TODO:
+                        if ui
+                            .selectable_label(self.active_tab == Tab::Chapter, "Chapters")
+                            .clicked()
+                        {
+                            self.active_tab = Tab::Chapter;
+                        }
+                        if ui
+                            .selectable_label(self.active_tab == Tab::Info, "Info")
+                            .clicked()
+                        {
+                            self.active_tab = Tab::Info;
+                        }
+                        if ui
+                            .selectable_label(self.active_tab == Tab::Art, "Art")
+                            .clicked()
+                        {
+                            self.active_tab = Tab::Art;
+                        }
+                        if ui
+                            .selectable_label(self.active_tab == Tab::Related, "Related")
+                            .clicked()
+                        {
+                            self.active_tab = Tab::Related;
+                        }
+                    });
+                });
+
+                match self.active_tab {
+                    Tab::Chapter => {
+                        //TODO:
+                    }
+                    Tab::Info => {
+                        //titles
+                        if !v.authors.is_empty() {
+                            buttons(v.authors.clone(), ui);
+                        }
+                        if !v.artists.is_empty() {
+                            buttons(v.artists.clone(), ui);
+                        }
+                        //icon: sources,scraper
+                    }
+                    Tab::Art => {
+                        ui.label("TODO: implement this feature");
+                    }
+                    Tab::Related => todo!(),
                 }
-                .clicked()
-                {
-                    app.change(
-                        Page::Reader {
-                            manga_id: v.manga_id.clone(),
-                            chapter_id: None,
-                        },
-                        vec![Page::MangaInfo(String::new())],
-                    );
-                }
-                if !v.tags.is_empty() {
-                    buttons(v.tags.iter().map(|v| v.to_string()).collect(), ui);
-                }
-                if !v.authors.is_empty() {
-                    buttons(v.authors.clone(), ui);
-                }
-                if !v.artists.is_empty() {
-                    buttons(v.artists.clone(), ui);
-                }
-                //title bar: favorite,visibility,my
+                //title bar: visibility,my
                 //custom_grid: chapters,v.progress
-                //icon: sources,scraper
-                //duno: relations,
             } else {
                 self.top_bar(ui, "Loading...");
                 ui.spinner();
@@ -349,13 +406,7 @@ enum Actions {
 //                         );
 //                         ui.add_space(5.0);
 //                         ui.horizontal(|ui| {
-//                             ui.group(|ui| {
-//                                 //TODO:
-//                                 ui.selectable_label(true, "Chapters");
-//                                 ui.button("Info");
-//                                 ui.button("Art");
-//                                 ui.button("Related");
-//                             });
+//
 //                         });
 //
 //                         self.thumb_shadow_pos = Some(vv.0.max.y + 1.0);
