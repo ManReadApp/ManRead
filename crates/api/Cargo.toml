@@ -7,8 +7,11 @@ version.workspace = true
 
 [dependencies]
 # db
-surrealdb = {version = "1.3.1", default-features = false, features = ["kv-speedb", "scripting"] }
-surrealdb-extras = { version = "0.2.1" }
+# surrealdb = {version = "1.3.1", default-features = false, features = ["kv-speedb", "scripting"] }
+# surrealdb-extras = { version = "0.2.1" }
+surrealdb-extras = { version = "0.1.0", path = "../dyn/surrealdb-extras-dynamic", package = "surrealdb-extras-dynamic" }
+surrealdb = { version = "0.1.0", path = "../dyn/surrealdb-dynamic", package = "surrealdb-dynamic" }
+
 
 # api
 actix-web = { version = "4.5", features = ["openssl"] }
@@ -40,7 +43,6 @@ img_hash = { git = "https://github.com/ManReadApp/img_hash" }
 
 #search
 async-recursion = {workspace = true}
-
 
 [features]
 default = ["detailed_error_responses", "log-ip", "cors", "cors-permissive"]

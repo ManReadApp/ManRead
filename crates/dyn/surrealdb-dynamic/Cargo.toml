@@ -1,0 +1,10 @@
+[package]
+name = "surrealdb-dynamic"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+surrealdb = { version = "1.5.4", features = ["kv-speedb"] }
+
+[lib]
+crate-type = ["dylib"]

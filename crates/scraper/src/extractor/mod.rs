@@ -86,6 +86,7 @@ impl SearchServiceScrapeData {
         if !url.contains("{page}") && !url.contains("{offset}") && page > 1 {
             return Ok(vec![]);
         }
+        let contain_query = url.contains("{query}");
         let url = url
             .replace("{query}", &urlencoding::encode(&query))
             .replace("{page}", &page.to_string())
@@ -93,6 +94,7 @@ impl SearchServiceScrapeData {
                 "{offset}",
                 &((page - 1) * self.offset.unwrap_or(0)).to_string(),
             );
+
 
         let html = download(
             config_to_request_builder(client, &self.headers, &url),
@@ -155,6 +157,9 @@ impl SearchServiceScrapeData {
                 r#type: type_.as_ref().map(|v| v.get(i).unwrap().to_string()),
                 status: status.as_ref().map(|v| v.get(i).unwrap().to_string()),
             })
+        }
+        if !query.is_empty() && !contain_query {
+            res = res.into_iter().filter(|v|v.title.to_lowercase().contains(&query.to_lowercase())).collect()
         }
         Ok(res)
     }

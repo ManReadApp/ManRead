@@ -4,6 +4,7 @@ use crate::widgets::reader::settings::get_screen_dim;
 use crate::widgets::three_dots::ThreeDot;
 use crate::window_storage::Page;
 use crate::{get_app_data, requests::RequestImpl as _};
+use api_structure::models::manga::visiblity::Visibility;
 use api_structure::req::manga::info::MangaInfoRequest;
 use eframe::{App, Frame};
 use egui::{
@@ -15,6 +16,7 @@ pub struct InfoPage {
     info: MangaInfoRequestFetcher,
     fav: Option<bool>,
     active_tab: Tab,
+    ch_desc: bool,
 }
 #[derive(PartialEq, Eq)]
 enum Tab {
@@ -34,6 +36,7 @@ impl InfoPage {
             info,
             fav: None,
             active_tab: Tab::Chapter,
+            ch_desc: false,
         }
     }
 
@@ -71,7 +74,7 @@ impl InfoPage {
                         row.col(|ui| {
                             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                                 ui.add_space(5.);
-                                ThreeDot::new("threedot", size - 2., ui.style().visuals.dark_mode).show(
+                                let out = ThreeDot::new("threedot", size - 2., ui.style().visuals.dark_mode).show(
                                     ui,
                                     Actions::None,
                                     |ui, data| {
@@ -95,8 +98,17 @@ impl InfoPage {
                                             Actions::ResetProgress,
                                             "Reset progress",
                                         );
+                                        //TODO: toggle visibility
                                     },
                                 );
+
+                                match out {
+                                    Actions::None => {},
+                                    Actions::AddChapter => todo!(),
+                                    Actions::EditManga => todo!(),
+                                    Actions::AddToList => todo!(),
+                                    Actions::ResetProgress => todo!(),
+                                }
 
                                 if let Some(v) = &mut self.fav {
                                     if ui
@@ -168,6 +180,17 @@ impl App for InfoPage {
                         if !v.tags.is_empty() {
                             buttons(v.tags.iter().map(|v| v.to_string()).collect(), ui);
                         }
+
+                        match v.visibility {
+                            Visibility::Visible => {}
+                            Visibility::Hidden => {
+                                ui.label("This manga is only visible to you");
+                            }
+                            Visibility::AdminReview => {
+                                ui.label("This manga is only visible to admins. Please Review!");
+                            }
+                        }
+
                         if match &v.progress {
                             Some(_) => ui.button("Continue Reading"),
                             None => ui.button("Start Reading"),
@@ -191,7 +214,6 @@ impl App for InfoPage {
 
                 ui.horizontal(|ui| {
                     ui.group(|ui| {
-                        //TODO:
                         if ui
                             .selectable_label(self.active_tab == Tab::Chapter, "Chapters")
                             .clicked()
@@ -221,10 +243,24 @@ impl App for InfoPage {
 
                 match self.active_tab {
                     Tab::Chapter => {
-                        //TODO:
+                        ui.group(|ui| {
+                            if ui
+                                .button(match self.ch_desc {
+                                    false => "Descending",
+                                    true => "Ascending",
+                                })
+                                .clicked()
+                            {
+                                self.ch_desc = !self.ch_desc;
+                            }
+                            if ui.button("Detail").clicked() {
+                                todo!()
+                            }
+                        });
+                        //TODO: custom_grid: chapters
                     }
                     Tab::Info => {
-                        //titles
+                        //todo: titles
                         if !v.authors.is_empty() {
                             buttons(v.authors.clone(), ui);
                         }
@@ -238,8 +274,6 @@ impl App for InfoPage {
                     }
                     Tab::Related => todo!(),
                 }
-                //title bar: visibility,my
-                //custom_grid: chapters,v.progress
             } else {
                 self.top_bar(ui, "Loading...");
                 ui.spinner();
@@ -258,8 +292,6 @@ fn buttons(items: Vec<String>, ui: &mut Ui) {
 }
 
 #[derive(PartialEq)]
-//TODO: implement
-#[allow(dead_code)]
 enum Actions {
     None,
     AddChapter,

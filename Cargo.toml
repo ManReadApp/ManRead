@@ -5,7 +5,7 @@ members = [
     "crates/app",
     "crates/api_structure",
     "crates/scraper",
-    "crates/translator", "crates/proc_macros"]
+    "crates/translator", "crates/proc_macros", "crates/dyn/surrealdb-dynamic", "crates/dyn/surrealdb-extras-dynamic"]
 
 [workspace.package]
 edition = "2021"
