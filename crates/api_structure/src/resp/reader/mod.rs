@@ -73,7 +73,10 @@ impl MangaReaderResponse {
                 }
             }
         }
-        missing.into_iter().map(|v| v.parse().unwrap()).collect()
+        missing
+            .into_iter()
+            .map(|v| v.parse().expect("cant fail. f64 => to_string => f64"))
+            .collect()
     }
 }
 

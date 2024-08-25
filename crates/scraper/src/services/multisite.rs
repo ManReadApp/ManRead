@@ -54,8 +54,8 @@ impl MultiSiteService {
                         v.into_iter()
                             .map(|mut v| {
                                 if v.url.starts_with('/') || !v.url.starts_with("http") {
-                                    let mut url_base = Url::parse(&url).unwrap();
-                                    url_base.set_scheme("https").unwrap();
+                                    let mut url_base = Url::parse(&url)?;
+                                    let _ = url_base.set_scheme("https");
                                     v.url = format!(
                                         "{}/{}",
                                         url_base.origin().ascii_serialization(),
@@ -132,7 +132,7 @@ impl MultiSiteService {
 }
 
 fn cut_float(f: f64) -> f64 {
-    format!("{:.2}", f).parse().unwrap()
+    format!("{:.2}", f).parse().expect("cant fail")
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -154,15 +154,15 @@ impl Info {
 }
 
 pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
-    let re = Regex::new(r"chapter\s+(\d+(\.\d+)?)").unwrap();
-    let re2 = Regex::new(r"ch\.\s+(\d+(\.\d+)?)").unwrap();
+    let re = Regex::new(r"chapter\s+(\d+(\.\d+)?)").expect("static");
+    let re2 = Regex::new(r"ch\.\s+(\d+(\.\d+)?)").expect("static");
     if let Some(captured) = re.captures(&s.to_lowercase()) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
     } else if let Some(captured) = re2.captures(&s.to_lowercase()) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
-    } else if let Some(captured) = Regex::new(r"第(\d+(\.\d+)?)").unwrap().captures(s) {
+    } else if let Some(captured) = Regex::new(r"第(\d+(\.\d+)?)").expect("static").captures(s) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
     } else {
@@ -201,7 +201,10 @@ async fn post_process(
             let labels: Vec<String> = serde_json::from_str(labels)?;
             err(labels.len(), urls.len())?;
             for (i, url) in urls.into_iter().enumerate() {
-                let title = labels.get(i).unwrap().to_string();
+                let title = labels
+                    .get(i)
+                    .ok_or(ScrapeError::node_not_found())?
+                    .to_string();
                 let episode = parse_episode(title.as_str()).unwrap_or(0.0);
                 res.push(Info {
                     site: uri.to_string(),
@@ -216,7 +219,11 @@ async fn post_process(
             let episodes: Vec<String> = serde_json::from_str(episodes)?;
             err(episodes.len(), urls.len())?;
             for (i, url) in urls.into_iter().enumerate() {
-                let title = episodes.get(i).unwrap().replace('-', ".").to_string();
+                let title = episodes
+                    .get(i)
+                    .ok_or(ScrapeError::node_not_found())?
+                    .replace('-', ".")
+                    .to_string();
                 let episode = title.parse()?;
 
                 res.push(Info {
@@ -285,7 +292,10 @@ async fn post_process_pages(
                 .into_iter()
                 .enumerate()
                 .map(|(index, v)| match v.is_empty() {
-                    true => back.get(index).unwrap().clone(),
+                    true => back
+                        .get(index)
+                        .ok_or(ScrapeError::node_not_found())?
+                        .clone(),
                     false => v,
                 })
                 .map(|url| url.replace(['\t', '\n'], ""))

@@ -77,8 +77,8 @@ pub async fn get_data(
         .split_once("anilist.co/manga/")
         .ok_or(ScrapeError::input_error("Invalid url"))?
         .1;
-    if id.contains('/') {
-        id = id.split_once('/').unwrap().0;
+    if let Some(v) = id.split_once('/') {
+        id = v.0;
     }
     let json = json!({"query": QUERY, "variables": {"id": id}});
     let resp = download(
@@ -346,14 +346,14 @@ fn get_sort(s: &str, desc: bool) -> Value {
         false => "ASC",
     };
     match s {
-        "popularity" => serde_json::to_value(format!("POPULARITY_{}", desc)).unwrap(),
-        "score" => serde_json::to_value(format!("SCORE_{}", desc)).unwrap(),
+        "popularity" => serde_json::to_value(format!("POPULARITY_{}", desc)).unwrap_or_default(),
+        "score" => serde_json::to_value(format!("SCORE_{}", desc)).unwrap_or_default(),
         "trending" => {
             serde_json::to_value([format!("TRENDING_{}", desc), format!("POPULARITY_{}", desc)])
-                .unwrap()
+                .unwrap_or_default()
         }
-        "created" => serde_json::to_value(format!("ID_{}", desc)).unwrap(),
-        "updated" => serde_json::to_value(format!("START_DATE_{}", desc)).unwrap(),
+        "created" => serde_json::to_value(format!("ID_{}", desc)).unwrap_or_default(),
+        "updated" => serde_json::to_value(format!("START_DATE_{}", desc)).unwrap_or_default(),
         _ => unreachable!(),
     }
 }
@@ -377,30 +377,45 @@ pub async fn search(
         return Err(ScrapeError::input_error("couldnt match ValidSearch"));
     }
     let mut items = vec![
-        ("page", serde_json::to_value(search.page).unwrap()),
-        ("type", serde_json::to_value("MANGA").unwrap()),
+        (
+            "page",
+            serde_json::to_value(search.page).unwrap_or_default(),
+        ),
+        ("type", serde_json::to_value("MANGA").unwrap_or_default()),
     ]
     .into_iter()
     .collect::<HashMap<_, _>>();
     if !search.search.is_empty() {
         if search.sort.is_none() {
-            items.insert("sort", serde_json::to_value("SEARCH_MATCH").unwrap());
+            items.insert(
+                "sort",
+                serde_json::to_value("SEARCH_MATCH").unwrap_or_default(),
+            );
         }
-        items.insert("search", serde_json::to_value(&search.search).unwrap());
+        items.insert(
+            "search",
+            serde_json::to_value(&search.search).unwrap_or_default(),
+        );
     } else if search.sort.is_none() {
         items.insert(
             "sort",
-            serde_json::to_value(["TRENDING_DESC", "POPULARITY_DESC"]).unwrap(),
+            serde_json::to_value(["TRENDING_DESC", "POPULARITY_DESC"]).unwrap_or_default(),
         );
     };
     if let Some(sort) = &search.sort {
         items.insert("sort", get_sort(sort, search.desc));
     }
     if let Some(status) = &search.status {
-        items.insert("status", serde_json::to_value(get_status(status)).unwrap());
+        items.insert(
+            "status",
+            serde_json::to_value(get_status(status)).unwrap_or_default(),
+        );
     }
     if !search.tags.is_empty() {
-        items.insert("tags", serde_json::to_value(&search.tags).unwrap());
+        items.insert(
+            "tags",
+            serde_json::to_value(&search.tags).unwrap_or_default(),
+        );
     }
     let json = json!({"query": QUERY2, "variables": items });
 

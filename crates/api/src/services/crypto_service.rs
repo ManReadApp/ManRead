@@ -25,19 +25,16 @@ impl CryptoService {
     }
 
     pub fn get_claim(&self, token: &str) -> ApiResult<Claim> {
-        if let Some(v) = self.claims.lock().unwrap().get(token) {
+        if let Some(v) = self.claims.lock()?.get(token) {
             if v.exp < now_timestamp()?.as_millis() {
-                self.claims.lock().unwrap().remove(token);
+                self.claims.lock()?.remove(token);
                 return Err(ApiError::expired_token_error("token expired"));
             }
             return Ok(v.clone());
         }
         let claim = self.decode_claim(token);
         if let Ok(claim) = &claim {
-            self.claims
-                .lock()
-                .unwrap()
-                .insert(token.to_string(), claim.clone());
+            self.claims.lock()?.insert(token.to_string(), claim.clone());
         }
         claim
     }

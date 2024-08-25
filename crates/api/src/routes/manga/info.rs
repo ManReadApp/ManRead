@@ -116,7 +116,12 @@ pub async fn info(
         artists,
         authors,
         cover: pos as u32,
-        cover_ext: manga.data.covers.get(pos).unwrap().clone(),
+        cover_ext: manga
+            .data
+            .covers
+            .get(pos)
+            .ok_or(ApiError::internal("rand generated number out of range"))?
+            .clone(),
         chapters,
         sources: manga
             .data

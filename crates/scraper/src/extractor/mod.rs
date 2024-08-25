@@ -1,6 +1,7 @@
 use crate::downloader::download;
 use crate::services::config_to_request_builder;
 use crate::ScrapeError;
+use api_structure::error::ApiErr;
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use scraper::{Html, Selector};
@@ -28,27 +29,41 @@ pub struct SearchServiceDeserialized {
 }
 
 impl SearchServiceDeserialized {
-    pub(crate) fn convert(self, path: &Path) -> SearchServiceScrapeData {
+    pub(crate) fn convert(self, path: &Path) -> Result<SearchServiceScrapeData, ScrapeError> {
         let headers = match self.headers {
             None => HashMap::new(),
-            Some(header) => {
-                serde_json::from_str(&read_to_string(path.join(header)).unwrap()).unwrap()
-            }
+            Some(header) => serde_json::from_str(
+                &read_to_string(path.join(header)).map_err(|v| ScrapeError::init_file(path, v))?,
+            )
+            .map_err(|e| ScrapeError::init_file(path, e))?,
         };
 
-        SearchServiceScrapeData {
+        Ok(SearchServiceScrapeData {
             cf_bypass: headers.get("cf_bypass") == Some(&"true".to_string()),
             headers,
             url_empty: self.url_empty,
             url: self.url,
-            selector: Selector::parse(&self.selector).unwrap(),
-            cover: Selector::parse(&self.cover).unwrap(),
+            selector: Selector::parse(&self.selector)
+                .map_err(|e| ScrapeError::init_file(path, e))?,
+            cover: Selector::parse(&self.cover).map_err(|e| ScrapeError::init_file(path, e))?,
             cover_data_src: self.cover_data_src.unwrap_or_default(),
-            label_selector: self.label_selector.map(|v| Selector::parse(&v).unwrap()),
-            type_: self.type_.map(|v| Selector::parse(&v).unwrap()),
-            status: self.status.map(|v| Selector::parse(&v).unwrap()),
+            label_selector: self
+                .label_selector
+                .map(|v| Selector::parse(&v))
+                .transpose()
+                .map_err(|e| ScrapeError::init_file(path, e))?,
+            type_: self
+                .type_
+                .map(|v| Selector::parse(&v))
+                .transpose()
+                .map_err(|e| ScrapeError::init_file(path, e))?,
+            status: self
+                .status
+                .map(|v| Selector::parse(&v))
+                .transpose()
+                .map_err(|e| ScrapeError::init_file(path, e))?,
             offset: self.offset,
-        }
+        })
     }
 }
 
@@ -82,7 +97,7 @@ impl SearchServiceScrapeData {
         if url.is_none() {
             url = Some(self.url.clone())
         }
-        let url = url.unwrap();
+        let url = url.unwrap_or_default();
         if !url.contains("{page}") && !url.contains("{offset}") && page > 1 {
             return Ok(vec![]);
         }
@@ -95,13 +110,14 @@ impl SearchServiceScrapeData {
                 &((page - 1) * self.offset.unwrap_or(0)).to_string(),
             );
 
-
         let html = download(
             config_to_request_builder(client, &self.headers, &url),
             self.cf_bypass,
         )
         .await?;
-        let origin = Url::parse(&url).unwrap().origin().ascii_serialization();
+        let origin = Url::parse(&url)
+            .map(|v| v.origin().ascii_serialization())
+            .map_err(|e| ScrapeError::input_error_trace("no origin", e))?;
         let doc = Html::parse_document(html.as_str());
         let urls = doc
             .select(&self.selector)
@@ -151,15 +167,38 @@ impl SearchServiceScrapeData {
         let mut res = vec![];
         for (i, url) in urls.into_iter().enumerate() {
             res.push(ScrapeSearchResponse {
-                title: labels.get(i).unwrap().to_string(),
+                title: labels
+                    .get(i)
+                    .ok_or(|v| ScrapeError::node_not_found())
+                    .to_string(),
                 url,
-                cover: cover.get(i).unwrap().to_string(),
-                r#type: type_.as_ref().map(|v| v.get(i).unwrap().to_string()),
-                status: status.as_ref().map(|v| v.get(i).unwrap().to_string()),
+                cover: cover
+                    .get(i)
+                    .ok_or(|v| ScrapeError::node_not_found())
+                    .to_string(),
+                r#type: type_
+                    .as_ref()
+                    .map(|v| {
+                        v.get(i)
+                            .map(|v| v.to_string())
+                            .ok_or(|v| ScrapeError::node_not_found())
+                    })
+                    .transpose()?,
+                status: status
+                    .as_ref()
+                    .map(|v| {
+                        v.get(i)
+                            .map(|v| v.to_string())
+                            .ok_or(|v| ScrapeError::node_not_found())
+                    })
+                    .transpose()?,
             })
         }
         if !query.is_empty() && !contain_query {
-            res = res.into_iter().filter(|v|v.title.to_lowercase().contains(&query.to_lowercase())).collect()
+            res = res
+                .into_iter()
+                .filter(|v| v.title.to_lowercase().contains(&query.to_lowercase()))
+                .collect()
         }
         Ok(res)
     }

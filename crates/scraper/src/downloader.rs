@@ -21,12 +21,19 @@ struct CfBypassResponse {
 }
 
 pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, ScrapeError> {
-    let data = download_(v.try_clone().unwrap()).await;
+    let data = download_(
+        v.try_clone()
+            .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?,
+    )
+    .await;
     if cloudflare {
         if let Ok(data) = &data {
             if data.contains("<title>Just a moment...</title>") {
-                let (client, req) = v.try_clone().unwrap().build_split();
-                let url = req.unwrap().url().to_string();
+                let (client, req) = v
+                    .try_clone()
+                    .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?
+                    .build_split();
+                let url = req?.url().to_string();
                 let headers: CfBypassResponse = client
                     .get(format!(
                         "http://127.0.0.1:8000/cookies?url={}",
@@ -37,14 +44,18 @@ pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, Scr
                     .json()
                     .await?;
                 let (client, req) = v.build_split();
-                let req = req.unwrap();
+                let req = req?;
                 let req = client
                     .get(req.url().to_string())
                     .header(
                         COOKIE,
                         format!(
                             "cf_clearance={}",
-                            headers.cookies.get("cf_clearance").unwrap().to_string()
+                            headers
+                                .cookies
+                                .get("cf_clearance")
+                                .ok_or(ScrapeError::node_not_found())
+                                .to_string()
                         ),
                     )
                     .header(USER_AGENT, headers.user_agent);
@@ -59,13 +70,16 @@ pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
     for i in 0..5 {
         #[cfg(feature = "curl")]
         let data = {
-            let data = v.try_clone().unwrap().build().unwrap();
+            let data = v
+                .try_clone()
+                .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?
+                .build()?;
             let mut buf = Arc::new(Mutex::new(Vec::new()));
             let mut handle = curl::easy::Easy::new();
             handle.url(data.url().as_str())?;
             let b = buf.clone();
             handle.write_function(move |data| {
-                b.lock().unwrap().extend_from_slice(data);
+                b.lock()?.extend_from_slice(data);
                 Ok(data.len())
             })?;
             if data.method() == Method::POST {
@@ -73,7 +87,11 @@ pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
             }
             let mut list = List::new();
             for data in data.headers() {
-                list.append(&format!("{}: {}", data.0, data.1.to_str().unwrap()))?;
+                list.append(&format!(
+                    "{}: {}",
+                    data.0,
+                    data.1.to_str().unwrap_or_default()
+                ))?;
             }
             handle.http_headers(list)?;
             handle.perform()?;
@@ -81,12 +99,12 @@ pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
             let res;
             loop {
                 let resp = handle.response_code()?;
-                if resp == 0 || buf.lock().unwrap().is_empty() {
+                if resp == 0 || buf.lock()?.is_empty() {
                     warn!("request is not blocking, code needs to be fixed");
                     continue;
                 }
                 res = if resp >= 200 && resp < 300 {
-                    Ok(String::from_utf8(buf.lock().unwrap().to_vec()).unwrap())
+                    Ok(String::from_utf8(buf.lock()?.to_vec())?)
                 } else {
                     Err(status_code_err(resp))
                 };
@@ -104,7 +122,12 @@ pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
             return data;
         }
         #[cfg(not(feature = "curl"))]
-        let data = match v.try_clone().unwrap().send().await {
+        let data = match v
+            .try_clone()
+            .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?
+            .send()
+            .await
+        {
             Ok(v) => v.text().await,
             Err(v) => Err(v),
         };

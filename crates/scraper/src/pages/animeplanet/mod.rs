@@ -84,7 +84,11 @@ pub async fn search(
         let mut tag_ids = vec![];
         let tags = TAGS.into_iter().collect::<HashMap<_, _>>();
         for tag in &search_request.tags {
-            tag_ids.push(*tags.get(tag.as_str()).unwrap());
+            tag_ids.push(
+                *tags
+                    .get(tag.as_str())
+                    .ok_or(ScrapeError::node_not_found())?,
+            );
         }
         items.push(format!(
             "include_tags={}",
@@ -98,10 +102,10 @@ pub async fn search(
     let url = format!("https://www.anime-planet.com/manga/all?{}", items.join("&"));
     let html = download(client.get(url).header(USER_AGENT, UA_ERR), false).await?;
     let doc = Html::parse_document(html.as_str());
-    let mangas = Selector::parse(".card").unwrap();
-    let title = Selector::parse(".cardName").unwrap();
-    let cover = Selector::parse("img").unwrap();
-    let url = Selector::parse("a").unwrap();
+    let mangas = Selector::parse(".card")?;
+    let title = Selector::parse(".cardName")?;
+    let cover = Selector::parse("img")?;
+    let url = Selector::parse("a")?;
     let mut res = vec![];
     for manga in doc.select(&mangas) {
         let url = manga

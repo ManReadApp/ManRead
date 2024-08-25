@@ -118,7 +118,8 @@ impl Field {
         res
     }
     fn regex() -> Regex {
-        Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-zA-Z0-9@_=\-]+)]\s(.+)"#).unwrap()
+        Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-zA-Z0-9@_=\-]+)]\s(.+)"#)
+            .expect("static regex pattern")
     }
 
     fn parse_inner(cap: Captures) -> Field {
@@ -161,7 +162,7 @@ impl Field {
             } => match prefix {
                 Prefix::None => {
                     let html = select.next()?.html();
-                    serde_json::to_string(&vec![(left.get(&html), right.get(&html))]).unwrap()
+                    serde_json::to_string(&vec![(left.get(&html), right.get(&html))]).ok()?
                 }
                 Prefix::All => {
                     let htmls = select
@@ -175,7 +176,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls).unwrap()
+                    serde_json::to_string(&htmls).ok()?
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
@@ -191,7 +192,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls).unwrap()
+                    serde_json::to_string(&htmls).ok()?
                 }
             },
             Target::Html(prefix) => match prefix {
@@ -201,7 +202,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls).unwrap()
+                    serde_json::to_string(&htmls).ok()?
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
@@ -209,7 +210,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls).unwrap()
+                    serde_json::to_string(&htmls).ok()?
                 }
             },
             Target::InnerHtml(prefix) => match prefix {
@@ -219,7 +220,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls).unwrap()
+                    serde_json::to_string(&htmls).ok()?
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
@@ -230,7 +231,7 @@ impl Field {
                     if htmls.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&htmls).unwrap()
+                    serde_json::to_string(&htmls).ok()?
                 }
             },
             Target::Text(prefix) => match prefix {
@@ -240,7 +241,7 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&texts).unwrap()
+                    serde_json::to_string(&texts).ok()?
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
@@ -251,7 +252,7 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&texts).unwrap()
+                    serde_json::to_string(&texts).ok()?
                 }
             },
             Target::StripText(prefix) => match prefix {
@@ -265,7 +266,7 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&texts).unwrap()
+                    serde_json::to_string(&texts).ok()?
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
@@ -276,7 +277,7 @@ impl Field {
                     if texts.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&texts).unwrap()
+                    serde_json::to_string(&texts).ok()?
                 }
             },
             Target::Attr(prefix, v) => match prefix {
@@ -288,7 +289,7 @@ impl Field {
                     if v.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&v).unwrap()
+                    serde_json::to_string(&v).ok()?
                 }
                 Prefix::Num(size) => {
                     let items = select.collect::<Vec<_>>();
@@ -299,7 +300,7 @@ impl Field {
                     if v.is_empty() {
                         return None;
                     }
-                    serde_json::to_string(&v).unwrap()
+                    serde_json::to_string(&v).ok()?
                 }
             },
             Target::Regex(_) => {
@@ -321,12 +322,13 @@ impl Field {
                     Prefix::All => {
                         let items: Vec<_> =
                             re.captures_iter(html).map(|v| v[1].to_string()).collect();
-                        Some(serde_json::to_string(&items).unwrap())
+                        Some(serde_json::to_string(&items).ok()?)
                     }
                     Prefix::Num(num) => {
                         let items: Vec<_> =
                             re.captures_iter(html).map(|v| v[1].to_string()).collect();
-                        Some(serde_json::to_string(&items[..*num]).unwrap())
+                        let num = num.min(&items.len());
+                        Some(serde_json::to_string(&items[..*num]).ok()?)
                     }
                 }
             } else {

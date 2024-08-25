@@ -74,17 +74,15 @@ impl MetaDataService {
             manual(&self.client, &uri, &url).await
         }
     }
-    async fn process_url(&self, uri: &str, url: String) -> String {
+    async fn process_url(&self, uri: &str, url: String) -> Result<Option<String>> {
         if uri == "asura" {
-            let html = download(self.client.get(&url), false).await.unwrap();
-            get_first_url(
-                &Url::parse(&url).unwrap().origin().ascii_serialization(),
+            let html = download(self.client.get(&url), false).await?;
+            Ok(get_first_url(
+                &Url::parse(&url)?.origin().ascii_serialization(),
                 &html,
-            )
-            .unwrap()
-            .to_string()
+            ))
         } else {
-            url
+            Ok(Some(url))
         }
     }
 }
@@ -117,7 +115,7 @@ fn post_process(
                 v = ItemOrArray::Array(
                     value
                         .into_iter()
-                        .map(|v| v.as_str().unwrap().to_string())
+                        .map(|v| v.as_str().expect("checked before").to_string())
                         .collect(),
                 )
             } else {
@@ -132,7 +130,7 @@ fn post_process(
     match v {
         Some(ItemOrArray::ArrayDyn(v)) => {
             for v in v {
-                let v: (String, String) = serde_json::from_value(v).unwrap();
+                let v: (String, String) = serde_json::from_value(v)?;
                 let value: StringOrArr =
                     serde_json::from_str(&v.1).unwrap_or(StringOrArr::String(v.1));
                 res.insert(
@@ -174,7 +172,7 @@ fn post_process(
     }
     let v = res.remove("rows2");
     if let Some(ItemOrArray::Item(v)) = res.get("cover") {
-        let origin = Url::parse(url).unwrap().origin().ascii_serialization();
+        let origin = Url::parse(url)?.origin().ascii_serialization();
         if v.starts_with("/") || !v.starts_with("http") {
             res.insert(
                 "cover".to_string(),
@@ -226,7 +224,7 @@ fn post_process(
             if let Some(ItemOrArray::Array(vv)) = res.remove("labels") {
                 if v.len() == vv.len() {
                     for (i, data) in v.into_iter().enumerate() {
-                        let value = vv.get(i).unwrap().as_str();
+                        let value = vv.get(i).ok_or(ScrapeError::node_not_found()).as_str();
                         let text = clean_text(
                             clean_text(data)
                                 .strip_prefix(value)

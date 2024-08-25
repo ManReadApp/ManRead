@@ -200,6 +200,7 @@ pub async fn get_client() -> &'static Client {
         })
         .await
 }
+
 pub async fn search(
     client: &Client,
     req: SearchRequest,

@@ -6,10 +6,7 @@ mod services;
 mod tests;
 
 pub fn find_workspace_root() -> Option<PathBuf> {
-    let mut current_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .to_str()
-        .unwrap()
-        .to_string();
+    let mut current_dir = Path::new(env!("CARGO_MANIFEST_DIR")).to_str()?.to_string();
 
     loop {
         let cargo_toml_path = format!("{}/Cargo.toml", current_dir);
@@ -20,7 +17,7 @@ pub fn find_workspace_root() -> Option<PathBuf> {
         }
 
         let parent_dir = match Path::new(&current_dir).parent() {
-            Some(dir) => dir.to_str().unwrap().to_string(),
+            Some(dir) => dir.to_str()?.to_string(),
             None => break,
         };
 

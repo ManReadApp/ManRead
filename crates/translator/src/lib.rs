@@ -5,7 +5,7 @@ use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -47,15 +47,15 @@ struct IchigoRequest {
 }
 
 impl IchigoRequest {
-    fn new(img: PathBuf, fingerprint: String, uuid: String) -> Self {
+    fn new(img: PathBuf, fingerprint: String, uuid: String) -> Result<Self, io::Error> {
         let mut bytes = vec![];
-        File::open(img).unwrap().read_to_end(&mut bytes).unwrap();
+        File::open(img)?.read_to_end(&mut bytes)?;
         let base = STANDARD.encode(bytes);
-        Self {
+        Ok(Self {
             fingerprint,
             client_uuid: uuid,
             base64images: vec![base],
-        }
+        })
     }
 }
 
@@ -107,23 +107,34 @@ async fn ichigo_translate_instance(
             let translator = translator.lock().unwrap();
             client
                 .post("https://ichigoreader.com/translate")
-                .json(&IchigoRequest::new(
-                    src,
-                    translator.fingerprint.clone(),
-                    translator.uuid.clone(),
-                ))
+                .json(
+                    &IchigoRequest::new(
+                        src,
+                        translator.fingerprint.clone(),
+                        translator.uuid.clone(),
+                    )
+                    .map_err(|e| format!("failed to read file: {}", e))?,
+                )
                 .header(COOKIE, translator.cookie.clone())
         };
 
         let bytes = download(rb).await?;
-        File::create(target).unwrap().write_all(&bytes).unwrap();
+        File::create(target)
+            .map_err(|e| format!("failed to create file: {}", e))?
+            .write_all(&bytes)
+            .map_err(|e| format!("failed to write to file: {}", e))?;
     }
     Ok(())
 }
 
 async fn download(v: RequestBuilder) -> Result<Vec<u8>, String> {
     for i in 0..5 {
-        let data = match v.try_clone().unwrap().send().await {
+        let data = match v
+            .try_clone()
+            .ok_or("failed to clone".to_string())?
+            .send()
+            .await
+        {
             Ok(v) => {
                 if v.status().is_success() {
                     v.bytes().await.map_err(|v| v.to_string())

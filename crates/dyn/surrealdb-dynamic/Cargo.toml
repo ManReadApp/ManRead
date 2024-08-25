@@ -1,7 +1,7 @@
 [package]
 name = "surrealdb-dynamic"
-edition.workspace = true
-version.workspace = true
+edition = "2021"
+version = "0.1.0"
 
 [dependencies]
 surrealdb = { version = "1.5.4", features = ["kv-speedb"] }

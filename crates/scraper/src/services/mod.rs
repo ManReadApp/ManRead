@@ -151,29 +151,22 @@ pub fn generate_id_from_url(url: &str) -> u64 {
 }
 
 fn get_services(folder: &Path, path: &Path) -> Result<(Service, Option<Kind>), ScrapeError> {
-    let file = File::open(path)?;
-    let reader = io::BufReader::new(file);
-    let mut lines = reader.lines();
-    if let Some(Ok(first_line)) = lines.next() {
-        let header: Header = serde_json::from_str(&format!("{}{}{}", '{', first_line, '}'))?;
-        let text = lines
-            .collect::<Result<Vec<String>, _>>()
-            .unwrap()
-            .join("\n");
-        let v = Field::parse(text.as_str());
-        let config = if let Some(file) = header.request_config {
-            let text = read_to_string(folder.join(file))?;
-            serde_json::from_str(&text)?
-        } else {
-            HashMap::new()
-        };
-        Ok((Service { fields: v, config }, header.kind))
-    } else {
-        Err(ScrapeError::input_error(format!(
+    let v = read_to_string(path)?
+        .split_once("\n")
+        .ok_or(Err(ScrapeError::input_error(format!(
             "header missing in file: {}",
             path.display()
-        )))
-    }
+        ))))?;
+    let (header, text) = v;
+    let header: Header = serde_json::from_str(&format!("{}{}{}", '{', first_line, '}'))?;
+    let v = Field::parse(text.as_str());
+    let config = if let Some(file) = header.request_config {
+        let text = read_to_string(folder.join(file))?;
+        serde_json::from_str(&text)?
+    } else {
+        HashMap::new()
+    };
+    Ok((Service { fields: v, config }, header.kind))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -196,14 +189,17 @@ pub fn config_to_request_builder(
     let method = config.get("METHOD").cloned().unwrap_or("GET".to_string());
     let headers = config
         .iter()
-        .map(|(key, value)| {
-            (
-                HeaderName::from_str(key).unwrap(),
-                HeaderValue::from_str(value).unwrap(),
-            )
+        .filter_map(|(key, value)| {
+            Some((
+                HeaderName::from_str(key).ok()?,
+                HeaderValue::from_str(value).ok()?,
+            ))
         })
         .collect();
     client
-        .request(Method::from_str(method.as_str()).unwrap(), url)
+        .request(
+            Method::from_str(method.as_str()).unwrap_or(Method::GET),
+            url,
+        )
         .headers(headers)
 }

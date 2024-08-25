@@ -59,11 +59,6 @@ async fn main() -> std::io::Result<()> {
             "users/icon",
         ],
     )?;
-    #[cfg(feature = "dev")]
-    let _ = std::os::unix::fs::symlink(
-        std::fs::canonicalize(&config.root_folder).unwrap(),
-        PathBuf::from("crates/scraper/tests"),
-    );
     let colors = ColoredLevelConfig::default()
         .trace(Color::Cyan)
         .debug(Color::Blue)
@@ -78,14 +73,18 @@ async fn main() -> std::io::Result<()> {
                 message
             ))
         })
-        .level(log::LevelFilter::from_str(&config.rust_log).unwrap())
+        .level(log::LevelFilter::from_str(&config.rust_log).unwrap_or(LevelFilter::Warn))
         .level_for("selectors", LevelFilter::Off) //remove logger for scraping
         .level_for("html5ever", LevelFilter::Off)
         .level_for("hyper", LevelFilter::Off)
         .chain(std::io::stdout())
         .apply()
-        .unwrap();
-    let db = Arc::new(establish(config.root_folder.clone(), true).await.unwrap());
+        .expect("failed to run logger");
+    let db = Arc::new(
+        establish(config.root_folder.clone(), true)
+            .await
+            .expect("failed to start db"),
+    );
     log_url(&config);
     #[cfg(feature = "https")]
     let ssl_builder = {
@@ -225,18 +224,20 @@ fn log_url(config: &Config) {
 
 pub type Fonts = HashMap<String, PathBuf>;
 
-fn fonts() -> Fonts {
+fn fonts(path: &Path) -> Fonts {
     let mut archive = HashMap::new();
-    for file in read_dir("data/fonts").unwrap() {
-        let file = file.unwrap();
-        let name = file.file_name().to_str().unwrap_or_default().to_lowercase();
-        if name.ends_with(".ttf") || name.ends_with(".otf") {
-            archive.insert(
-                file.file_name().to_str().unwrap_or_default()[..name.len() - 4].to_string(),
-                file.path(),
-            );
+    if let Ok(paths) = read_dir(path.join("data/fonts")) {
+        for file in paths.filter_map(|v| v.ok()) {
+            let name = file.file_name().to_str().unwrap_or_default().to_lowercase();
+            if name.ends_with(".ttf") || name.ends_with(".otf") {
+                archive.insert(
+                    file.file_name().to_str().unwrap_or_default()[..name.len() - 4].to_string(),
+                    file.path(),
+                );
+            }
         }
     }
+
     archive
 }
 

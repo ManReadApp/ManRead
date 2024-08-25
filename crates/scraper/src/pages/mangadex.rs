@@ -102,8 +102,8 @@ pub fn extract_uuid(url: &str) -> Result<String, ScrapeError> {
         .replace("http://", "")
         .replace("mangadex.org/title/", "");
     let url = url.split('/').filter(|x| x != &"").collect::<Vec<_>>();
-    if !url.is_empty() {
-        return Ok(url.first().unwrap().to_string());
+    if let Some(url) = url.first() {
+        return Ok(url.to_string());
     }
     Err(ScrapeError(ApiErr {
         message: Some("Couldnt extract id".to_string()),

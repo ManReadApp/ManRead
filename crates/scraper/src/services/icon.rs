@@ -2,8 +2,7 @@ use crate::error::ScrapeError;
 use api_structure::error::{ApiErr, ApiErrorType};
 use regex::Regex;
 use std::collections::HashMap;
-use std::fs::{read_dir, File};
-use std::io::read_to_string;
+use std::fs::{read_dir, read_to_string, File};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -39,10 +38,7 @@ impl ExternalSite {
                         "filter" => {
                             filters.insert(
                                 name.to_string(),
-                                Filter::new(
-                                    read_to_string(File::open(path).unwrap())
-                                        .map_err(|e| e.to_string())?,
-                                )?,
+                                Filter::new(read_to_string(path).map_err(|e| e.to_string())?)?,
                             );
                         }
                         "scraper" | "search" | "metadata" => {}
@@ -60,8 +56,7 @@ impl ExternalSite {
                 filters: filter,
                 path_buf: files
                     .get(&site)
-                    .ok_or("Failed to find file".to_string())
-                    .unwrap()
+                    .ok_or("Failed to find file".to_string())?
                     .clone(),
                 uri: site,
             })

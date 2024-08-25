@@ -50,18 +50,22 @@ impl TagDBService {
         )
         .await?)
     }
-    pub async fn get_tag(&self, id: &str) -> Option<Tag> {
-        if let Some(v) = self.temp.lock().unwrap().get(id) {
-            return Some(v.clone());
+    pub async fn get_tag(&self, id: &str) -> ApiResult<Option<Tag>> {
+        if let Some(v) = self.temp.lock()?.get(id) {
+            return Ok(Some(v.clone()));
         }
         let mut hm = HashMap::new();
-        let res: Vec<RecordData<Tag>> = Tag::all(&*self.conn).await.ok()?;
+        let res: Option<Vec<RecordData<Tag>>> = Tag::all(&*self.conn).await.ok();
+        let res = match res {
+            Some(v) => v,
+            None => return Ok(None),
+        };
         for item in res {
             hm.insert(item.id.id().to_string(), item.data);
         }
         let v = hm.get(id).cloned();
-        *self.temp.lock().unwrap() = hm;
-        v
+        *self.temp.lock()? = hm;
+        Ok(v)
     }
 
     pub fn new(conn: Arc<Surreal<Db>>) -> Self {

@@ -60,18 +60,22 @@ impl UserDBService {
         Ok(data.into_iter().map(|v| v.data.names).flatten().collect())
     }
 
-    pub async fn get_username(&self, id: &str) -> Option<String> {
-        if let Some(v) = self.temp.lock().unwrap().get(id) {
-            return Some(v.clone());
+    pub async fn get_username(&self, id: &str) -> ApiResult<Option<String>> {
+        if let Some(v) = self.temp.lock()?.get(id) {
+            return Ok(Some(v.clone()));
         }
         let mut hm = HashMap::new();
-        let res: Vec<RecordData<User>> = User::all(&*self.conn).await.ok()?;
+        let res: Option<Vec<RecordData<User>>> = User::all(&*self.conn).await.ok();
+        let res = match res {
+            Some(v) => v,
+            None => return Ok(None),
+        };
         for mut item in res {
             hm.insert(item.id.id().to_string(), item.data.names.remove(0));
         }
         let v = hm.get(id).cloned();
-        *self.temp.lock().unwrap() = hm;
-        v
+        *self.temp.lock()? = hm;
+        Ok(v)
     }
 
     pub async fn get_id(&self, ident: &str, email: bool) -> ApiResult<String> {

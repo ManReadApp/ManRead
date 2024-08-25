@@ -10,26 +10,34 @@ pub async fn upload_images(
     mut payload: Multipart,
     config: Data<Config>,
 ) -> ApiResult<Vec<(String, String)>> {
-    let mut images = vec![];
+    let mut images: Vec<(String, String)> = vec![];
     while let Some(Ok(mut field)) = payload.next().await {
-        let field_name = match field.content_disposition().get_name() {
+        let field_name = match field
+            .content_disposition()
+            .ok_or(ApiError::NoContentDisposition)?
+            .get_name()
+        {
             Some(v) => v.to_string(),
             None => continue,
         };
         match field_name.as_str() {
             "image[]" => {
-                let (file_name, temp_name) =
-                    match field.content_disposition().get_filename().map(String::from) {
-                        Some(v) => (
-                            v,
-                            format!(
-                                "{}-{}",
-                                now_timestamp().expect("time went backwards").as_millis(),
-                                random_string(32)
-                            ),
+                let (file_name, temp_name) = match field
+                    .content_disposition()
+                    .ok_or(ApiError::NoContentDisposition)?
+                    .get_filename()
+                    .map(String::from)
+                {
+                    Some(v) => (
+                        v.to_string(),
+                        format!(
+                            "{}-{}",
+                            now_timestamp().expect("time went backwards").as_millis(),
+                            random_string(32)
                         ),
-                        None => continue,
-                    };
+                    ),
+                    None => continue,
+                };
                 let mut file_data = vec![];
                 while let Some(chunk) = field
                     .try_next()

@@ -25,6 +25,7 @@ fn get_app_data() -> &'static Arc<SharedData> {
 }
 
 // When compiling natively:
+/// theme
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() -> eframe::Result<()> {

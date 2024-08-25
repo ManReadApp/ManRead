@@ -1,4 +1,4 @@
-use crate::errors::ApiResult;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::db::manga::{Manga, MangaDBService};
 use crate::services::db::manga_kind::MangaKindDBService;
 use crate::services::db::tag::TagDBService;
@@ -108,7 +108,12 @@ pub async fn format(
     for v in data {
         let mut t: Vec<String> = vec![];
         for tag in v.data.tags {
-            t.push(tags.get_tag(&tag.thing.id().to_string()).await.unwrap().tag)
+            t.push(
+                tags.get_tag(&tag.thing.id().to_string())
+                    .await
+                    .ok_or(ApiError::DeadIdInDb)?
+                    .tag,
+            )
         }
         let number = rand::thread_rng().gen_range(0..v.data.covers.len());
         result.push(SearchResponse {
@@ -116,7 +121,12 @@ pub async fn format(
             titles: v.data.titles,
             tags: t,
             status: Status::try_from(v.data.status)?,
-            ext: v.data.covers.get(number).unwrap().clone(),
+            ext: v
+                .data
+                .covers
+                .get(number)
+                .ok_or(ApiError::internal("rand generated number out of range"))?
+                .clone(),
             number: number as u32,
         })
     }

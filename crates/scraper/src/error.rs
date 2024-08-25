@@ -27,6 +27,18 @@ impl From<PgEmbedError> for ScrapeError {
         todo!()
     }
 }
+impl ScrapeError {
+    pub fn invalid_request(err: impl ToString) -> Self {
+        todo!()
+    }
+    pub fn init_file(path: &Path, err: impl ToString) -> Self {
+        ScrapeError(ApiErr {
+            message: Some(format!("failed to load file: {}", path.display())),
+            cause: None,
+            err_type: ApiErrorType::ScrapeErrorStatus,
+        })
+    }
+}
 
 #[cfg(feature = "curl")]
 pub fn status_code_err(code: u32) -> ScrapeError {
@@ -35,6 +47,12 @@ pub fn status_code_err(code: u32) -> ScrapeError {
         cause: None,
         err_type: ApiErrorType::ScrapeErrorStatus,
     })
+}
+
+impl From<scraper::error::SelectorErrorKind> for ScrapeError {
+    fn from(value: scraper::error::SelectorErrorKind) -> Self {
+        todo!()
+    }
 }
 
 impl From<curl::Error> for ScrapeError {
@@ -75,6 +93,15 @@ impl ScrapeError {
             err_type: ApiErrorType::ScrapeErrorInputError,
         })
     }
+
+    pub fn input_error_trace(msg: impl ToString, trace: impl ToString) -> Self {
+        ScrapeError(ApiErr {
+            message: Some(msg.to_string()),
+            cause: Some(trace.to_string()),
+            err_type: ApiErrorType::ScrapeErrorInputError,
+        })
+    }
+
     pub fn node_not_found() -> Self {
         ScrapeError(ApiErr {
             message: Some("didnt find node".to_string()),

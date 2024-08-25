@@ -1,5 +1,5 @@
 use crate::env::config::random_string;
-use crate::errors::ApiResult;
+use crate::errors::{ApiError, ApiResult};
 use crate::services::db::user::User;
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::models::auth::kind::Kind;
@@ -29,8 +29,8 @@ pub struct AuthToken {
 }
 
 impl AuthToken {
-    pub fn new_forgot(user_id: String) -> Self {
-        Self {
+    pub fn new_forgot(user_id: String) -> ApiResult<Self> {
+        Ok(Self {
             user: Some(ThingType::from(Thing::from(("users", user_id.as_str())))),
             token: random_string(6),
             kind: Kind {
@@ -38,9 +38,10 @@ impl AuthToken {
                 kind: Role::NotVerified,
             }
             .into(),
-            active_until_timestamp: (now_timestamp().unwrap() + Duration::from_secs(3600))
-                .as_millis() as u64,
-        }
+            active_until_timestamp: (now_timestamp().map_err(|e| ApiError::Inner(e))?
+                + Duration::from_secs(3600))
+            .as_millis() as u64,
+        })
     }
 }
 
@@ -69,7 +70,7 @@ impl AuthTokenDBService {
         let query = format!(
             "WHERE token = \"{}\" AND active_until_timestamp >= {}",
             token,
-            now_timestamp().unwrap().as_millis()
+            now_timestamp().map_err(ApiError::Inner)?.as_millis()
         );
 
         let mut search = AuthToken::search(&*self.conn, Some(query)).await?;

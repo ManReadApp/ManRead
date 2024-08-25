@@ -124,7 +124,11 @@ pub async fn info(
     for chapter in manga.data.chapters {
         chapters.push(chapter_s.get_reader(chapter).await?);
     }
-    chapters.sort_by(|a, b| a.chapter.partial_cmp(&b.chapter).unwrap());
+    chapters.sort_by(|a, b| {
+        a.chapter
+            .partial_cmp(&b.chapter)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let (open_chapter, progress) = match req.chapter_id {
         None => progress_s
             .get_progress(user.id.as_str(), manga.id)

@@ -27,7 +27,9 @@ impl CoverStorage {
 
     pub fn get_url(&mut self, url: &str, ctx: &Context) -> Option<ImageOverlay> {
         if let Some(item) = self.items.get_mut(url) {
-            item.opened = Some(now_timestamp().unwrap());
+            if let Ok(time) = now_timestamp() {
+                item.opened = Some(time);
+            }
             return item.image.task.ready()?.clone();
         }
         let new = ThreadHandler::new_async_ctx(Self::download_url(url), Some(ctx));
@@ -44,7 +46,9 @@ impl CoverStorage {
         ctx: &Context,
     ) -> Option<ImageOverlay> {
         if let Some(item) = self.items.get_mut(manga_id) {
-            item.opened = Some(now_timestamp().unwrap());
+            if let Ok(time) = now_timestamp() {
+                item.opened = Some(time);
+            }
             return item.image.task.ready()?.clone();
         }
         let new = ThreadHandler::new_async_ctx(
