@@ -128,7 +128,7 @@ async fn main() -> std::io::Result<()> {
                 secret: cfgc.secret_key.as_bytes().to_vec(),
             }))
             .app_data(Data::new(cfgc.clone()))
-            .app_data(Data::new(fonts()))
+            .app_data(Data::new(fonts(&cfgc.root_folder)))
             .app_data(Data::new(AuthTokenDBService::new(dbc.clone())))
             .app_data(Data::new(ChapterDBService::new(dbc.clone())))
             .app_data(Data::new(ChapterVersionDBService::new(dbc.clone())))

@@ -18,32 +18,32 @@ api_structure = {path = "crates/api_structure"}
 manread_scraper = { path = "crates/scraper" }
 scraper = "0.20.0"
 walkdir = "2.5.0"
-serde = {version = "1.0.203", features = ["derive"] }
-log = { version = "0.4.21", features = ["std"] }
-rand = "0.9.0-alpha.1"
-tokio = { version = "1.38.0", features = ["full"] }
-fern = { version = "0.6.2", features = ["colored"] }
+serde = {version = "1.0.209", features = ["derive"] }
+log = { version = "0.4.22", features = ["std"] }
+rand = "0.9.0-alpha.2"
+tokio = { version = "1.39.3", features = ["full"] }
+fern = "0.6.2"
 humantime = "2.1.0"
 nanoid = "0.4.0"
-serde_yaml = "0.9.33"
+serde_yaml = "0.9.34-deprecated"
 futures-util = "0.3.30"
-serde_json = "1.0.117"
+serde_json = "1.0.127"
 bcrypt = "0.15.1"
 async-recursion = "1.1.1"
-url = "2.5.0"
-chrono = { version = "0.4.38", features = ["serde"] }
-image = { version = "0.25.1", features = ["jpeg", "gif", "qoi"] }
-reqwest = {version = "0.12.5", features = ["json", "stream", "multipart", "native-tls-alpn"] }
+url = "2.5.2"
+chrono = "0.4.38"
+image = { version = "0.25.2", features = ["jpeg", "gif", "qoi"] }
+reqwest = {version = "0.12.7", features = ["json", "stream", "multipart", "native-tls-alpn"] }
 base64 = "0.22.1"
 poll-promise = "0.3"
 keyring = "3.2.0"
 rfd = "0.14"
-regex = "1.10.4"
+regex = "1.10.6"
 identicon-rs = "6.0.0"
 pg-embed = "0.7.1"
-tokio-postgres = "0.7.10"
-openssl = "0.10.64"
-bytes = "1.6.0"
+tokio-postgres = "0.7.11"
+openssl = "0.10.66"
+bytes = "1.7.1"
 futures = "0.3.30"
 urlencoding = "2.1.3"
 curl = "0.4.46"

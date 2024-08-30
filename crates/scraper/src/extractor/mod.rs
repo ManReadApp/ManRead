@@ -1,7 +1,6 @@
 use crate::downloader::download;
 use crate::services::config_to_request_builder;
 use crate::ScrapeError;
-use api_structure::error::ApiErr;
 use api_structure::resp::manga::external_search::ScrapeSearchResponse;
 use reqwest::Client;
 use scraper::{Html, Selector};
@@ -49,17 +48,20 @@ impl SearchServiceDeserialized {
             cover_data_src: self.cover_data_src.unwrap_or_default(),
             label_selector: self
                 .label_selector
-                .map(|v| Selector::parse(&v))
+                .as_ref()
+                .map(|v| Selector::parse(v))
                 .transpose()
                 .map_err(|e| ScrapeError::init_file(path, e))?,
             type_: self
                 .type_
-                .map(|v| Selector::parse(&v))
+                .as_ref()
+                .map(|v| Selector::parse(v))
                 .transpose()
                 .map_err(|e| ScrapeError::init_file(path, e))?,
             status: self
                 .status
-                .map(|v| Selector::parse(&v))
+                .as_ref()
+                .map(|v| Selector::parse(v))
                 .transpose()
                 .map_err(|e| ScrapeError::init_file(path, e))?,
             offset: self.offset,

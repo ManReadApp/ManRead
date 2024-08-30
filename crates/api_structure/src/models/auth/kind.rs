@@ -21,7 +21,12 @@ impl TryFrom<u32> for Kind {
         } else {
             assert_eq!(s.len(), 2);
             let mut chars = s.chars();
-            let d: u32 = chars.next().ok_or(())?.to_string().parse().ok_or(())?;
+            let d: u32 = chars
+                .next()
+                .ok_or(())?
+                .to_string()
+                .parse()
+                .map_err(|_| ())?;
             (Role::from(d), chars.next().ok_or(())?)
         };
 

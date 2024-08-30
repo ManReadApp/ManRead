@@ -5,6 +5,7 @@ use pg_embed::pg_errors::PgEmbedError;
 use std::io;
 use std::io::Error;
 use std::num::ParseFloatError;
+use std::path::Path;
 use std::str::Utf8Error;
 
 #[derive(Debug)]
@@ -49,7 +50,7 @@ pub fn status_code_err(code: u32) -> ScrapeError {
     })
 }
 
-impl From<scraper::error::SelectorErrorKind> for ScrapeError {
+impl<'a> From<scraper::error::SelectorErrorKind<'a>> for ScrapeError {
     fn from(value: scraper::error::SelectorErrorKind) -> Self {
         todo!()
     }
