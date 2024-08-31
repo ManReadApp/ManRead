@@ -34,7 +34,6 @@ impl LoadingInitRefreshPage {
                     return User::new(jwts).map(|v| (v, req));
                 }
             }
-            let _ = User::delete_token();
             None
         };
         Self {

@@ -37,11 +37,13 @@ impl User {
             cause: Some(e.to_string()),
             data: None,
         })?;
-        entry.set_password(password).map_err(|e| ClientError {
-            message: "Failed to set key".to_string(),
-            cause: Some(e.to_string()),
-            data: None,
-        })?;
+        entry
+            .set_secret(password.as_bytes())
+            .map_err(|e| ClientError {
+                message: "Failed to set key".to_string(),
+                cause: Some(e.to_string()),
+                data: None,
+            })?;
         Ok(())
     }
 
@@ -67,12 +69,13 @@ impl User {
             cause: Some(e.to_string()),
             data: None,
         })?;
-        let token = entry.get_password().map_err(|e| ClientError {
+        let v = entry.get_secret();
+        let token = entry.get_secret().map_err(|e| ClientError {
             message: "failed to get password".to_string(),
             cause: Some(e.to_string()),
             data: None,
         })?;
-        Ok(token)
+        Ok(String::from_utf8(token).unwrap())
     }
 
     fn parse_jwt(s: &str) -> Result<Claim, ClientError> {

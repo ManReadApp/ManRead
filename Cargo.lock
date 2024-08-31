@@ -3682,6 +3682,11 @@ name = "keyring"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73b9af47ded4df3067484d7d45758ca2b36bd083bf6d024c2952bbd8af1cdaa4"
+dependencies = [
+ "byteorder",
+ "security-framework",
+ "windows-sys 0.59.0",
+]
 
 [[package]]
 name = "khronos_api"

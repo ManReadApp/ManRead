@@ -23,7 +23,7 @@ struct CfBypassResponse {
 pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, ScrapeError> {
     let data = download_(
         v.try_clone()
-            .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?,
+            .ok_or_else(||ScrapeError::invalid_request(format!("{:?} is invalid 1", v)))?,
     )
     .await;
     if cloudflare {
@@ -31,7 +31,7 @@ pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, Scr
             if data.contains("<title>Just a moment...</title>") {
                 let (client, req) = v
                     .try_clone()
-                    .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?
+                    .ok_or_else(||ScrapeError::invalid_request(format!("{:?} is invalid 2", v)))?
                     .build_split();
                 let url = req?.url().to_string();
                 let headers: CfBypassResponse = client
@@ -54,7 +54,7 @@ pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, Scr
                             headers
                                 .cookies
                                 .get("cf_clearance")
-                                .ok_or(ScrapeError::node_not_found())?
+                                .ok_or_else(||ScrapeError::node_not_found())?
                                 .to_string()
                         ),
                     )
@@ -72,7 +72,7 @@ pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
         let data = {
             let data = v
                 .try_clone()
-                .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?
+                .ok_or_else(||ScrapeError::invalid_request(format!("{:?} is invalid 3", v)))?
                 .build()?;
             let mut buf = Arc::new(Mutex::new(Vec::new()));
             let mut handle = curl::easy::Easy::new();
@@ -124,7 +124,7 @@ pub async fn download_(v: RequestBuilder) -> Result<String, ScrapeError> {
         #[cfg(not(feature = "curl"))]
         let data = match v
             .try_clone()
-            .ok_or(ScrapeError::invalid_request(format!("{:?} is invalid", v)))?
+            .ok_or_else(||ScrapeError::invalid_request(format!("{:?} is invalid 4", v)))?
             .send()
             .await
         {
