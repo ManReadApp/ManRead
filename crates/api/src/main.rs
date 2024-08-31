@@ -29,7 +29,7 @@ use fern::colors::{Color, ColoredLevelConfig};
 use log::{info, LevelFilter};
 use std::collections::HashMap;
 use std::fs::read_dir;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;

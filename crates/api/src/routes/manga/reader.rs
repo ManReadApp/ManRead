@@ -118,7 +118,7 @@ pub async fn info(
     let manga = manga.get(req.manga_id.as_str()).await?;
     let kind = kind_s
         .get_kind(&manga.data.kind.thing.id().to_string())
-        .await
+        .await?
         .ok_or(ApiError::db_error())?;
     let mut chapters = vec![];
     for chapter in manga.data.chapters {

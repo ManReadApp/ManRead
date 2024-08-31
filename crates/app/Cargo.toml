@@ -27,7 +27,7 @@ reqwest = {workspace = true, features = ["json", "stream", "multipart"] }
 base64 = {workspace = true}
 poll-promise = "0.3"
 keyring = "3.2"
-egui_extras = { version = "0.28", features = ["all_loaders", "datepicker"] }
+egui_extras = { version = "0.28", features = ["all_loaders", "datepicker", "serde"] }
 rfd = "0.14"
 paste = "1.0.15"
 

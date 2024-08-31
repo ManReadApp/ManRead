@@ -18,7 +18,7 @@ async fn request_reset_password(
     user: Data<UserDBService>,
 ) -> ApiResult<Json<()>> {
     let id = user.get_id(&data.ident, data.email).await?;
-    AuthToken::new_forgot(id).add_i(&*activation.conn).await?;
+    AuthToken::new_forgot(id)?.add_i(&*activation.conn).await?;
     Ok(Json(()))
 }
 #[post("/reset_password")]

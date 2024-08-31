@@ -53,7 +53,7 @@ pub struct AuthUser {
 
 impl AuthUser {
     pub fn get_kind(&self) -> Kind {
-        Kind::from(self.kind as u32)
+        Kind::try_from(self.kind as u32).unwrap()
     }
 }
 

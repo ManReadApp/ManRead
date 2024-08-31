@@ -9,10 +9,8 @@ use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::{read_dir, read_to_string, File};
+use std::fs::{read_dir, read_to_string};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::io;
-use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -96,7 +94,7 @@ pub fn init(
                 } else if let Some(v) = name.strip_suffix(".search") {
                     let str = read_to_string(path.as_path())?;
                     let data: SearchServiceDeserialized = serde_json::from_str(&str)?;
-                    search.insert(v.to_string(), data.convert(&folder));
+                    search.insert(v.to_string(), data.convert(&folder)?);
                 }
             }
         } else {
@@ -151,15 +149,15 @@ pub fn generate_id_from_url(url: &str) -> u64 {
 }
 
 fn get_services(folder: &Path, path: &Path) -> Result<(Service, Option<Kind>), ScrapeError> {
-    let v = read_to_string(path)?
+    let temp = read_to_string(path)?;
+    let (first_line, text) = temp
         .split_once("\n")
-        .ok_or(Err(ScrapeError::input_error(format!(
+        .ok_or(ScrapeError::input_error(format!(
             "header missing in file: {}",
             path.display()
-        ))))?;
-    let (header, text) = v;
+        )))?;
     let header: Header = serde_json::from_str(&format!("{}{}{}", '{', first_line, '}'))?;
-    let v = Field::parse(text.as_str());
+    let v = Field::parse(text);
     let config = if let Some(file) = header.request_config {
         let text = read_to_string(folder.join(file))?;
         serde_json::from_str(&text)?

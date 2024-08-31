@@ -327,8 +327,9 @@ impl Field {
                     Prefix::Num(num) => {
                         let items: Vec<_> =
                             re.captures_iter(html).map(|v| v[1].to_string()).collect();
-                        let num = num.min(&items.len());
-                        Some(serde_json::to_string(&items[..*num]).ok()?)
+                        let len = items.len();
+                        let num = (*num).min(len);
+                        Some(serde_json::to_string(&items[..num]).ok()?)
                     }
                 }
             } else {

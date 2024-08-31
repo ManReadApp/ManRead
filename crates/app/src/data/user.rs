@@ -53,7 +53,7 @@ impl User {
             cause: Some(e.to_string()),
             data: None,
         })?;
-        entry.delete_password().map_err(|e| ClientError {
+        entry.delete_credential().map_err(|e| ClientError {
             message: "failed to delete key".to_string(),
             cause: Some(e.to_string()),
             data: None,

@@ -171,19 +171,19 @@ impl SearchServiceScrapeData {
             res.push(ScrapeSearchResponse {
                 title: labels
                     .get(i)
-                    .ok_or(|v| ScrapeError::node_not_found())
+                    .ok_or(ScrapeError::node_not_found())?
                     .to_string(),
                 url,
                 cover: cover
                     .get(i)
-                    .ok_or(|v| ScrapeError::node_not_found())
+                    .ok_or(ScrapeError::node_not_found())?
                     .to_string(),
                 r#type: type_
                     .as_ref()
                     .map(|v| {
                         v.get(i)
                             .map(|v| v.to_string())
-                            .ok_or(|v| ScrapeError::node_not_found())
+                            .ok_or(ScrapeError::node_not_found())
                     })
                     .transpose()?,
                 status: status
@@ -191,7 +191,7 @@ impl SearchServiceScrapeData {
                     .map(|v| {
                         v.get(i)
                             .map(|v| v.to_string())
-                            .ok_or(|v| ScrapeError::node_not_found())
+                            .ok_or(ScrapeError::node_not_found())
                     })
                     .transpose()?,
             })

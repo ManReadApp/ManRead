@@ -62,11 +62,11 @@ impl MultiSiteService {
                                         v.url.strip_prefix("/").unwrap_or(&v.url)
                                     );
                                 }
-                                v
+                                Ok(v)
                             })
-                            .collect::<Vec<_>>()
+                            .collect::<Result<Vec<_>, ScrapeError>>()
                     })
-                    .map(|v| (v, vec![]));
+                    .map(|v| Ok((v?, vec![])))?;
                 match items {
                     Ok(v) => Ok(v),
                     Err(e) => match manual(&self.client, uri.as_str(), &url).await {
@@ -294,12 +294,12 @@ async fn post_process_pages(
                 .map(|(index, v)| match v.is_empty() {
                     true => back
                         .get(index)
-                        .ok_or(ScrapeError::node_not_found())?
-                        .clone(),
-                    false => v,
+                        .ok_or(ScrapeError::node_not_found())
+                        .map(|v| v.clone()),
+                    false => Ok(v),
                 })
-                .map(|url| url.replace(['\t', '\n'], ""))
-                .collect();
+                .map(|url| url.map(|url| url.replace(['\t', '\n'], "")))
+                .collect::<Result<_, _>>()?;
             Ok(urls)
         } else {
             hidden::multi::post_process_pages(client, uri, fields).await

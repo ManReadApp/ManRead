@@ -40,7 +40,7 @@ pub async fn info(
     let manga = manga.get(req.manga_id.as_str()).await?;
     let kind = kind_s
         .get_kind(&manga.data.kind.thing.id().to_string())
-        .await
+        .await?
         .ok_or(ApiError::db_error())?;
     let mut tags = vec![];
 
@@ -48,7 +48,7 @@ pub async fn info(
         tags.push(
             tags_s
                 .get_tag(&tag.thing.id().to_string())
-                .await
+                .await?
                 .ok_or(ApiError::db_error())?
                 .to_public(),
         );
@@ -61,7 +61,7 @@ pub async fn info(
         artists.push(
             user_s
                 .get_username(&artist.thing.id().to_string())
-                .await
+                .await?
                 .ok_or(ApiError::db_error())?,
         );
     }
@@ -70,7 +70,7 @@ pub async fn info(
         authors.push(
             user_s
                 .get_username(&author.thing.id().to_string())
-                .await
+                .await?
                 .ok_or(ApiError::db_error())?,
         );
     }
@@ -86,7 +86,7 @@ pub async fn info(
             ctags.push(
                 tags_s
                     .get_tag(&tag.thing.id().to_string())
-                    .await
+                    .await?
                     .ok_or(ApiError::db_error())?
                     .to_public(),
             );
@@ -111,7 +111,7 @@ pub async fn info(
         my: manga.data.uploader.thing.id().to_string() == user.id,
         uploader: user_s
             .get_username(&manga.data.uploader.thing.id().to_string())
-            .await
+            .await?
             .ok_or(ApiError::db_error())?,
         artists,
         authors,

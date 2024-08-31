@@ -1,5 +1,7 @@
 use egui::util::hash;
-use egui::{AboveOrBelow, Key, Response, ScrollArea, TextBuffer, TextEdit, Ui, Widget};
+use egui::{
+    AboveOrBelow, Key, PopupCloseBehavior, Response, ScrollArea, TextBuffer, TextEdit, Ui, Widget,
+};
 
 pub struct SuggestionBox {
     id: String,
@@ -133,19 +135,26 @@ impl SuggestionBox {
             };
         let mut selected = -1;
 
-        egui::popup::popup_above_or_below_widget(ui, id, &text_response, above_or_below, |ui| {
-            if let Some(wi) = self.popup_width {
-                ui.set_max_width(wi);
-            }
-            ScrollArea::vertical()
-                .max_height(max_height)
-                .show(ui, |ui| {
-                    for (index, item) in filtered.iter().enumerate() {
-                        ui.selectable_value(&mut selected, index as i32, item);
-                    }
-                })
-                .inner
-        });
+        egui::popup::popup_above_or_below_widget(
+            ui,
+            id,
+            &text_response,
+            above_or_below,
+            PopupCloseBehavior::CloseOnClick,
+            |ui| {
+                if let Some(wi) = self.popup_width {
+                    ui.set_max_width(wi);
+                }
+                ScrollArea::vertical()
+                    .max_height(max_height)
+                    .show(ui, |ui| {
+                        for (index, item) in filtered.iter().enumerate() {
+                            ui.selectable_value(&mut selected, index as i32, item);
+                        }
+                    })
+                    .inner
+            },
+        );
         if selected != -1 {
             text.replace_with(filtered.get(selected as usize).expect("Shouldn't fail"));
             self.closed = Some(hash(text.as_str()));

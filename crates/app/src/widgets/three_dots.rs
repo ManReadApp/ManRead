@@ -1,4 +1,4 @@
-use egui::{pos2, vec2, AboveOrBelow, Color32, ScrollArea, Sense, Ui};
+use egui::{pos2, vec2, AboveOrBelow, Color32, PopupCloseBehavior, ScrollArea, Sense, Ui};
 
 pub struct ThreeDot {
     id: String,
@@ -51,13 +51,20 @@ impl ThreeDot {
             ui.memory_mut(|mem| mem.toggle_popup(id));
         }
 
-        egui::popup::popup_above_or_below_widget(ui, id, &re, above_or_below, |ui| {
-            ui.set_max_width(100.0);
-            ScrollArea::vertical()
-                .max_height(max_height)
-                .show(ui, |ui| add_contents(ui, &mut data))
-                .inner
-        });
+        egui::popup::popup_above_or_below_widget(
+            ui,
+            id,
+            &re,
+            above_or_below,
+            PopupCloseBehavior::CloseOnClick,
+            |ui| {
+                ui.set_max_width(100.0);
+                ScrollArea::vertical()
+                    .max_height(max_height)
+                    .show(ui, |ui| add_contents(ui, &mut data))
+                    .inner
+            },
+        );
         data
     }
 }

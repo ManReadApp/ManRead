@@ -110,7 +110,7 @@ pub async fn format(
         for tag in v.data.tags {
             t.push(
                 tags.get_tag(&tag.thing.id().to_string())
-                    .await
+                    .await?
                     .ok_or(ApiError::DeadIdInDb)?
                     .tag,
             )

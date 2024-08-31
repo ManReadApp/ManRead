@@ -50,17 +50,19 @@ impl ExternalSite {
             }
         }
 
-        Ok(filters
+        filters
             .into_iter()
-            .map(|(site, filter)| ExternalSite {
-                filters: filter,
-                path_buf: files
-                    .get(&site)
-                    .ok_or("Failed to find file".to_string())?
-                    .clone(),
-                uri: site,
+            .map(|(site, filter)| {
+                Ok(ExternalSite {
+                    filters: filter,
+                    path_buf: files
+                        .get(&site)
+                        .ok_or("Failed to find file".to_string())?
+                        .clone(),
+                    uri: site,
+                })
             })
-            .collect())
+            .collect()
     }
 
     pub fn check(&self, url: &str) -> bool {

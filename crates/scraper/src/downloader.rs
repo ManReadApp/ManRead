@@ -54,7 +54,7 @@ pub async fn download(v: RequestBuilder, cloudflare: bool) -> Result<String, Scr
                             headers
                                 .cookies
                                 .get("cf_clearance")
-                                .ok_or(ScrapeError::node_not_found())
+                                .ok_or(ScrapeError::node_not_found())?
                                 .to_string()
                         ),
                     )

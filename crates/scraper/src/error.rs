@@ -17,6 +17,12 @@ impl From<ApiErr> for ScrapeError {
     }
 }
 
+impl From<url::ParseError> for ScrapeError {
+    fn from(value: url::ParseError) -> Self {
+        todo!()
+    }
+}
+
 impl From<tokio_postgres::Error> for ScrapeError {
     fn from(value: tokio_postgres::Error) -> Self {
         todo!()

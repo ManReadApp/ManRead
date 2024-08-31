@@ -39,7 +39,7 @@ impl MetaDataService {
         data: Arc<Vec<ExternalSite>>,
     ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
         let uri = get_uri(&data, url)?;
-        let mut url = self.process_url(&uri, url.to_string()).await;
+        let mut url = self.process_url(&uri, url.to_string()).await?;
         if let Some(v) = self.services.get(&uri) {
             let req = config_to_request_builder(&self.client, &v.config, url.as_str());
             let html = download(req, v.cf_bypass()).await?;
@@ -74,15 +74,13 @@ impl MetaDataService {
             manual(&self.client, &uri, &url).await
         }
     }
-    async fn process_url(&self, uri: &str, url: String) -> Result<Option<String>> {
+    async fn process_url(&self, uri: &str, url: String) -> Result<String, ScrapeError> {
         if uri == "asura" {
             let html = download(self.client.get(&url), false).await?;
-            Ok(get_first_url(
-                &Url::parse(&url)?.origin().ascii_serialization(),
-                &html,
-            ))
+            get_first_url(&Url::parse(&url)?.origin().ascii_serialization(), &html)
+                .ok_or(ScrapeError::node_not_found())
         } else {
-            Ok(Some(url))
+            Ok(url)
         }
     }
 }
@@ -224,7 +222,7 @@ fn post_process(
             if let Some(ItemOrArray::Array(vv)) = res.remove("labels") {
                 if v.len() == vv.len() {
                     for (i, data) in v.into_iter().enumerate() {
-                        let value = vv.get(i).ok_or(ScrapeError::node_not_found()).as_str();
+                        let value = vv.get(i).ok_or(ScrapeError::node_not_found())?.as_str();
                         let text = clean_text(
                             clean_text(data)
                                 .strip_prefix(value)
