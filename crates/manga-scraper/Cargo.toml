@@ -1,0 +1,30 @@
+[package]
+name = "manga-scraper"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+scraper-module = { workspace = true, features = ["json", "reqwest"] }
+regex = { workspace = true }
+scraper = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+async-trait = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-tls", "native-tls"] }
+url = { workspace = true }
+urlencoding = "2.1.3"
+toml = { workspace = true }
+libloading = "0.8"
+api_structure = { workspace = true }
+tokio = "1.44.2"
+once_cell = "1.21.3"
+natord = "1.0"
+dashmap.workspace = true
+
+[lib]
+crate-type = ["rlib", "dylib"]
+
+[dev-dependencies]
+scraper-testing = { workspace = true }
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] } #

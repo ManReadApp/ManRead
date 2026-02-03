@@ -1,0 +1,7 @@
+[package]
+name = "event-runner"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "time"] }

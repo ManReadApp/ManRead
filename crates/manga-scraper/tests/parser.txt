@@ -1,0 +1,13 @@
+test1[@text] .selector
+test2[strip_text] .selector > div.a.b
+test2[strip_text] .selector > div.a.b
+test3[strip_text] .selector => [strip_text] .selector2
+test4[strip_text] .selector | .selector4 => [@strip_text] .selector2 | ![text] .selector3
+test5[regex] <body\b[^>]*>(.*?)<\/body>
+test6[] .container
+    [strip_text] .selector => [strip_text] .selector2
+[] .container
+    test7[@text] .selector
+    test8[strip_text] .selector > div.a.b
+    test9[strip_text] <- span
+test10[strip_text] .selector > div.a.b <- span

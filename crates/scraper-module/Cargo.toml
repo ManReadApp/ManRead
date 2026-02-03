@@ -1,0 +1,17 @@
+[package]
+name = "scraper-module"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+reqwest = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+api_structure = { workspace = true }
+schemars = { workspace = true, optional = true }
+apistos = { workspace = true, optional = true }
+
+[features]
+json = ["dep:serde_json", "dep:serde"]
+openapi = ["dep:schemars", "dep:apistos"]
