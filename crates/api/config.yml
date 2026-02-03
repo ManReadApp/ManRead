@@ -1,6 +1,0 @@
-root_folder: data
-port: 8081
-https_port: 8082
-rust_log: debug
-secret_key: 9wvd!UBöbb8ÖQbD8=anAFOKO58TBUGZGR6W2Y9rgsIÜjAÄdxiT4aJDS7eUxK
-spinner: Pikachu2

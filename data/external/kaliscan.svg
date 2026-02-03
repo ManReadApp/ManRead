@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="8 2 31 44">
-  <mask id="overlap">
-    <circle  cx="-35" cy="-60" r="100" fill="white" />
-  </mask>
-  <mask id="overlap2">
-    <path d="M 39 5 L 35 2 L 35 8 L 39 11 Z" fill="white" stroke="none" />
-    <path d="M 8,14 L 22,23 L 22,31 L 14,25 L 14,46 L 8,40 Z" fill="white" stroke="none" />
-  </mask>
-  <path d="M 8 5 L 12 2 L 12 8 L 8 11 Z" fill="#1fc0da" stroke="none" />
-  <path d="M 39 5 L 35 2 L 35 8 L 39 11 Z" fill="#274a6e" stroke="none" />
-  <path d="M 8,14 L 22,23 L 22,31 L 14,25 L 14,46 L 8,40 Z" fill="#274a6e" stroke="none" />
-  <path d="M 39 14 L 25 23 L 25 31 L 33 25 L 33 46 L 39 40 Z" fill="#1fc0da" stroke="none" />
-  <path d="M 39 5 L 35 2 L 35 8 L 39 11 Z" fill="#0078a0" stroke="none" mask="url(#overlap)" />
-  <path d="M 8,14 L 22,23 L 22,31 L 14,25 L 14,46 L 8,40 Z" fill="#0078a0" stroke="none" mask="url(#overlap)" />
-  <path d="M 39 14 L 25 23 L 25 31 L 33 25 L 33 46 L 39 40 Z" fill="#1fc0da" stroke="none" />
-  <circle  cx="-35" cy="-60" r="100" fill="none" stroke="#0082ab" stroke-width="0.5" mask="url(#overlap2)" />
+    <mask id="overlap">
+        <circle cx="-35" cy="-60" r="100" fill="white"/>
+    </mask>
+    <mask id="overlap2">
+        <path d="M 39 5 L 35 2 L 35 8 L 39 11 Z" fill="white" stroke="none"/>
+        <path d="M 8,14 L 22,23 L 22,31 L 14,25 L 14,46 L 8,40 Z" fill="white" stroke="none"/>
+    </mask>
+    <path d="M 8 5 L 12 2 L 12 8 L 8 11 Z" fill="#1fc0da" stroke="none"/>
+    <path d="M 39 5 L 35 2 L 35 8 L 39 11 Z" fill="#274a6e" stroke="none"/>
+    <path d="M 8,14 L 22,23 L 22,31 L 14,25 L 14,46 L 8,40 Z" fill="#274a6e" stroke="none"/>
+    <path d="M 39 14 L 25 23 L 25 31 L 33 25 L 33 46 L 39 40 Z" fill="#1fc0da" stroke="none"/>
+    <path d="M 39 5 L 35 2 L 35 8 L 39 11 Z" fill="#0078a0" stroke="none" mask="url(#overlap)"/>
+    <path d="M 8,14 L 22,23 L 22,31 L 14,25 L 14,46 L 8,40 Z" fill="#0078a0" stroke="none" mask="url(#overlap)"/>
+    <path d="M 39 14 L 25 23 L 25 31 L 33 25 L 33 46 L 39 40 Z" fill="#1fc0da" stroke="none"/>
+    <circle cx="-35" cy="-60" r="100" fill="none" stroke="#0082ab" stroke-width="0.5" mask="url(#overlap2)"/>
 </svg>

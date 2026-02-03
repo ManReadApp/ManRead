@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Multipart Image Upload</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+            }
+            .preview img {
+                max-width: 100px;
+                margin: 10px;
+            }
+            .response {
+                margin-top: 20px;
+                padding: 10px;
+                border: 1px solid #ccc;
+                background-color: #f9f9f9;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Upload Multiple Images</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input
+                type="file"
+                id="images"
+                name="images[]"
+                multiple
+                accept="image/*"
+            /><br /><br />
+            <input type="submit" value="Upload" />
+        </form>
+        <div class="preview" id="preview"></div>
+        <div class="response" id="response"></div>
+
+        <script>
+            document
+                .getElementById("images")
+                .addEventListener("change", function (event) {
+                    const preview = document.getElementById("preview");
+                    preview.innerHTML = "";
+                    for (let i = 0; i < event.target.files.length; i++) {
+                        const img = document.createElement("img");
+                        img.src = URL.createObjectURL(event.target.files[i]);
+                        preview.appendChild(img);
+                    }
+                });
+
+            document
+                .getElementById("uploadForm")
+                .addEventListener("submit", function (event) {
+                    event.preventDefault();
+
+                    const formData = new FormData();
+                    const files = document.getElementById("images").files;
+
+                    for (let i = 0; i < files.length; i++) {
+                        formData.append("images[]", files[i]);
+                    }
+
+                    (async () => {
+                        try {
+                            let response = await fetch(
+                                "http://localhost:8082/api/v1/image/upload",
+                                {
+                                    method: "POST",
+                                    body: formData,
+                                },
+                            );
+
+                            let data = await response.text();
+                            console.log(data);
+                            let responseDiv =
+                                document.getElementById("response");
+                            responseDiv.innerHTML = "<pre>" + data + "</pre>";
+                        } catch (error) {
+                            console.error("Error:", error);
+                        }
+                    })();
+                });
+        </script>
+    </body>
+</html>

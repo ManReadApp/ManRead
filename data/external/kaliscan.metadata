@@ -1,5 +1,5 @@
-"request_config": "headers.json"
 cover[attr=data-src] #cover > div.img-cover > img
 title[strip_text] body > div.layout > div.main-container.book-details > div > div.row.no-gutters > div.col-70.container__left > div.book-info > div.detail > div.name.box > h1
 alternative[strip_text] body > div.layout > div.main-container.book-details > div > div.row.no-gutters > div.col-70.container__left > div.book-info > div.detail > div.name.box > h2
-rows[@html_fn] body > div.layout > div.main-container.book-details > div > div.row.no-gutters > div.col-70.container__left > div.book-info > div.detail > div.meta.box.mt-1.p-10 p => ["[strip_text] strong", "[@strip_text] a | [strip_text] span | [strip_text] strong"]
+rows[@] body > div.layout > div.main-container.book-details > div > div.row.no-gutters > div.col-70.container__left > div.book-info > div.detail > div.meta.box.mt-1.p-10 p
+    [strip_text] strong => [@strip_text] a | span | strong

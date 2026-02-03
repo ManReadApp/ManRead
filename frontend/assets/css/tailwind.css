@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+    --image-blur: 0px;
+    --image-brightness: 1;
+    --image-contrast: 1;
+    --image-grayscale: 0;
+    --image-invert: 0;
+    --image-hue-rotate: 0deg;
+    --image-saturate: 1;
+    --image-sepia: 0;
+}
+
+body {
+    overflow: hidden;
+}
+:root:not(.custom) {
+    color: rgb(var(--color));
+    color-scheme: dark light;
+    --md-primary: 255 103 64;
+    --md-primary-10: 230 97 62;
+    --md-primary-20: 188 85 59;
+    --md-status-red: 255 64 64;
+    --md-status-green: 4 208 0;
+    --md-status-yellow: 218 117 0;
+    --md-status-blue: 0 201 245;
+    --md-status-grey: 196 196 196;
+    --md-status-purple: 125 64 255;
+    --md-indication-blue: 75 152 241;
+    --md-danger: 255 64 64;
+    --md-danger-10: 219 49 49;
+    --md-danger-20: 191 33 33
+}
+
+.light:not(.custom) {
+    --color: 36 36 36;
+    color-scheme: light;
+    --md-background: 255 255 255;
+    --md-accent: 240 241 242;
+    --md-accent-hover: 218 220 223;
+    --md-accent-active: 201 203 206;
+    --md-accent-10: 232 234 235;
+    --md-accent-10-hover: 216 219 220;
+    --md-accent-10-active: 203 206 208;
+    --md-accent-20: 224 228 230;
+    --md-accent-20-hover: 205 209 210;
+    --md-accent-20-active: 189 193 195;
+    --md-accent-30: 217 221 223;
+    --md-accent-30-hover: 193 196 198;
+    --md-accent-30-active: 179 183 185;
+    --md-accent-40: 209 214 216;
+    --md-accent-40-hover: 181 187 188;
+    --md-accent-40-active: 154 161 163;
+    --md-accent-50: 201 207 209;
+    --md-accent-50-hover: 160 166 168;
+    --md-accent-50-active: 145 151 153;
+    --md-midTone: 103 114 117;
+    --md-contrast-1: 0 0 0;
+    --md-scrollbar-thumb: var(--md-accent-20);
+    --md-scrollbar-thumb-hover: var(--md-accent-30);
+    --md-button-accent: var(--md-accent);
+    --md-button-accent-alt: var(--md-accent-20)
+}
+
+.dark_:not(.custom) {
+    --color: 255 255 255;
+    color-scheme: dark;
+    --md-background: 25 26 28;
+    --md-accent: 44 44 44;
+    --md-accent-hover: 57 57 57;
+    --md-accent-active: 29 29 29;
+    --md-accent-10: 61 61 61;
+    --md-accent-10-hover: 73 73 73;
+    --md-accent-10-active: 39 39 39;
+    --md-accent-20: 79 79 79;
+    --md-accent-20-hover: 104 104 104;
+    --md-accent-20-active: 34 34 34;
+    --md-accent-30: 88 88 88;
+    --md-accent-30-hover: 112 112 112;
+    --md-accent-30-active: 62 62 62;
+    --md-accent-40: 93 93 93;
+    --md-accent-40-hover: 104 104 104;
+    --md-accent-40-active: 55 55 55;
+    --md-accent-50: 102 102 102;
+    --md-accent-50-hover: 121 121 121;
+    --md-accent-50-active: 59 59 59;
+    --md-midTone: 140 140 140;
+    --md-contrast-1: 79 79 79;
+    --md-scrollbar-thumb: var(--md-accent-20);
+    --md-scrollbar-thumb-hover: var(--md-accent-30);
+    --md-button-accent: var(--md-accent-20);
+    --md-button-accent-alt: var(--md-accent)
+}
+
+.slate:not(.custom) {
+    --color: 222 239 239;
+    color-scheme: dark;
+    --md-background: 18 19 24;
+    --md-accent: 33 35 40;
+    --md-accent-hover: 47 50 57;
+    --md-accent-active: 21 23 26;
+    --md-accent-10: 38 41 47;
+    --md-accent-10-hover: 45 48 55;
+    --md-accent-10-active: 20 21 24;
+    --md-accent-20: 61 65 74;
+    --md-accent-20-hover: 72 78 90;
+    --md-accent-20-active: 44 46 52;
+    --md-accent-30: 67 71 82;
+    --md-accent-30-hover: 75 80 94;
+    --md-accent-30-active: 43 46 52;
+    --md-accent-40: 78 83 96;
+    --md-accent-40-hover: 88 94 110;
+    --md-accent-40-active: 50 52 59;
+    --md-accent-50: 83 88 103;
+    --md-accent-50-hover: 91 97 116;
+    --md-accent-50-active: 41 43 49;
+    --md-midTone: 123 140 144;
+    --md-contrast-1: 61 65 74;
+    --md-scrollbar-thumb: var(--md-accent-20);
+    --md-scrollbar-thumb-hover: var(--md-accent-30);
+    --md-button-accent: var(--md-accent-20);
+    --md-button-accent-alt: var(--md-accent)
+}
+
+.dracula:not(.custom) {
+    --color: 255 255 255;
+    color-scheme: dark;
+    --md-background: 40 42 54;
+    --md-accent: 52 55 70;
+    --md-accent-hover: 66 70 91;
+    --md-accent-active: 43 45 57;
+    --md-accent-10: 47 51 59;
+    --md-accent-10-hover: 57 62 72;
+    --md-accent-10-active: 39 42 48;
+    --md-accent-20: 56 62 72;
+    --md-accent-20-hover: 73 81 96;
+    --md-accent-20-active: 49 54 62;
+    --md-accent-30: 64 71 84;
+    --md-accent-30-hover: 93 103 122;
+    --md-accent-30-active: 54 60 69;
+    --md-accent-40: 70 79 95;
+    --md-accent-40-hover: 112 128 155;
+    --md-accent-40-active: 61 68 81;
+    --md-accent-50: 78 89 108;
+    --md-accent-50-hover: 137 157 192;
+    --md-accent-50-active: 67 76 91;
+    --md-midTone: 126 144 172;
+    --md-contrast-1: 79 84 111;
+    --md-scrollbar-thumb: var(--md-accent-20);
+    --md-scrollbar-thumb-hover: var(--md-accent-30);
+    --md-button-accent: var(--md-accent-20);
+    --md-button-accent-alt: var(--md-accent);
+    --md-primary: 161 121 192;
+    --md-primary-10: 134 96 164;
+    --md-primary-20: 116 85 140;
+    --md-status-red: 255 85 85;
+    --md-status-yellow: 255 184 108;
+    --md-status-blue: 139 233 253;
+    --md-status-green: 80 250 123
+}
+
+.system:not(.custom) {
+    --color: 36 36 36;
+    color-scheme: light;
+    --md-background: 255 255 255;
+    --md-accent: 240 241 242;
+    --md-accent-hover: 218 220 223;
+    --md-accent-active: 201 203 206;
+    --md-accent-10: 232 234 235;
+    --md-accent-10-hover: 216 219 220;
+    --md-accent-10-active: 203 206 208;
+    --md-accent-20: 224 228 230;
+    --md-accent-20-hover: 205 209 210;
+    --md-accent-20-active: 189 193 195;
+    --md-accent-30: 217 221 223;
+    --md-accent-30-hover: 193 196 198;
+    --md-accent-30-active: 179 183 185;
+    --md-accent-40: 209 214 216;
+    --md-accent-40-hover: 181 187 188;
+    --md-accent-40-active: 154 161 163;
+    --md-accent-50: 201 207 209;
+    --md-accent-50-hover: 160 166 168;
+    --md-accent-50-active: 145 151 153;
+    --md-midTone: 103 114 117;
+    --md-contrast-1: 0 0 0;
+    --md-button-accent: var(--md-accent);
+    --md-button-accent-alt: var(--md-accent-20)
+}
+
+@media (prefers-color-scheme: dark) {
+    .system:not(.custom) {
+        --color: 255 255 255;
+        color-scheme: dark;
+        --md-background: 25 26 28;
+        --md-accent: 44 44 44;
+        --md-accent-hover: 57 57 57;
+        --md-accent-active: 29 29 29;
+        --md-accent-10: 61 61 61;
+        --md-accent-10-hover: 65 65 65;
+        --md-accent-10-active: 39 39 39;
+        --md-accent-20: 79 79 79;
+        --md-accent-20-hover: 93 93 93;
+        --md-accent-20-active: 34 34 34;
+        --md-accent-30: 88 88 88;
+        --md-accent-30-hover: 97 97 97;
+        --md-accent-30-active: 62 62 62;
+        --md-accent-40: 93 93 93;
+        --md-accent-40-hover: 93 93 93;
+        --md-accent-40-active: 55 55 55;
+        --md-accent-50: 102 102 102;
+        --md-accent-50-hover: 92 92 92;
+        --md-accent-50-active: 59 59 59;
+        --md-midTone: 140 140 140;
+        --md-contrast-1: 79 79 79;
+        --md-scrollbar-thumb: var(--md-accent-20);
+        --md-scrollbar-thumb-hover: var(--md-accent-30);
+        --md-button-accent: var(--md-accent-20);
+        --md-button-accent-alt: var(--md-accent)
+    }
+}
+
+:root {
+    background-color: rgb(var(--md-background));
+    -webkit-tap-highlight-color: transparent;
+    font-family: Poppins, sans-serif;
+    --top-margin: .5rem;
+    --side-margin: 1rem;
+    --bottom-margin: 2rem;
+    --navbar-height: 3.5rem;
+    --bottom-nav-height: 0px;
+    --bottom-nav-padding: env(safe-area-inset-bottom, 16px);
+    --bottom-nav-area: calc(var(--bottom-nav-padding) + var(--bottom-nav-height));
+    --banner-height: 13.5rem;
+    --banner-filter: none;
+    --banner-overlay-gradient: none;
+    --drawer-menu-width: 256px;
+    --drawer-menu-min-width: 256px;
+    --drawer-profile-width: 320px;
+    --drawer-profile-min-width: 256px;
+    --drawer-reader-width: 312px;
+    --drawer-reader-min-width: 256px
+}
+
+:root.mobile {
+    --side-margin: 1rem;
+    --top-margin: 1rem;
+    --navbar-height: 3.5rem;
+    --bottom-margin: 1.5rem;
+    --bottom-nav-height: 4rem;
+    --banner-overlap: calc(var(--navbar-height) + var(--top-margin)) !important
+}

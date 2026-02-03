@@ -1,1 +1,5 @@
-starts_with https://www.anime-planet.com
+starts_with https://www.anime-planet.com/
+use reqwest
+source https://www.anime-planet.com/inc/img/logos/planet-min.svg
+
+use postprocessor metadata array_to_map rows

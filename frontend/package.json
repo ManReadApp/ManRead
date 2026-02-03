@@ -1,0 +1,40 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "tauri": "tauri",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@headlessui/vue": "^1.7.23",
+    "@jsquash/qoi": "^1.0.0",
+    "@nuxt/image": "1.9.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@vueuse/core": "^12.7.0",
+    "@wgr-sa/nuxt-panzoom": "^0.1.0",
+    "decimal.js": "^10.5.0",
+    "nuxt": "^3.15.4",
+    "nuxt-lucide-icons": "1.0.5",
+    "search-parser": "link:search_parser",
+    "tailwindcss": "^4.0.0",
+    "url-parse": "^1.5.10",
+    "vue": "latest",
+    "vue-router": "latest",
+    "vue3-otp-input": "^0.5.21"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.1.0",
+    "@nuxtjs/eslint-module": "^4.1.0",
+    "nuxt-open-fetch": "^0.9.5",
+    "vite-plugin-wasm": "^3.4.1",
+    "@tauri-apps/cli": "^2"
+  },
+  "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af"
+}

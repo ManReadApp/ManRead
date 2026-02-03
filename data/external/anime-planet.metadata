@@ -1,5 +1,8 @@
-"request_config": "headers_err.json"
 tags[@strip_text] .tags ul li a
 img[src] .mainEntry img
 description[text] .synopsisManga
 title[text] [itemprop="name"]
+alt_title[@strip_text] h2.aka
+chapters[@strip_text] .entryBar > div:nth-child(1)
+year[@strip_text] .entryBar > div:nth-child(3)
+publisher[@strip_text] .entryBar a

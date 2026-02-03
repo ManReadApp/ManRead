@@ -1,8 +1,7 @@
-"request_config": "headers.json"
 title[text] span.text-xl.font-bold
-summery[strip_text] span.font-medium
+summery[strip_text] div.col-span-12 > span.font-medium.text-sm
 genres[@text] button.text-white.text-sm.cursor-pointer
 cover[src] div.relative > img.rounded.mx-auto
 type[text] h3.text-sm.text-white.capitalize.cursor-pointer
 status[text] h3.text-sm.capitalize
-rows2[@text] .grid.grid-cols-1.gap-5.mt-8 > div > h3
+rows[@text] .grid.grid-cols-1.gap-5.mt-8 > div > h3

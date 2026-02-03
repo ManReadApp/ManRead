@@ -1,134 +1,102 @@
-use crate::errors::{ApiError, ApiResult};
-use crate::services::db::manga::{Manga, MangaDBService};
-use crate::services::db::manga_kind::MangaKindDBService;
-use crate::services::db::tag::TagDBService;
-use crate::services::db::user::UserDBService;
-use actix_web::post;
-use actix_web::web::{Data, Json, ReqData};
-use actix_web_grants::protect;
-use api_structure::models::auth::jwt::Claim;
-use api_structure::models::manga::search::{Array, Order};
-use api_structure::models::manga::status::Status;
-use api_structure::req::manga::search::SearchRequest;
-use api_structure::resp::manga::home::HomeResponse;
-use api_structure::resp::manga::search::SearchResponse;
-use rand::Rng;
-use surrealdb_extras::RecordData;
+use actix_web::web::{Data, ReqData};
+use actix_web_grants::AuthorityGuard;
+use api_structure::{
+    models::{
+        auth::{jwt::Claim, role::Permission},
+        manga::search::{Array, Item, ItemData, ItemOrArray, ItemValue, Order},
+    },
+    req::manga::search::SearchRequest,
+    resp::manga::{home::HomeResponse, search::SearchResponse},
+};
+use apistos::{actix::CreatedJson, api_operation};
+use rand::thread_rng;
+use surrealdb_extras::{RecordIdType, SurrealTableInfo as _};
 
-#[post("/home")]
-#[protect(
-    any(
-        "api_structure::models::auth::role::Role::Admin",
-        "api_structure::models::auth::role::Role::CoAdmin",
-        "api_structure::models::auth::role::Role::Moderator",
-        "api_structure::models::auth::role::Role::Author",
-        "api_structure::models::auth::role::Role::User"
-    ),
-    ty = "api_structure::models::auth::role::Role"
+use crate::{
+    error::{ApiError, ApiResult},
+    models::{manga::MangaDBService, tag::TagDBService, user::User},
+};
+
+use super::search::convert_to_search_response;
+
+#[api_operation(
+    tag = "manga",
+    summary = "Gets all the info for the manga home",
+    description = r###""###
 )]
-pub async fn home(
-    manga: Data<MangaDBService>,
-    tags: Data<TagDBService>,
-    user: ReqData<Claim>,
-    user_service: Data<UserDBService>,
-    kind_service: Data<MangaKindDBService>,
+pub(crate) async fn exec(
+    manga_service: Data<MangaDBService>,
     tag_service: Data<TagDBService>,
-) -> ApiResult<Json<HomeResponse>> {
-    let generate = |order, desc, query| {
-        let query = match query {
-            None => Array {
-                not: false,
-                or_post: None,
-                or: false,
-                items: vec![],
-            },
-            Some(v) => v,
+    user: ReqData<Claim>,
+) -> ApiResult<CreatedJson<HomeResponse>> {
+    let generate = |order: Order, desc, query| {
+        let items = match query {
+            None => vec![],
+            Some(v) => vec![v],
         };
         SearchRequest {
-            order,
+            order: order.to_string(),
             desc,
             limit: 20,
             page: 1,
-            query,
+            query: Array {
+                not: false,
+                or_post: None,
+                or: false,
+                items,
+            },
         }
     };
-    //let trending = generate(Order::Popularity, true, None);
-    let newest = generate(Order::Created.to_string(), true, None);
-    //let reading = generate(Order::LastRead, true, None);
-    // let favorites = generate(
-    // Order::Alphabetical,
-    // false,
-    // Some(ItemOrArray::Item(Item {
-    //     not: false,
-    //     data: ItemData::enum_("Favorites"),
-    // })),
-    // );
-    let latest_updates = generate(Order::Updated.to_string(), true, None);
-    let random = generate(Order::Random.to_string(), false, None);
-    Ok(Json(HomeResponse {
-        trending: vec![], //format(manga.search(trending, &user.id).await?, &tags).await,
-        newest: format(
-            manga
-                .search(newest, &user.id, &user_service, &kind_service, &tag_service)
-                .await?,
-            &tags,
-        )
-        .await?,
-        latest_updates: format(
-            manga
-                .search(
-                    latest_updates,
-                    &user.id,
-                    &user_service,
-                    &kind_service,
-                    &tag_service,
-                )
-                .await?,
-            &tags,
-        )
-        .await?,
-        favorites: vec![], //format(manga.search(favorites, &user.id).await?, &tags,  &user_service, &kind_service, &tag_service).await,
-        reading: vec![],
-        // reading: format(manga.search(reading, &user.id).await?, &tags,  &user_service, &kind_service, &tag_service).await?,
-        random: format(
-            manga
-                .search(random, &user.id, &user_service, &kind_service, &tag_service)
-                .await?,
-            &tags,
-        )
-        .await?,
+
+    let search = |req| async {
+        let mut rng = thread_rng();
+
+        let (_, v) = manga_service
+            .search(
+                req,
+                RecordIdType::from((User::name(), user.id.as_str())),
+                false,
+            )
+            .await?;
+
+        let mut resp: Vec<SearchResponse> = Vec::with_capacity(v.len());
+        for v in v {
+            resp.push(convert_to_search_response(v, &tag_service, &mut rng).await?);
+        }
+        Ok::<_, ApiError>(resp)
+    };
+    let trending = generate(Order::Popularity, true, None);
+    let newest = generate(Order::Created, true, None);
+    let reading = generate(Order::LastRead, true, None);
+    let favorites = generate(
+        Order::Alphabetical,
+        false,
+        Some(ItemOrArray::Item(Item {
+            not: false,
+            or_post: None,
+            data: ItemData {
+                name: "list".to_owned(),
+                value: ItemValue::String("favorites".to_owned()),
+            },
+        })),
+    );
+    let latest_updates = generate(Order::Updated, true, None);
+    let random = generate(Order::Random, false, None);
+
+    Ok(CreatedJson(HomeResponse {
+        trending: vec![], //search(trending).await?,
+        newest: search(newest).await?,
+        latest_updates: search(latest_updates).await?,
+        favorites: search(favorites).await?,
+        reading: search(reading).await?,
+        random: search(random).await?,
     }))
 }
 
-pub async fn format(
-    data: Vec<RecordData<Manga>>,
-    tags: &Data<TagDBService>,
-) -> ApiResult<Vec<SearchResponse>> {
-    let mut result = vec![];
-    for v in data {
-        let mut t: Vec<String> = vec![];
-        for tag in v.data.tags {
-            t.push(
-                tags.get_tag(&tag.thing.id().to_string())
-                    .await?
-                    .ok_or(ApiError::DeadIdInDb)?
-                    .tag,
-            )
-        }
-        let number = rand::thread_rng().gen_range(0..v.data.covers.len());
-        result.push(SearchResponse {
-            manga_id: v.id.id().to_string(),
-            titles: v.data.titles,
-            tags: t,
-            status: Status::try_from(v.data.status)?,
-            ext: v
-                .data
-                .covers
-                .get(number)
-                .ok_or(ApiError::internal("rand generated number out of range"))?
-                .clone(),
-            number: number as u32,
-        })
-    }
-    Ok(result)
+pub fn register() -> apistos::web::Resource {
+    apistos::web::resource("/home").route(
+        apistos::web::post()
+            .to(exec)
+            .guard(AuthorityGuard::new(Permission::Read)),
+    )
 }

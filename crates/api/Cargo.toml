@@ -3,55 +3,62 @@ name = "api"
 edition.workspace = true
 version.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-# db
-surrealdb = {version = "1.3.1", default-features = false, features = ["kv-speedb", "scripting"] }
-surrealdb-extras = { version = "0.2.1" }
-# surrealdb-extras = { version = "0.1.0", path = "../dyn/surrealdb-extras-dynamic", package = "surrealdb-extras-dynamic" }
-# surrealdb = { version = "0.1.0", path = "../dyn/surrealdb-dynamic", package = "surrealdb-dynamic" }
-
-
-# api
-actix-web = { version = "4.5", features = ["openssl"] }
-actix-cors = { version = "0.7", optional = true }
-openssl = { workspace = true, optional = true }
-local-ip-address = { version = "0.6", optional = true }
-actix-files = "0.6"
-actix-multipart = "0.7.2"
-actix-web-grants = "4.0"
-actix-web-httpauth = "0.8"
-jsonwebtoken = "9.2"
-
-chrono =  {workspace = true}
-serde = { workspace = true, features = ["derive"] }
-log = { workspace = true, features = ["std"] }
-api_structure = { workspace = true }
-manread_scraper = { workspace = true }
-rand = {workspace = true}
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+actix-web = { workspace = true }
+actix-cors = { workspace = true, optional = true }
+actix-multipart = { workspace = true }
+futures = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
 fern = { workspace = true, features = ["colored"] }
-humantime = {workspace = true}
-nanoid = {workspace = true}
-serde_yaml = {workspace = true}
-image = {workspace = true}
-futures-util = {workspace = true}
-serde_json ={workspace = true}
-bcrypt ={workspace = true}
-img_hash = { git = "https://github.com/ManReadApp/img_hash" }
+humantime = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+rand = { workspace = true }
+toml = { workspace = true }
+openssl = { workspace = true, optional = true }
+local-ip-address = { workspace = true, optional = true }
+image = { workspace = true }
+img_hash = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+scraper = { workspace = true }
+surrealdb = { version = "2", optional = true }
+surrealdb-extras = { version = "2.0.10", optional = true }
+manga-scraper = { workspace = true }
+scraper-module = { workspace = true, features = ["openapi"] }
+event-runner = { workspace = true }
+api_structure = { workspace = true }
+actix-files = { workspace = true }
+actix-web-grants = { workspace = true }
+actix-web-httpauth = { workspace = true }
 
-#search
-async-recursion = {workspace = true}
+# auth
+bcrypt = { workspace = true }
+jsonwebtoken = { workspace = true }
+# api docs
+schemars = { workspace = true }
+apistos = { workspace = true, features = [
+    "swagger-ui",
+    "rapidoc",
+    "redoc",
+    "scalar",
+    "multipart",
+    "actix-web-grants",
+] }
 
 [features]
-default = ["detailed_error_responses", "log-ip", "cors", "cors-permissive"]
-
-https = ["dep:openssl"]
-detailed_error_responses = []
+default = ["cors", "cors-permissive", "db"]
 log-ip = ["dep:local-ip-address"]
+https = ["dep:openssl"]
 cors = ["dep:actix-cors"]
-cors-permissive = ["cors", "dep:actix-cors"]
-encryption = []
 content-type-from-filename = []
-dev = []
+cors-permissive = []
+# this is a debug feature whihc will build the project without a database. the code wont work but working on everything else will be faster without the 300 extra dependencies
+db = ["dep:surrealdb", "dep:surrealdb-extras"]
+
+[profile.dev.package.image]
+opt-level = 3

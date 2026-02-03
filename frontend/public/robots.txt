@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /verify
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /reader
+
+Sitemap: /sitemap.xml

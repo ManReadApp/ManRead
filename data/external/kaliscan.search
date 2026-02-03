@@ -1,11 +1,7 @@
-{
-    "headers": "headers.json",
-    "url": "https://kaliscan.io/search?page={page}&status=all&sort=views&q={query}&include_mode=and",
-    "url_empty": "https://kaliscan.io/search?page={page}",
-    "selector": "#search-page > div > div.row.no-gutters.d-flex > div.section.box.mt-1 > div > div > div > div > div.meta > div.title > h3 > a",
-    "label_selector": "#search-page > div > div.row.no-gutters.d-flex > div.section.box.mt-1 > div > div > div > div > div.meta > div.title > h3 > a",
-    "cover_data_src": true,
-    "cover": "#search-page > div > div.row.no-gutters.d-flex > div.section.box.mt-1 > div > div > div > div > div.thumb > a > img"
-}
-
-
+[general]
+selector= "#search-page > div > div.row.no-gutters.d-flex > div.section.box.mt-1 > div > div > div > div"
+cover = "div.thumb > a > img"
+a = "div.meta > div.title > h3 > a"
+label= "div.meta > div.title > h3 > a"
+url = "https://kaliscan.io/search?page={page}&status=all&sort=views&q={query}&include_mode=and"
+pages = ".paginator > a.btn"

@@ -1,1 +1,14 @@
 starts_with https://myanimelist.net
+
+use reqwest
+use postprocessor metadata prefix_key fields_labels :
+use postprocessor metadata split fields_labels ,
+use postprocessor metadata split fields_labels \n
+use postprocessor metadata flatten fields_labels
+use postprocessor metadata join Score ,
+use postprocessor metadata join Published ,
+use postprocessor metadata join Members ,
+use postprocessor metadata join Favorites ,
+use postprocessor metadata filter_duplicates /
+
+source https://iconbuddy.app/simple-icons/myanimelist

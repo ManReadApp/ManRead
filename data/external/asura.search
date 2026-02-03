@@ -1,10 +1,12 @@
-{
-    "headers": "headers.json",
-    "url_empty": "https://asuracomic.net/series?page={page}",
-    "url": "https://asuracomic.net/series?page={page}&name={query}",
-    "selector": ".grid a",
-    "label_selector": ".grid a span.block",
-    "type": ".grid a div.absolute span.font-bold",
-    "cover": ".grid a img",
-    "status": ".grid a .status"
-}
+[general]
+selector = ".grid a"
+cover = "img"
+label= "span.block"
+type= "div.absolute span.font-bold"
+status = "div span.status"
+
+[no_query]
+url = "https://asuracomic.net/series?page={page}"
+
+[query]
+url = "https://asuracomic.net/series?page={page}&name={query}"

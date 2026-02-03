@@ -1,1 +1,10 @@
 starts_with https://kaliscan.io/
+
+use reqwest
+use postprocessor metadata strip_suffix_str rows ,
+use postprocessor metadata strip_suffix_str rows :
+use postprocessor metadata flatten rows
+use postprocessor search add_base url
+use postprocessor scraper split ,
+
+source manual creation

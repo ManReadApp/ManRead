@@ -1,1 +1,4 @@
 starts_with https://www.novelupdates.com
+use reqwest
+
+source https://www.novelupdates.com/appicon.png

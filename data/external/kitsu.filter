@@ -1,1 +1,2 @@
 starts_with https://kitsu.io
+source https://kitsu.io/manga #kitsu-navbar > div > div > div.nav-item.pull-xs-left > a > span > svg

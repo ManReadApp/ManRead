@@ -1,2 +1,9 @@
-starts_with https://asuratoon.com
 starts_with https://asuracomic.net
+
+use reqwest
+use preprocessor metadata asura
+use postprocessor metadata array_to_map rows
+use postprocessor metadata flatten rows
+use postprocessor search add_base url
+
+source https://asuracomic.net/images/logo.webp

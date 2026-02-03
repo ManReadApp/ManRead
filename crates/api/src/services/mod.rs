@@ -1,5 +1,12 @@
-pub mod auth_service;
-pub mod crypto_service;
-pub mod db;
-pub mod internal;
-pub mod uri_service;
+use std::time::Duration;
+
+pub mod achievement;
+pub mod auth;
+pub mod file;
+pub mod scraper;
+
+#[async_trait::async_trait]
+pub trait BackgroundService {
+    async fn run(&self);
+    fn when(&self) -> Duration;
+}

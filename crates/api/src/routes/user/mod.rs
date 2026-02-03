@@ -1,12 +1,14 @@
-mod activate;
-mod refresh;
-mod reset_password;
-mod sign_in;
-mod sign_up;
+pub mod delete;
+pub mod edit;
+pub mod info;
+pub mod list;
+pub mod search;
 
-pub use activate::activate as activate_route;
-pub use refresh::refresh_ as refresh_route;
-pub use reset_password::request_reset_password as request_reset_password_route;
-pub use reset_password::reset_password as reset_password_route;
-pub use sign_in::login as sign_in_route;
-pub use sign_up::sign_up_route;
+pub fn register() -> apistos::web::Scope {
+    apistos::web::scope("/user")
+        .service(delete::register())
+        .service(edit::register())
+        .service(info::register())
+        .service(list::register())
+        .service(search::register())
+}

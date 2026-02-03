@@ -1,5 +1,9 @@
 /target
 /data/db
+/data/db_
+/db
+/data/binaries
+/data/cover_templates
 /data/covers
 /data/frontend
 /data/mangas
