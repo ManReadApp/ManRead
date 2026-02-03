@@ -1,10 +1,12 @@
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::search::Field;
 use crate::error::{ApiErr, ApiErrorType};
 use crate::req::manga::search::SearchRequest;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ExternalSearchData {
     Advanced(SearchRequest),
     Simple(SimpleSearch),
@@ -45,7 +47,7 @@ impl ExternalSearchData {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SimpleSearch {
     pub search: String,
     pub sort: Option<String>,
@@ -58,7 +60,7 @@ pub struct SimpleSearch {
 impl SimpleSearch {
     pub fn validate(&self, vs: &ValidSearch) -> bool {
         if let Some(v) = &self.sort {
-            if !vs.sorts.contains(v) {
+            if !vs.sort_by.contains(v) {
                 return false;
             }
         }
@@ -77,9 +79,9 @@ impl SimpleSearch {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
 pub struct ValidSearch {
-    pub sorts: Vec<String>,
+    pub sort_by: Vec<String>,
     pub tags: Vec<String>,
     pub status: Vec<String>,
 }
@@ -87,7 +89,7 @@ pub struct ValidSearch {
 impl ValidSearch {
     pub fn anilist() -> Self {
         Self {
-            sorts: vec![
+            sort_by: vec![
                 "popularity".to_string(),
                 "score".to_string(),
                 "trending".to_string(),
@@ -107,7 +109,7 @@ impl ValidSearch {
 
     pub fn kitsu() -> Self {
         Self {
-            sorts: vec![
+            sort_by: vec![
                 "popularity".to_string(),
                 "rating".to_string(),
                 "updated".to_string(),
@@ -119,14 +121,12 @@ impl ValidSearch {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ApiComponent, JsonSchema)]
 pub enum ValidSearches {
-    String,
+    QueryOffset,
     ValidSearch(ValidSearch),
-}
-
-impl ValidSearches {
-    pub fn parser(&self) -> Option<Vec<Field>> {
-        None
-    }
+    Advanced {
+        order_by: Vec<String>,
+        fields: Vec<Field>,
+    },
 }

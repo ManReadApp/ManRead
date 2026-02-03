@@ -1,17 +1,23 @@
+use apistos::ApiComponent;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use super::role::Role;
 
 /// NotVerified will be used to reset the password
-pub struct Kind {
+#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
+pub struct TokenKind {
     pub single: bool,
     pub kind: Role,
 }
-impl Kind {
+
+impl TokenKind {
     pub fn new(single: bool, kind: Role) -> Self {
         Self { single, kind }
     }
 }
 
-impl TryFrom<u32> for Kind {
+impl TryFrom<u32> for TokenKind {
     type Error = ();
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
@@ -35,9 +41,9 @@ impl TryFrom<u32> for Kind {
     }
 }
 
-impl From<Kind> for u32 {
-    fn from(value: Kind) -> Self {
-        let f = (value.kind as u8).to_string();
+impl From<TokenKind> for u32 {
+    fn from(value: TokenKind) -> Self {
+        let f = (value.kind as u32).to_string();
         let s = (value.single as u8).to_string();
         format!("{f}{s}").parse().expect("cant fail")
     }

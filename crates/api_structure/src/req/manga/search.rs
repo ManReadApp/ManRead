@@ -1,8 +1,10 @@
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::models::manga::search::Array;
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, ApiComponent, JsonSchema)]
 pub struct SearchRequest {
     pub order: String,
     pub desc: bool,

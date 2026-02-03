@@ -1,8 +1,12 @@
 use std::str::FromStr;
 
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Clone, Debug)]
+#[derive(
+    Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Clone, Debug, ApiComponent, JsonSchema,
+)]
 pub enum Role {
     NotVerified = 0,
     User = 1,
@@ -10,6 +14,52 @@ pub enum Role {
     Moderator = 3,
     CoAdmin = 4,
     Admin = 5,
+}
+
+impl Role {
+    pub fn get_permissions(&self) -> Vec<Permission> {
+        match self {
+            Role::NotVerified => vec![Permission::Verify],
+            Role::User => vec![Permission::Read],
+            Role::Author => vec![
+                Permission::Read,
+                Permission::Create,
+                Permission::RequestDelete,
+            ],
+            Role::Moderator => vec![
+                Permission::Read,
+                Permission::Create,
+                Permission::RequestDelete,
+                Permission::Review,
+            ],
+            Role::CoAdmin => vec![
+                Permission::Read,
+                Permission::Create,
+                Permission::RequestDelete,
+                Permission::Review,
+            ],
+            Role::Admin => vec![
+                Permission::Read,
+                Permission::Create,
+                Permission::Review,
+                Permission::RequestDelete,
+                Permission::Impersonate,
+            ],
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub enum Permission {
+    None, //used
+    Verify,
+    Read,   // used
+    Create, // used
+    Review,
+    Delete,
+    RequestDelete, // used
+    Impersonate,
+    ManageExternalServices,
 }
 
 impl From<u32> for Role {
@@ -28,7 +78,7 @@ impl From<u32> for Role {
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Role::NotVerified => write!(f, "Undifined"),
+            Role::NotVerified => write!(f, "Undefined"),
             Role::User => write!(f, "User"),
             Role::Moderator => write!(f, "Moderator"),
             Role::CoAdmin => write!(f, "Co-Admin"),

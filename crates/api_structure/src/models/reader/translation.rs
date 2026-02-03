@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
 pub struct TranslationArea {
     pub translated_text: HashMap<String, String>,
     pub min_x: u32,

@@ -1,8 +1,10 @@
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{ApiErr, ApiErrorType};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
 pub enum Visibility {
     /// Everyone
     Visible,

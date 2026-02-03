@@ -1,11 +1,27 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::models::manga::external_search::ExternalSearchData;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ExternalSearchRequest {
     pub data: ExternalSearchData,
     pub uri: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ItemOrArrayOrMap {
+    Item(String),
+    Array(Vec<String>),
+    Map(HashMap<String, String>),
+    ArrayDyn(Vec<Value>),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ExternalInfoRequest {
+    pub url: String,
 }
 
 impl ExternalSearchRequest {

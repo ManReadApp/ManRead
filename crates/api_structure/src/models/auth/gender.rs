@@ -1,6 +1,8 @@
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, ApiComponent, JsonSchema)]
 pub enum Gender {
     Male,
     Female,

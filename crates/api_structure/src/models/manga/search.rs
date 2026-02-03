@@ -3,18 +3,22 @@ use std::{
     str::FromStr,
 };
 
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{ApiErr, ApiErrorType};
 
 #[derive(Deserialize, Serialize, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Order {
-    Created,
     Alphabetical,
+    Created,
     Updated,
     LastRead,
     Popularity,
     Random,
+    Status,
+    ChapterCount,
 }
 
 impl TryFrom<String> for Order {
@@ -28,7 +32,8 @@ impl TryFrom<String> for Order {
             "last_read" => Self::LastRead,
             "popularity" => Self::Popularity,
             "random" => Self::Random,
-
+            "status" => Self::Status,
+            "chapter_count" => Self::ChapterCount,
             _ => Err(ApiErr {
                 message: Some(format!("{value} is not a valid order")),
                 cause: None,
@@ -50,13 +55,15 @@ impl Display for Order {
                 Order::LastRead => "last_read",
                 Order::Popularity => "popularity",
                 Order::Random => "random",
+                Order::Status => "status",
+                Order::ChapterCount => "chapter_count",
             }
         )
     }
 }
 
 /// can contain item or array
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, ApiComponent, JsonSchema)]
 #[serde(untagged)]
 pub enum ItemOrArray {
     Item(Item),
@@ -77,7 +84,7 @@ impl Display for ItemOrArray {
 }
 
 /// array joined with and or or
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, ApiComponent, JsonSchema)]
 pub struct Array {
     pub or: bool,
     pub not: bool,
@@ -104,7 +111,7 @@ impl Display for Array {
 }
 
 /// item include or exclude
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, ApiComponent, JsonSchema)]
 pub struct Item {
     pub not: bool,
     pub or_post: Option<bool>,
@@ -145,7 +152,7 @@ impl Item {
 }
 
 /// field and value
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, ApiComponent, JsonSchema)]
 pub struct ItemData {
     pub name: String,
     pub value: ItemValue,
@@ -160,8 +167,10 @@ impl ItemData {
     }
 }
 
+#[derive(Deserialize, Serialize, ApiComponent, JsonSchema)]
 /// define the type it should be parsed to
 pub enum ItemKind {
+    None,
     Bool,
     Int,
     String,
@@ -185,12 +194,13 @@ impl ItemKind {
                 let (bigger, eq, value) = parse(s)?;
                 ItemValue::CmpInt { eq, bigger, value }
             }
+            ItemKind::None => ItemValue::None,
         })
     }
 }
 
 /// enum with different values
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ApiComponent, JsonSchema)]
 pub enum ItemValue {
     None,
     Bool(bool),
@@ -364,6 +374,7 @@ impl Display for ItemValue {
     }
 }
 
+#[derive(Deserialize, Serialize, ApiComponent, JsonSchema)]
 pub struct Field {
     pub name: String,
     pub abbr: Vec<String>,

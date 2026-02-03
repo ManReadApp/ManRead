@@ -1,8 +1,6 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-
-use crate::{error::ApiErr, now_timestamp};
 
 use super::role::Role;
 
@@ -15,31 +13,39 @@ pub struct Claim {
     pub exp: u128,
 }
 
-impl Claim {
-    pub fn new(uid: String, role: Role, jwt_type: JwtType, dur: Duration) -> Result<Self, ApiErr> {
-        let expiration = now_timestamp()? + dur;
+pub fn now() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+}
 
-        Ok(Claim {
+impl Claim {
+    pub fn new(uid: String, role: Role, jwt_type: JwtType, dur: Duration) -> Self {
+        let expiration = now() + dur;
+
+        Claim {
             id: uid,
             role,
             exp: expiration.as_millis(),
             jwt_type,
-        })
+        }
     }
 
-    pub fn new_access(uid: String, role: Role) -> Result<Self, ApiErr> {
+    pub fn new_access(uid: String, role: Role) -> Self {
         Self::new(uid, role, JwtType::AccessToken, Duration::from_secs(120)) //2min
     }
 
-    pub fn new_refresh(uid: String, role: Role) -> Result<Self, ApiErr> {
+    pub fn new_refresh(uid: String, role: Role) -> Self {
         Self::new(
             uid,
             role,
             JwtType::RefreshToken,
-            Duration::from_secs(60 * 60 * 24 * 60),
+            Duration::from_secs(REFRESH_SECS),
         ) // 60days
     }
 }
+
+pub const REFRESH_SECS: u64 = 60 * 60 * 24 * 60;
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub enum JwtType {

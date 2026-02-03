@@ -1,8 +1,10 @@
 use std::fmt::{Display, Formatter};
 
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Debug, ApiComponent, JsonSchema)]
 pub struct Tag {
     pub tag: String,
     pub description: Option<String>,
@@ -29,7 +31,9 @@ impl Display for TagSex {
     }
 }
 
-#[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Copy, Debug)]
+#[derive(
+    Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Copy, Debug, ApiComponent, JsonSchema,
+)]
 pub enum TagSex {
     Female = 0,
     Male = 1,

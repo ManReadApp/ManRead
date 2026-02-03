@@ -1,13 +1,18 @@
-use crate::models::manga::{
-    chapter::{Chapter, ExternalSite},
-    status::Status,
-    tag::Tag,
-    visiblity::Visibility,
+use crate::{
+    models::manga::{
+        chapter::{Chapter, ExternalSite},
+        status::Status,
+        tag::Tag,
+        visiblity::Visibility,
+    },
+    req::manga::add::Scrapers,
 };
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
 pub struct MangaInfoResponse {
     pub manga_id: String,
     pub titles: HashMap<String, Vec<String>>,
@@ -20,13 +25,13 @@ pub struct MangaInfoResponse {
     pub my: bool,
     pub artists: Vec<String>,
     pub authors: Vec<String>,
-    pub cover: u32,
-    pub cover_ext: String,
+    pub publishers: Vec<String>,
+    pub cover_ext: Vec<Option<String>>,
     pub chapters: Vec<Chapter>,
     pub sources: Vec<ExternalSite>,
+    pub scrapers: Vec<Scrapers>,
     pub relations: Vec<(String, String)>,
     pub scraper: bool,
     pub favorite: bool,
-    /// manga_id
-    pub progress: Option<String>,
+    pub progress: bool,
 }

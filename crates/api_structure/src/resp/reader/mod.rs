@@ -2,11 +2,13 @@ pub mod pages;
 
 use std::collections::{HashMap, HashSet};
 
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::models::reader::chapter::ReaderChapter;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
 pub struct MangaReaderResponse {
     pub manga_id: String,
     pub titles: HashMap<String, Vec<String>>,

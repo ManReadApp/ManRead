@@ -1,6 +1,8 @@
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ApiComponent, JsonSchema)]
 pub struct ResetPasswordRequest {
     pub ident: String,
     pub email: bool,
@@ -8,7 +10,7 @@ pub struct ResetPasswordRequest {
     pub password: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ApiComponent, JsonSchema)]
 pub struct RequestResetPasswordRequest {
     pub ident: String,
     pub email: bool,

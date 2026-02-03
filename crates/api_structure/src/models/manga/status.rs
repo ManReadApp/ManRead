@@ -1,14 +1,34 @@
+use std::fmt::Display;
+
+use apistos::ApiComponent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{ApiErr, ApiErrorType};
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, ApiComponent, JsonSchema)]
 pub enum Status {
     Dropped,
     Hiatus,
     Ongoing,
     Completed,
     Upcoming,
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Status::Dropped => "Dropped",
+                Status::Hiatus => "Hiatus",
+                Status::Ongoing => "Ongoing",
+                Status::Completed => "Completed",
+                Status::Upcoming => "Upcoming",
+            }
+        )
+    }
 }
 
 impl TryFrom<u64> for Status {
