@@ -1,15 +1,47 @@
 <script setup lang="ts">
-defineProps<{ message: string; color: string; body?: string }>();
+import { computed } from "vue";
+
+const props = defineProps<{ message: string; color: string; body?: string }>();
+
+const styles = computed(() => {
+    switch (props.color) {
+        case "green":
+            return {
+                container:
+                    "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
+                title: "text-emerald-800 dark:text-emerald-100",
+                body: "text-emerald-700 dark:text-emerald-200",
+                icon: "text-emerald-400",
+            };
+        case "yellow":
+            return {
+                container:
+                    "bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
+                title: "text-amber-800 dark:text-amber-100",
+                body: "text-amber-700 dark:text-amber-200",
+                icon: "text-amber-400",
+            };
+        default:
+            return {
+                container:
+                    "bg-slate-50 text-slate-900 dark:bg-slate-900/60 dark:text-slate-100",
+                title: "text-slate-800 dark:text-slate-100",
+                body: "text-slate-600 dark:text-slate-200",
+                icon: "text-slate-400",
+            };
+    }
+});
 </script>
 
 <template>
-    <div class="rounded-md p-4" :class="`bg-${color}-50`">
+    <div class="rounded-md p-4" :class="styles.container">
         <div class="flex">
             <div class="shrink-0">
                 <svg
                     v-if="color === 'green'"
                     aria-hidden="true"
-                    class="size-5 text-green-400"
+                    class="size-5"
+                    :class="styles.icon"
                     data-slot="icon"
                     fill="currentColor"
                     viewbox="0 0 20 20"
@@ -25,7 +57,7 @@ defineProps<{ message: string; color: string; body?: string }>();
                     v-if="color === 'yellow'"
                     aria-hidden="true"
                     class="size-5"
-                    :class="`text-yellow-400`"
+                    :class="styles.icon"
                     data-slot="icon"
                     fill="currentColor"
                     viewbox="0 0 20 20"
@@ -39,13 +71,13 @@ defineProps<{ message: string; color: string; body?: string }>();
                 </svg>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium" :class="`text-${color}-800`">
+                <h3 class="text-sm font-medium" :class="styles.title">
                     {{ message }}
                 </h3>
                 <div
                     v-if="body"
                     class="mt-2 text-sm"
-                    :class="`text-${color}-700`"
+                    :class="styles.body"
                 >
                     <p>
                         <slot />

@@ -23,4 +23,5 @@ export default defineNuxtConfig({
     "@nuxtjs/tailwindcss",
     "nuxt-open-fetch",
   ],
+  css: ["~/assets/css/main.css"],
 });

@@ -90,7 +90,7 @@ const toggleOpen = () => {
 <template>
     <div>
         <label
-            class="block text-sm/6 font-medium text-gray-900"
+            class="block text-sm/6 font-medium text-slate-700 dark:text-slate-200"
             :for="iid"
             @click="$emit('click:label')"
         >
@@ -108,7 +108,7 @@ const toggleOpen = () => {
                             :autocomplete="
                                 type === 'textarea' ? undefined : autoComplete
                             "
-                            class="block w-full rounded-md bg-white px-3 py-1.5 pr-10 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                            class="block w-full rounded-md bg-white px-3 py-2 pr-10 text-base text-slate-900 ring-1 ring-slate-300/70 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:ring-slate-700 dark:focus:ring-indigo-400 sm:text-sm/6"
                             :name="iid"
                             :type="type !== 'textarea' ? type : undefined"
                             :value="modelValue"
@@ -136,11 +136,11 @@ const toggleOpen = () => {
                     <div
                         v-if="open && filteredCompletions.length"
                         :class="[
-                            'absolute w-full bg-white shadow-lg border border-gray-300 rounded-md max-h-60 overflow-auto z-10',
+                            'absolute z-10 w-full max-h-60 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900',
                             openUpwards ? 'bottom-full mb-1' : 'top-full mt-1',
                         ]"
                     >
-                        <ul class="py-1 text-sm text-gray-700">
+                        <ul class="py-1 text-sm text-slate-700 dark:text-slate-200">
                             <li
                                 v-for="(
                                     completion, index
@@ -150,7 +150,7 @@ const toggleOpen = () => {
                                     'px-4 py-2 cursor-pointer',
                                     index === selectedIndex
                                         ? 'bg-indigo-600 text-white'
-                                        : 'hover:bg-gray-100',
+                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800',
                                 ]"
                                 @mousedown.prevent="select(completion)"
                             >

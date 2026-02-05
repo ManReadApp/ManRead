@@ -1,8 +1,11 @@
 <template>
     <AuthGuard>
-        <div class="flex h-full w-full">
-            <div class="h-full overflow-y-auto hide-scroll">
-                <div v-if="value" class="m-8">
+        <div class="flex h-screen w-full bg-slate-50 dark:bg-slate-950">
+            <div class="no-scrollbar h-screen flex-1 overflow-y-auto">
+                <div
+                    v-if="value"
+                    class="flex w-full flex-col gap-8 px-2 py-6 sm:px-4"
+                >
                     <HomeBar
                         v-if="value.reading.length != 0"
                         title="Reading"
@@ -47,7 +50,9 @@
                     />
                 </div>
             </div>
-            <Sidebar />
+            <div class="hidden lg:block">
+                <Sidebar />
+            </div>
         </div>
 
         <!--

@@ -54,10 +54,10 @@
         <div v-else>
             <div class="w-full flex mb-2">
                 <button
-                    class="bg-gray-200 hover:bg-gray-300 outline-gray-200 hover:outline-gray-300 cursor-pointer text-gray-800 font-bold py-2 px-4 rounded-l-lg w-1/3 flex items-center justify-center outline-2 -outline-offset-2"
+                    class="flex w-1/3 cursor-pointer items-center justify-center rounded-l-lg bg-slate-100 px-4 py-2 font-bold text-slate-800 ring-2 ring-transparent transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     :class="
                         gender == 'Male'
-                            ? 'outline-indigo-600 hover:outline-indigo-600'
+                            ? 'ring-indigo-500'
                             : ''
                     "
                     @click="() => (loading ? null : (gender = 'Male'))"
@@ -65,10 +65,10 @@
                     <NuxtImg src="/icons/sex/male.svg" class="h-24" />
                 </button>
                 <button
-                    class="bg-gray-200 hover:bg-gray-300 outline-gray-200 hover:outline-gray-300 cursor-pointer text-gray-800 font-bold py-2 px-4 flex-1 w-1/3 flex items-center justify-center outline-2 -outline-offset-2"
+                    class="flex w-1/3 flex-1 cursor-pointer items-center justify-center bg-slate-100 px-4 py-2 font-bold text-slate-800 ring-2 ring-transparent transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     :class="
                         gender == 'Female'
-                            ? 'outline-indigo-600 hover:outline-indigo-600'
+                            ? 'ring-indigo-500'
                             : ''
                     "
                     @click="() => (loading ? null : (gender = 'Female'))"
@@ -76,10 +76,10 @@
                     <NuxtImg src="/icons/sex/female.svg" class="h-24" />
                 </button>
                 <button
-                    class="bg-gray-200 hover:bg-gray-300 outline-gray-200 hover:outline-gray-300 cursor-pointer text-gray-800 font-bold py-2 px-4 rounded-r-lg flex-1 w-1/3 flex items-center justify-center outline-2 -outline-offset-2"
+                    class="flex w-1/3 flex-1 cursor-pointer items-center justify-center rounded-r-lg bg-slate-100 px-4 py-2 font-bold text-slate-800 ring-2 ring-transparent transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     :class="
                         gender == 'Unknown'
-                            ? 'outline-indigo-600 hover:outline-indigo-600'
+                            ? 'ring-indigo-500'
                             : ''
                     "
                     @click="() => (loading ? null : (gender = 'Unknown'))"

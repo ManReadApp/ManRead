@@ -1,10 +1,14 @@
 <template>
     <div class="mt-6 grid grid-cols-2 gap-4">
         <a
-            class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 shadow-xs ring-gray-300 ring-inset hover:bg-gray-50 focus-visible:ring-transparent"
+            class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-200 shadow-sm transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:ring-slate-700 dark:hover:bg-slate-800"
             href="#"
         >
-            <svg aria-hidden="true" class="h-5 w-5" viewbox="0 0 24 24">
+            <svg
+                aria-hidden="true"
+                class="h-5 w-5 shrink-0"
+                viewBox="0 0 24 24"
+            >
                 <path
                     d="M12.0003 4.75C13.7703 4.75 15.3553 5.36002 16.6053 6.54998L20.0303 3.125C17.9502 1.19 15.2353 0 12.0003 0C7.31028 0 3.25527 2.69 1.28027 6.60998L5.27028 9.70498C6.21525 6.86002 8.87028 4.75 12.0003 4.75Z"
                     fill="#EA4335"
@@ -24,14 +28,14 @@
             </svg>
             <span class="text-sm/6 font-semibold">Google</span></a
         ><a
-            class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 shadow-xs ring-gray-300 ring-inset hover:bg-gray-50 focus-visible:ring-transparent"
+            class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-200 shadow-sm transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:ring-slate-700 dark:hover:bg-slate-800"
             href="#"
         >
             <svg
                 aria-hidden="true"
-                class="size-5 fill-[#24292F]"
+                class="h-5 w-5 shrink-0 fill-slate-900 dark:fill-slate-100"
                 fill="currentColor"
-                viewbox="0 0 20 20"
+                viewBox="0 0 20 20"
             >
                 <path
                     clip-rule="evenodd"

@@ -47,11 +47,11 @@
             <OrContinueWith />
             <OtherSiteLogin />
         </div>
-        <p class="mt-10 text-center text-sm/6 text-gray-500">
+        <p class="mt-10 text-center text-sm/6 text-slate-500 dark:text-slate-400">
             No Account?
             <NuxtLink
                 to="/sign-up"
-                class="font-semibold text-indigo-600 hover:text-indigo-500"
+                class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
                 >Register here
             </NuxtLink>
         </p>

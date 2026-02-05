@@ -5,7 +5,7 @@
             <div class="w-full flex">
                 <OtpInput
                     ref="otpInput"
-                    input-classes="w-8 h-8 rounded p-2 outline-1 outline-gray-300 text-gray-900 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                    input-classes="w-9 h-9 rounded-md p-2 text-slate-900 ring-1 ring-slate-300/70 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100 dark:ring-slate-700"
                     separator=""
                     input-type="letter-numeric"
                     :num-inputs="6"

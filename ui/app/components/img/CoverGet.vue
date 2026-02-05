@@ -47,9 +47,17 @@ const generateLink = computed(() => {
             v-if="status == 'Dropped' || status == 'Hiatus'"
             class="status"
             :style="bgColor"
+            :title="status"
+            :aria-label="status"
             >{{ status.toUpperCase() }}</span
         >
-        <span v-else class="dot" :style="bgColor" />
+        <span
+            v-else
+            class="dot"
+            :style="bgColor"
+            :title="status"
+            :aria-label="status"
+        />
     </div>
 </template>
 
