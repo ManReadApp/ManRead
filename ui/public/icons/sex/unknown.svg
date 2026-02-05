@@ -1,0 +1,15 @@
+<svg fill="none" stroke="linear-gradient(45deg, rgba(63,169,245,1) 0%, rgba(255,123,172,1) 100%)" xmlns="http://www.w3.org/2000/svg" viewBox="0.17 -1.03 17.85 25.85">
+<linearGradient id="gradientStroke" x1="100%" y1="00%" x2="100%" y2="100%">
+      <stop offset="00%" stop-color="rgba(63,169,245,1)"/>
+      <stop offset="70%" stop-color="rgba(255,123,172,1)"/>
+    </linearGradient>
+<path d="M 10.5271 13.5345 C 8.5745 15.4871 5.4086 15.4871 3.456 13.5345 C 1.5034 11.5819 1.5034 8.4161 3.456 6.4635 C 5.4086 4.5109 8.5745 4.5108 10.5271 6.4635
+M 10.5271 6.4635 C 11.323 7.2594 11.7945 8.2568 11.9416 9.2916
+M 10.5271 6.4635 L 16.184 0.8066 L 16.184 6.4635
+M 13.3555 0.8066 L 10.5271 0.8066
+M 4 20 H 5
+M 7 20 H 10
+M 7 15 V 23
+M 7 15
+M 7 15" stroke="url(#gradientStroke)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+  </svg>
