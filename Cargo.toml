@@ -3,12 +3,16 @@ resolver = "2"
 members = [
     "crates/api",
     "crates/api_structure",
+    "crates/apiv2",
+    "crates/db",
     "crates/event-runner",
+    "crates/helper",
     "crates/manga-scraper",
     "crates/scrape-modules/*",
     "crates/scraper-module",
     "crates/scraper-testing",
     "crates/search-parser",
+    "crates/storage",
 ]
 
 exclude = ["frontend"]
@@ -21,6 +25,9 @@ api_structure = { path = "crates/api_structure" }
 manga-scraper = { path = "crates/manga-scraper" }
 scraper-testing = { path = "crates/scraper-testing" }
 event-runner = { path = "crates/event-runner" }
+storage = { path = "crates/storage" }
+db = { path = "crates/db" }
+helper = { path = "crates/helper" }
 
 scraper = { version = "0.25" }
 scraper-module = { path = "crates/scraper-module" }
@@ -35,16 +42,15 @@ tokio = "1.48"
 async-trait = "0.1"
 
 ### backend
-actix-web = "4"                                               #framework
-actix-cors = "0.7"                                            # cors
+actix-web = "4"           #framework
+actix-cors = "0.7"        # cors
 actix-files = "0.6"
 actix-multipart = "0.7.2"
 futures-util = "0.3"
 tokio-util = "0.7"
 futures = "0.3.31"
-openssl = "0.10"                                              # https
-image = "0.25"                                                # image
-img_hash = { git = "https://github.com/ManReadApp/img_hash" }
+openssl = "0.10"          # https
+image = "0.25"            # image
 base64 = "0.22.1"
 # logger
 fern = "0.7"
@@ -56,7 +62,7 @@ bcrypt = "0.17.0"
 actix-web-grants = "4.1"
 actix-web-httpauth = "0.8"
 reqwest = { version = "0.12", features = ["json"] }
-
+surrealdb-extras = "2.0.10"
 
 # config
 toml = "0.8"
@@ -68,9 +74,19 @@ local-ip-address = "0.6" # logging
 # shared
 dashmap = "6.1.0"
 
+async-tempfile = "0.7.0"
 serde = "1"
 anyhow = "1.0"
 urlencoding = { version = "2.1" }
+surrealdb = "2.6.0"
+infer = "0.19.0"
+img_hash = { git = "https://github.com/ManReadApp/img_hash" }
+uuid = "1.20.0"
+bytes = "1.11.1"
+futures-core = "0.3.31"
+mime = "0.3.17"
+aes-gcm = "0.10.3"
+pin-project-lite = "0.2.16"
 
 [patch.crates-io]
 serde = { git = "https://github.com/frederik-uni/serde" }
