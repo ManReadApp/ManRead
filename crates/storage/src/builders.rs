@@ -48,7 +48,7 @@ impl FileBuilder {
         }
         self.writer
             .rename(&self.temp_id, &self.target_id.to_string_lossy().to_owned())
-            .await;
+            .await?;
         Ok(())
     }
 

@@ -1,0 +1,7 @@
+[package]
+name = "helper"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+rand.workspace = true

@@ -15,11 +15,23 @@ bytes.workspace = true
 futures-core.workspace = true
 mime.workspace = true
 futures-util.workspace = true
-tokio-util.workspace = true
+thiserror = "2"
+bincode = "1"
+serde = { workspace = true, features = ["derive"] }
+tokio-util = { workspace = true, features = ["io"] }
 
 tokio.workspace = true
 aes-gcm = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = [
+    "io-util",
+    "time",
+    "macros",
+    "rt-multi-thread",
+] }
+
 
 [features]
 default = ["disk", "encode"]

@@ -4,7 +4,7 @@ use actix_web_grants::AuthorityGuard;
 use api_structure::models::auth::role::Permission;
 use apistos::{actix::CreatedJson, api_operation};
 use futures_util::{StreamExt, TryStreamExt as _};
-use storage::{StorageSystem, TempFile};
+use storage::{RegisterTempResult, StorageSystem, TempFile};
 use tokio::io::AsyncWriteExt;
 
 use crate::error::{ApiError, ApiResult};
@@ -42,9 +42,20 @@ pub(crate) async fn exec(
             .to_owned();
         let mut temp_file = file_service.new_temp_file().await?;
         process_data(&mut field, &mut temp_file).await?;
-        let id = file_service.register_temp_file(temp_file).await?;
-
-        register.push((old_file_name, id));
+        match file_service.register_temp_file(temp_file).await? {
+            RegisterTempResult::File(id) => register.push((old_file_name, id)),
+            RegisterTempResult::Chapter(ids) => {
+                for (idx, id) in ids.into_iter().enumerate() {
+                    register.push((format!("{old_file_name}#p{}", idx), id));
+                }
+            }
+            RegisterTempResult::Manga(manga) => {
+                register.push((format!("{old_file_name}#meta"), manga.metadata));
+                for (idx, id) in manga.images.into_iter().enumerate() {
+                    register.push((format!("{old_file_name}#i{}", idx), id));
+                }
+            }
+        }
     }
 
     Ok(CreatedJson(
