@@ -1,0 +1,44 @@
+[package]
+name = "apiv2"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+actix-web = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+log = { workspace = true }
+rand = { workspace = true }
+toml.workspace = true
+fern = { workspace = true, features = ["colored"] }
+helper.workspace = true
+humantime.workspace = true
+storage.workspace = true
+db.workspace = true
+actix-web-httpauth.workspace = true
+actix-web-grants.workspace = true
+bcrypt.workspace = true
+tokio = { workspace = true, features = ["io-std"] }
+jsonwebtoken.workspace = true
+api_structure.workspace = true
+chrono.workspace = true
+infer.workspace = true
+apistos = { workspace = true, features = [
+    "swagger-ui",
+    "rapidoc",
+    "redoc",
+    "scalar",
+    "multipart",
+    "actix-web-grants",
+] }
+futures-util.workspace = true
+actix-multipart.workspace = true
+openssl = { workspace = true, optional = true }
+actix-cors = { workspace = true, optional = true }
+
+local-ip-address = { workspace = true, optional = true }
+
+[features]
+default = ["log-ip"]
+log-ip = ["dep:local-ip-address"]
+https = ["dep:openssl"]
+cors = ["dep:actix-cors"]

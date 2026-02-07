@@ -1,0 +1,27 @@
+[package]
+name = "storage"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+rand.workspace = true
+log.workspace = true
+infer.workspace = true
+image.workspace = true
+async-tempfile.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+async-trait.workspace = true
+bytes.workspace = true
+futures-core.workspace = true
+mime.workspace = true
+futures-util.workspace = true
+tokio-util.workspace = true
+
+tokio.workspace = true
+aes-gcm = { workspace = true, optional = true }
+pin-project-lite = { workspace = true, optional = true }
+
+[features]
+default = ["disk", "encode"]
+encode = ["dep:aes-gcm", "dep:pin-project-lite"]
+disk = ["tokio/fs"]
