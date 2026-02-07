@@ -51,7 +51,7 @@
                 </div>
             </div>
             <div class="hidden lg:block">
-                <Sidebar />
+                <Sidebar active-tab="home" />
             </div>
         </div>
 

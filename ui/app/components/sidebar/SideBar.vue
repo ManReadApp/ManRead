@@ -80,12 +80,7 @@ import FolderDown from "~/components/icons/FolderDown.vue";
 import ScrollText from "~/components/icons/ScrollText.vue";
 import BadgeCheck from "~/components/icons/BadgeCheck.vue";
 
-defineProps({
-    activeTab: {
-        type: String,
-        default: "home",
-    },
-});
+defineProps<{ activeTab: string }>();
 
 const isExpanded = ref(false);
 const menuItems = [

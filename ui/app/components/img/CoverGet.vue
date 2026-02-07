@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-function getCoverUrl(manga_id: string, ext: string) {
-    return `/api/v1/image-no-auth/cover/${manga_id}.${ext === "qoi" ? "avif" : ext}`;
-}
+import { getCoverUrl } from "~/utils/cover";
+
 const props = defineProps<{
     classList: string;
     status: string;
