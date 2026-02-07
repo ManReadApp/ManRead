@@ -8,7 +8,7 @@ use std::{
 
 pub use api_structure::models::manga::external_search::ValidSearches;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "json")]
 use serde_json::Value;
 
 #[derive(Clone)]
@@ -106,6 +106,7 @@ impl ScrapedData {
     }
 }
 
+#[cfg(feature = "json")]
 impl From<ScrapedData> for Value {
     fn from(value: ScrapedData) -> Self {
         match value {
@@ -187,7 +188,8 @@ impl ScrapedData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "json", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone)]
 pub struct ScrapedChapter {
     pub names: Vec<String>,
     pub chapter: f64,
@@ -219,7 +221,7 @@ pub trait Register: Send + Sync {
     feature = "openapi",
     derive(apistos::ApiComponent, schemars::JsonSchema)
 )]
-#[derive(Deserialize)]
+#[cfg_attr(feature = "json", derive(serde::Deserialize))]
 pub enum SearchQuery {
     Simple(HashMap<String, Attribute>),
 }
@@ -252,12 +254,12 @@ impl SearchQuery {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[cfg_attr(feature = "json", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
     feature = "openapi",
     derive(apistos::ApiComponent, schemars::JsonSchema)
 )]
-#[serde(untagged)]
+#[cfg_attr(feature = "json", serde(untagged))]
 pub enum Attribute {
     Str(String),
     Int(i64),
@@ -351,7 +353,8 @@ pub struct AdvadedSearchQuery {
     pub page: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "json", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
     feature = "openapi",
     derive(apistos::ApiComponent, schemars::JsonSchema)
@@ -364,7 +367,7 @@ pub struct ScrapedSearchResponse {
     pub ty: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[cfg_attr(feature = "json", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
     feature = "openapi",
     derive(apistos::ApiComponent, schemars::JsonSchema)
@@ -383,7 +386,8 @@ pub trait SearchScraper: Send + Sync {
     fn query(&self) -> ValidSearches;
 }
 
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "json", derive(serde::Deserialize))]
 pub enum Mode {
     Single,
     Multi,

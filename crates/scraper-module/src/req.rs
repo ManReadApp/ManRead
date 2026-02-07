@@ -30,11 +30,9 @@ pub struct Response {
 }
 
 impl Response {
+    #[cfg(feature = "json")]
     pub async fn json<T: DeserializeOwned>(self) -> Result<T, ScraperError> {
-        #[cfg(feature = "json")]
         return Ok(serde_json::from_slice(&self.bytes().await?)?);
-        #[cfg(not(feature = "json"))]
-        Err(ScraperError::NoJsonFeature)
     }
 
     pub async fn text(self) -> Result<String, ScraperError> {
