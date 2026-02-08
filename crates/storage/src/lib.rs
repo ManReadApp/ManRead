@@ -1,9 +1,13 @@
 mod backends;
 mod builders;
 mod error;
+mod temp;
+mod workers;
 
 pub use backends::DelayStorage;
+#[cfg(feature = "disk")]
 pub use backends::DiskStorage;
+#[cfg(feature = "encode")]
 pub use backends::EncryptedStorage;
 pub use backends::MemStorage;
 pub use backends::Object;
@@ -11,7 +15,6 @@ pub use backends::Options;
 
 use std::{
     collections::HashMap,
-    io::Cursor,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -20,26 +23,35 @@ pub use async_tempfile::TempFile;
 
 pub use builders::{CoverFileBuilder, FileBuilder, MangaPageFileBuilder, UserCoverFileBuilder};
 pub use error::StorageError;
-use futures_util::{StreamExt as _, TryStreamExt as _};
+use futures_util::{FutureExt as _, StreamExt as _, TryStreamExt as _};
 use rand::prelude::IndexedRandom;
 use tokio::{
     fs::File,
-    io::{self, AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt},
-    sync::{Mutex, Notify, Semaphore},
+    sync::{watch, Mutex, Semaphore},
 };
-use tokio_util::io::ReaderStream;
 
 use crate::{
-    backends::{ByteStream, StorageReader, StorageWriter},
+    backends::{StorageReader, StorageWriter},
     error::{ProcessingError, StorageResult},
+    temp::{FileTempData, TempData},
+    workers::{
+        containers::{ContainerPayload, ContainerWorker, MagicContainerWorker},
+        media::{file_to_bytestream, DefaultMediaWorker, MediaWorker},
+    },
 };
+
+#[cfg(test)]
+pub(crate) use workers::containers::{CHAPTER_MAGIC, MANGA_MAGIC};
 
 pub struct StorageSystem {
     files: Arc<Mutex<HashMap<String, StoredFile>>>,
     transcode_sem: Arc<Semaphore>,
+    inflight_sem: Arc<Semaphore>,
     writer: Arc<dyn StorageWriter + Send + Sync>,
     pub reader: Arc<dyn StorageReader + Send + Sync>,
     path: PathBuf,
+    container_worker: Arc<dyn ContainerWorker + Send + Sync>,
+    media_worker: Arc<dyn MediaWorker + Send + Sync>,
 }
 
 struct StoredFile {
@@ -49,17 +61,20 @@ struct StoredFile {
 }
 
 enum EntryState {
-    Processing { notify: Arc<Notify> },
+    Processing { state_tx: watch::Sender<()> },
     Uploaded { handle: String },
     Failed { error: ProcessingError },
 }
 
 impl StoredFile {
-    fn new_processing(ext: Option<(&'static str, &'static str)>, notify: Arc<Notify>) -> Self {
+    fn new_processing(
+        ext: Option<(&'static str, &'static str)>,
+        state_tx: watch::Sender<()>,
+    ) -> Self {
         Self {
             ext,
             dims: None,
-            state: EntryState::Processing { notify },
+            state: EntryState::Processing { state_tx },
         }
     }
 
@@ -83,12 +98,6 @@ pub trait FileBuilderExt {
     fn width(&self) -> Option<u32>;
     fn height(&self) -> Option<u32>;
     fn ext(&self) -> StorageResult<&str>;
-}
-
-pub fn file_to_bytestream(file: File) -> ByteStream {
-    ReaderStream::new(file)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-        .boxed()
 }
 
 async fn get_random_image(folder: &Path) -> Option<PathBuf> {
@@ -135,9 +144,6 @@ impl FileId {
     }
 }
 
-const CHAPTER_MAGIC: &[u8; 8] = b"MRCHAP01";
-const MANGA_MAGIC: &[u8; 8] = b"MRMANG01";
-
 #[derive(Debug, Clone)]
 pub enum RegisterTempResult {
     File(FileId),
@@ -157,400 +163,154 @@ pub struct MangaBundleMetadata {
     pub chapter_image_indexes: Vec<Vec<u32>>,
 }
 
-enum TempContainerPayload {
-    SingleFile(TempFile),
-    Chapter(Vec<Vec<u8>>),
-    Manga {
-        metadata_bytes: Vec<u8>,
-        metadata: MangaBundleMetadata,
-        images: Vec<Vec<u8>>,
-    },
-}
-
-fn read_u32_le(cur: &mut Cursor<&[u8]>) -> Result<u32, std::io::Error> {
-    let mut buf = [0u8; 4];
-    std::io::Read::read_exact(cur, &mut buf)?;
-    Ok(u32::from_le_bytes(buf))
-}
-
-fn read_blob(cur: &mut Cursor<&[u8]>) -> Result<Vec<u8>, std::io::Error> {
-    let len = read_u32_le(cur)? as usize;
-    let pos = cur.position() as usize;
-    let all = cur.get_ref();
-    if pos + len > all.len() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::UnexpectedEof,
-            "invalid container payload length",
-        ));
-    }
-    let out = all[pos..pos + len].to_vec();
-    cur.set_position((pos + len) as u64);
-    Ok(out)
-}
-
-fn parse_chapter_container(data: &[u8]) -> Result<Vec<Vec<u8>>, std::io::Error> {
-    let mut cur = Cursor::new(data);
-    let mut magic = [0u8; 8];
-    std::io::Read::read_exact(&mut cur, &mut magic)?;
-    if &magic != CHAPTER_MAGIC {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "invalid chapter magic",
-        ));
-    }
-
-    let count = read_u32_le(&mut cur)? as usize;
-    let mut out = Vec::with_capacity(count);
-    for _ in 0..count {
-        out.push(read_blob(&mut cur)?);
-    }
-    Ok(out)
-}
-
-fn parse_manga_container(
-    data: &[u8],
-) -> Result<(Vec<u8>, MangaBundleMetadata, Vec<Vec<u8>>), std::io::Error> {
-    let mut cur = Cursor::new(data);
-    let mut magic = [0u8; 8];
-    std::io::Read::read_exact(&mut cur, &mut magic)?;
-    if &magic != MANGA_MAGIC {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "invalid manga magic",
-        ));
-    }
-
-    let metadata_bytes = read_blob(&mut cur)?;
-    let metadata: MangaBundleMetadata =
-        bincode::deserialize(&metadata_bytes).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("invalid metadata: {e}"))
-        })?;
-
-    let count = read_u32_le(&mut cur)? as usize;
-    let mut images = Vec::with_capacity(count);
-    for _ in 0..count {
-        images.push(read_blob(&mut cur)?);
-    }
-
-    for chapter in &metadata.chapter_image_indexes {
-        for idx in chapter {
-            if (*idx as usize) >= images.len() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "metadata references out-of-range image index",
-                ));
-            }
-        }
-    }
-
-    Ok((metadata_bytes, metadata, images))
-}
-
-async fn split_pdf_to_png_pages(path: &Path) -> Result<Vec<Vec<u8>>, ProcessingError> {
-    let path = path.to_path_buf();
-    tokio::task::spawn_blocking(move || -> Result<Vec<Vec<u8>>, std::io::Error> {
-        let workdir = std::env::temp_dir().join(format!("storage_pdf_{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&workdir)?;
-        let prefix = workdir.join("page");
-
-        let output = std::process::Command::new("pdftoppm")
-            .arg("-png")
-            .arg(&path)
-            .arg(&prefix)
-            .output()?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let _ = std::fs::remove_dir_all(&workdir);
-            return Err(std::io::Error::other(format!(
-                "pdftoppm failed: {}",
-                stderr.trim()
-            )));
-        }
-
-        let mut pages: Vec<_> = std::fs::read_dir(&workdir)?
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("png"))
-            .collect();
-        pages.sort();
-
-        if pages.is_empty() {
-            let _ = std::fs::remove_dir_all(&workdir);
-            return Err(std::io::Error::other(
-                "pdftoppm produced no pages for pdf input",
-            ));
-        }
-
-        let mut out = Vec::with_capacity(pages.len());
-        for page in pages {
-            out.push(std::fs::read(page)?);
-        }
-        let _ = std::fs::remove_dir_all(&workdir);
-        Ok(out)
-    })
-    .await
-    .map_err(ProcessingError::PdfWorkerJoin)?
-    .map_err(ProcessingError::SplitPdf)
-}
-
-async fn detect_ext(path: &Path) -> Option<(&'static str, &'static str)> {
-    let file = File::open(path).await.ok()?;
-
-    let limit = file
-        .metadata()
-        .await
-        .map(|m| std::cmp::min(m.len(), 8192) as usize + 1)
-        .unwrap_or(0);
-    let mut bytes = Vec::with_capacity(limit);
-    file.take(8192).read_to_end(&mut bytes).await.ok()?;
-    let kind = infer::get(&bytes)?;
-    let ext = kind.extension();
-    if ext == "jpg" {
-        Some((kind.mime_type(), "jpeg"))
-    } else {
-        Some((kind.mime_type(), kind.extension()))
-    }
-}
-
 impl StorageSystem {
+    fn inflight_limit(transcode_limit: usize) -> usize {
+        transcode_limit.max(1).saturating_mul(4)
+    }
+
+    fn build_with_components(
+        path: &Path,
+        reader: Arc<dyn StorageReader + Send + Sync>,
+        writer: Arc<dyn StorageWriter + Send + Sync>,
+        container_worker: Arc<dyn ContainerWorker + Send + Sync>,
+        media_worker: Arc<dyn MediaWorker + Send + Sync>,
+        transcode_limit: usize,
+    ) -> Self {
+        StorageSystem {
+            reader,
+            writer,
+            path: path.to_path_buf(),
+            files: Arc::default(),
+            transcode_sem: Arc::new(Semaphore::new(transcode_limit)),
+            inflight_sem: Arc::new(Semaphore::new(Self::inflight_limit(transcode_limit))),
+            container_worker,
+            media_worker,
+        }
+    }
+
     pub async fn new_temp_file(&self) -> StorageResult<TempFile> {
         Ok(TempFile::new().await?)
     }
 
-    async fn temp_file_from_bytes(&self, bytes: &[u8]) -> StorageResult<TempFile> {
-        let mut tf = TempFile::new().await?;
-        tf.write_all(bytes).await?;
-        tf.flush().await?;
-        tf.sync_all().await?;
-        Ok(tf)
-    }
-
-    async fn detect_container(&self, mut tf: TempFile) -> StorageResult<TempContainerPayload> {
-        tf.flush().await?;
-        tf.sync_all().await?;
-        tf.seek(std::io::SeekFrom::Start(0))
-            .await
-            .map_err(StorageError::Io)?;
-
-        let mut magic = [0u8; 8];
-        let mut read = 0usize;
-        while read < magic.len() {
-            let n = tf
-                .read(&mut magic[read..])
-                .await
-                .map_err(StorageError::Io)?;
-            if n == 0 {
-                break;
-            }
-            read += n;
-        }
-
-        tf.seek(std::io::SeekFrom::Start(0))
-            .await
-            .map_err(StorageError::Io)?;
-
-        if read < magic.len() {
-            return Ok(TempContainerPayload::SingleFile(tf));
-        }
-
-        if &magic == CHAPTER_MAGIC {
-            let mut data = vec![];
-            tf.read_to_end(&mut data).await.map_err(StorageError::Io)?;
-            let images = parse_chapter_container(&data).map_err(StorageError::Io)?;
-            return Ok(TempContainerPayload::Chapter(images));
-        }
-
-        if &magic == MANGA_MAGIC {
-            let mut data = vec![];
-            tf.read_to_end(&mut data).await.map_err(StorageError::Io)?;
-            let (metadata_bytes, metadata, images) =
-                parse_manga_container(&data).map_err(StorageError::Io)?;
-            return Ok(TempContainerPayload::Manga {
-                metadata_bytes,
-                metadata,
-                images,
-            });
-        }
-
-        if matches!(detect_ext(tf.file_path()).await, Some((mime, _)) if mime == "application/pdf") {
-            let pages = split_pdf_to_png_pages(tf.file_path())
-                .await
-                .map_err(StorageError::Processing)?;
-            return Ok(TempContainerPayload::Chapter(pages));
-        }
-
-        Ok(TempContainerPayload::SingleFile(tf))
-    }
-
-    async fn register_single_temp_file(&self, mut tf: TempFile) -> StorageResult<FileId> {
-        tf.flush().await?;
-        tf.sync_all().await?;
-
-        let id = uuid::Uuid::new_v4().to_string();
-
-        let ext = detect_ext(tf.file_path()).await;
-        let is_image = ext.map(|(m, _)| m.starts_with("image/")).unwrap_or(false);
-        let allowed = matches!(
-            ext.map(|(_, e)| e),
-            Some("avif" | "webp" | "png" | "jpeg" | "jpg" | "gif")
+    async fn register_many_files(
+        &self,
+        files: Vec<Arc<dyn TempData>>,
+    ) -> StorageResult<Vec<FileId>> {
+        let stream = futures_util::stream::iter(
+            files
+                .into_iter()
+                .map(|file| async move { self.register_single_temp_file(file).await }),
         );
 
-        let notify = Arc::new(Notify::new());
+        stream.buffered(8).try_collect().await
+    }
+
+    async fn register_single_temp_file(&self, source: Arc<dyn TempData>) -> StorageResult<FileId> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let inflight_permit = self
+            .inflight_sem
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| {
+                StorageError::Io(std::io::Error::other("upload queue semaphore closed"))
+            })?;
+        let (state_tx, _) = watch::channel(());
 
         {
             let mut map = self.files.lock().await;
-            map.insert(id.clone(), StoredFile::new_processing(ext, notify.clone()));
+            map.insert(
+                id.clone(),
+                StoredFile::new_processing(None, state_tx.clone()),
+            );
         }
 
         let files = self.files.clone();
         let sem = self.transcode_sem.clone();
         let writer = self.writer.clone();
+        let media_worker = self.media_worker.clone();
         let id2 = id.clone();
 
         tokio::spawn(async move {
-            let notify_to_wake = notify.clone();
-            let result: Result<
-                (
-                    String,
-                    Option<(u32, u32)>,
-                    Option<(&'static str, &'static str)>,
-                ),
-                ProcessingError,
-            > = async {
-                let _permit = sem
-                    .acquire()
-                    .await
-                    .map_err(|_| ProcessingError::SemaphoreClosed)?;
+            let _inflight_permit = inflight_permit;
+            let result =
+                std::panic::AssertUnwindSafe(media_worker.process_and_upload(source, writer, sem))
+                    .catch_unwind()
+                    .await;
 
-                let mut final_ext = ext;
-                let mut dims = None;
-                let upload_handle = format!("temp/{}", uuid::Uuid::new_v4());
-                if is_image && !allowed {
-                    tf.seek(std::io::SeekFrom::Start(0))
-                        .await
-                        .map_err(ProcessingError::SeekTempFile)?;
-                    let mut buffer = vec![];
-                    tf.read_to_end(&mut buffer)
-                        .await
-                        .map_err(ProcessingError::ReadTempFile)?;
-
-                    let (jpeg_bytes, size) = tokio::task::spawn_blocking(move || {
-                        let img = image::load_from_memory(&buffer)?;
-                        let mut out = Vec::new();
-                        let size = (img.width(), img.height());
-                        let rgb = img.to_rgb8();
-                        let mut enc = image::codecs::jpeg::JpegEncoder::new(&mut out);
-                        enc.encode(
-                            &rgb,
-                            rgb.width(),
-                            rgb.height(),
-                            image::ColorType::Rgb8.into(),
-                        )?;
-                        Ok::<_, image::ImageError>((out, size))
-                    })
-                    .await
-                    .map_err(ProcessingError::ImageWorkerJoin)?
-                    .map_err(ProcessingError::ImageConversion)?;
-
-                    dims = Some(size);
-                    final_ext = Some(("image/jpeg", "jpeg"));
-
-                    let stream = futures_util::stream::once(async move {
-                        Ok::<bytes::Bytes, std::io::Error>(bytes::Bytes::from(jpeg_bytes))
-                    })
-                    .boxed();
-                    writer
-                        .write(&upload_handle, None, stream)
-                        .await
-                        .map_err(ProcessingError::UploadConverted)?;
-                } else {
-                    if is_image {
-                        let f = tf.file_path().to_owned();
-                        dims = Some(
-                            tokio::task::spawn_blocking(move || {
-                                match image::image_dimensions(&f) {
-                                    Ok(v) => Ok(v),
-                                    Err(_) => {
-                                        let file = std::fs::File::open(&f)?;
-                                        let reader = std::io::BufReader::new(file);
-                                        image::ImageReader::new(reader)
-                                            .with_guessed_format()?
-                                            .into_dimensions()
-                                    }
-                                }
-                            })
-                            .await
-                            .map_err(ProcessingError::DimensionWorkerJoin)?
-                            .map_err(ProcessingError::ReadImageDimensions)?,
-                        );
+            let updated = {
+                let mut map = files.lock().await;
+                if let Some(entry) = map.get_mut(&id2) {
+                    match result {
+                        Ok(Ok(upload)) => {
+                            entry.mark_uploaded(upload.handle, upload.dims, upload.ext);
+                        }
+                        Ok(Err(error)) => {
+                            entry.mark_failed(error);
+                        }
+                        Err(_) => {
+                            entry.mark_failed(ProcessingError::BackgroundTaskPanic);
+                        }
                     }
 
-                    let f = File::open(tf.file_path())
-                        .await
-                        .map_err(ProcessingError::OpenTempFileForUpload)?;
-                    writer
-                        .write(&upload_handle, None, file_to_bytestream(f))
-                        .await
-                        .map_err(ProcessingError::UploadTemp)?;
+                    true
+                } else {
+                    false
                 }
-
-                Ok((upload_handle, dims, final_ext))
-            }
-            .await;
-
-            let mut map = files.lock().await;
-            let Some(entry) = map.get_mut(&id2) else {
-                notify_to_wake.notify_waiters();
-                return;
             };
 
-            match result {
-                Ok((handle, dims, ext)) => {
-                    entry.mark_uploaded(handle, dims, ext);
-                }
-                Err(error) => {
-                    entry.mark_failed(error);
-                }
+            if updated {
+                let _ = state_tx.send(());
             }
-
-            notify_to_wake.notify_waiters();
         });
 
         Ok(FileId::new(id))
     }
 
     pub async fn register_temp_file(&self, tf: TempFile) -> StorageResult<RegisterTempResult> {
-        match self.detect_container(tf).await? {
-            TempContainerPayload::SingleFile(tf) => self
-                .register_single_temp_file(tf)
-                .await
-                .map(RegisterTempResult::File),
-            TempContainerPayload::Chapter(images) => {
-                let mut out = Vec::with_capacity(images.len());
-                for image in images {
-                    let tf = self.temp_file_from_bytes(&image).await?;
-                    out.push(self.register_single_temp_file(tf).await?);
+        let source: Arc<dyn TempData> = Arc::new(FileTempData::from_tempfile(tf).await?);
+        match self.container_worker.extract_payload(source).await? {
+            ContainerPayload::SingleFile(tf) => {
+                if matches!(
+                    self.media_worker.detect_ext(&tf).await,
+                    Some((mime, _)) if mime == "application/pdf"
+                ) {
+                    let Some(path) = tf.as_local_path() else {
+                        return Err(StorageError::Io(std::io::Error::other(
+                            "pdf requires local file-backed input",
+                        )));
+                    };
+                    let pages = self
+                        .media_worker
+                        .split_pdf_to_png_pages(&path)
+                        .await
+                        .map_err(StorageError::Processing)?;
+                    return self
+                        .register_many_files(pages)
+                        .await
+                        .map(RegisterTempResult::Chapter);
                 }
-                Ok(RegisterTempResult::Chapter(out))
+
+                self.register_single_temp_file(tf)
+                    .await
+                    .map(RegisterTempResult::File)
             }
-            TempContainerPayload::Manga {
-                metadata_bytes,
+            ContainerPayload::Chapter(images) => self
+                .register_many_files(images)
+                .await
+                .map(RegisterTempResult::Chapter),
+            ContainerPayload::Manga {
                 metadata,
+                chapter_image_indexes,
                 images,
             } => {
-                let metadata_tf = self.temp_file_from_bytes(&metadata_bytes).await?;
-                let metadata_id = self.register_single_temp_file(metadata_tf).await?;
-
-                let mut image_ids = Vec::with_capacity(images.len());
-                for image in images {
-                    let tf = self.temp_file_from_bytes(&image).await?;
-                    image_ids.push(self.register_single_temp_file(tf).await?);
-                }
+                let metadata_id = self.register_single_temp_file(metadata).await?;
+                let image_ids = self.register_many_files(images).await?;
 
                 Ok(RegisterTempResult::Manga(RegisteredMangaTemp {
                     metadata: metadata_id,
                     images: image_ids,
-                    chapter_image_indexes: metadata.chapter_image_indexes,
+                    chapter_image_indexes,
                 }))
             }
         }
@@ -577,7 +337,7 @@ impl StorageSystem {
                             writer: self.writer.clone(),
                         });
                     }
-                    EntryState::Processing { notify } => Some(notify.clone()),
+                    EntryState::Processing { state_tx } => Some(state_tx.subscribe()),
                     EntryState::Failed { .. } => {
                         let error = match map.remove(id.inner_ref()) {
                             Some(stored) => match stored.state {
@@ -595,8 +355,8 @@ impl StorageSystem {
                 }
             };
 
-            if let Some(n) = wait_on {
-                n.notified().await;
+            if let Some(mut rx) = wait_on {
+                let _ = rx.changed().await;
             }
         }
     }
@@ -613,7 +373,7 @@ impl StorageSystem {
                 let ri = get_random_image(&p)
                     .await
                     .ok_or(StorageError::NoDefaultImageAvailable)?;
-                let f = File::open(&p).await?;
+                let f = File::open(&ri).await?;
                 let id = PathBuf::from(format!("temp/{}", uuid::Uuid::new_v4()));
                 let id = id.to_string_lossy();
                 self.writer
@@ -623,7 +383,19 @@ impl StorageSystem {
                     dims: None,
                     allowed_drop: false,
                     temp_id: id.to_string(),
-                    ext: detect_ext(&ri).await,
+                    ext: {
+                        let mut bytes = Vec::new();
+                        let file = File::open(&ri).await?;
+                        use tokio::io::AsyncReadExt as _;
+                        file.take(8192).read_to_end(&mut bytes).await?;
+                        infer::get(&bytes).map(|k| {
+                            if k.extension() == "jpg" {
+                                (k.mime_type(), "jpeg")
+                            } else {
+                                (k.mime_type(), k.extension())
+                            }
+                        })
+                    },
                     target_id: PathBuf::new(),
                     writer: self.writer.clone(),
                 }))
@@ -636,24 +408,58 @@ impl StorageSystem {
         path: &Path,
         rw: Arc<T>,
     ) -> std::io::Result<Self> {
-        Ok(StorageSystem {
-            reader: rw.clone(),
-            writer: rw,
-            path: path.to_path_buf(),
-            files: Arc::default(),
-            transcode_sem: Arc::new(Semaphore::new(5)),
-        })
+        let reader: Arc<dyn StorageReader + Send + Sync> = rw.clone();
+        let writer: Arc<dyn StorageWriter + Send + Sync> = rw;
+        Ok(Self::build_with_components(
+            path,
+            reader,
+            writer,
+            Arc::new(MagicContainerWorker),
+            Arc::new(DefaultMediaWorker),
+            5,
+        ))
+    }
+
+    pub async fn new_with_rw(
+        path: &Path,
+        reader: Arc<dyn StorageReader + Send + Sync>,
+        writer: Arc<dyn StorageWriter + Send + Sync>,
+        transcode_limit: usize,
+    ) -> std::io::Result<Self> {
+        Ok(Self::build_with_components(
+            path,
+            reader,
+            writer,
+            Arc::new(MagicContainerWorker),
+            Arc::new(DefaultMediaWorker),
+            transcode_limit,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{io::Cursor, sync::Arc};
+    use std::{
+        io::Cursor,
+        path::Path,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+        time::Duration,
+    };
 
     use image::{DynamicImage, ImageFormat};
     use tokio::io::AsyncWriteExt as _;
 
     use crate::{
+        backends::StorageWriter,
+        error::ProcessingError,
+        temp::{MemoryTempData, TempData},
+        workers::{
+            containers::MagicContainerWorker,
+            media::{MediaWorker, PreparedUpload},
+        },
         CoverFileBuilder, FileId, MangaBundleMetadata, MemStorage, RegisterTempResult,
         StorageError, StorageSystem, CHAPTER_MAGIC, MANGA_MAGIC,
     };
@@ -911,5 +717,195 @@ mod tests {
         assert_eq!(fb1.dims, Some((10, 11)));
         assert_eq!(fb2.dims, Some((12, 13)));
         assert_eq!(fb3.dims, Some((14, 15)));
+    }
+
+    struct PanicMediaWorker;
+
+    #[async_trait::async_trait]
+    impl MediaWorker for PanicMediaWorker {
+        async fn detect_ext(
+            &self,
+            _source: &Arc<dyn TempData>,
+        ) -> Option<(&'static str, &'static str)> {
+            None
+        }
+
+        async fn split_pdf_to_png_pages(
+            &self,
+            _path: &Path,
+        ) -> Result<Vec<Arc<dyn TempData>>, ProcessingError> {
+            Ok(Vec::new())
+        }
+
+        async fn process_and_upload(
+            &self,
+            _source: Arc<dyn TempData>,
+            _writer: Arc<dyn StorageWriter + Send + Sync>,
+            _transcode_sem: Arc<tokio::sync::Semaphore>,
+        ) -> Result<PreparedUpload, ProcessingError> {
+            panic!("intentional panic for test")
+        }
+    }
+
+    struct SlowCountingMediaWorker {
+        in_flight: Arc<AtomicUsize>,
+        peak: Arc<AtomicUsize>,
+        delay: Duration,
+    }
+
+    impl SlowCountingMediaWorker {
+        fn record_peak(&self, candidate: usize) {
+            let mut current = self.peak.load(Ordering::SeqCst);
+            while candidate > current {
+                match self.peak.compare_exchange(
+                    current,
+                    candidate,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                ) {
+                    Ok(_) => return,
+                    Err(next) => current = next,
+                }
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl MediaWorker for SlowCountingMediaWorker {
+        async fn detect_ext(
+            &self,
+            _source: &Arc<dyn TempData>,
+        ) -> Option<(&'static str, &'static str)> {
+            None
+        }
+
+        async fn split_pdf_to_png_pages(
+            &self,
+            _path: &Path,
+        ) -> Result<Vec<Arc<dyn TempData>>, ProcessingError> {
+            Ok(Vec::new())
+        }
+
+        async fn process_and_upload(
+            &self,
+            _source: Arc<dyn TempData>,
+            _writer: Arc<dyn StorageWriter + Send + Sync>,
+            _transcode_sem: Arc<tokio::sync::Semaphore>,
+        ) -> Result<PreparedUpload, ProcessingError> {
+            let now = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+            self.record_peak(now);
+            tokio::time::sleep(self.delay).await;
+            self.in_flight.fetch_sub(1, Ordering::SeqCst);
+            Ok(PreparedUpload {
+                handle: format!("temp/{}", uuid::Uuid::new_v4()),
+                dims: None,
+                ext: None,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn register_take_returns_error_when_worker_panics() {
+        let backend = Arc::new(MemStorage::new());
+        let reader: Arc<dyn crate::backends::StorageReader + Send + Sync> = backend.clone();
+        let writer: Arc<dyn crate::backends::StorageWriter + Send + Sync> = backend;
+        let storage = StorageSystem::build_with_components(
+            std::env::temp_dir().as_path(),
+            reader,
+            writer,
+            Arc::new(MagicContainerWorker),
+            Arc::new(PanicMediaWorker),
+            1,
+        );
+
+        let payload = b"panic-path".to_vec();
+        let mut tf = storage
+            .new_temp_file()
+            .await
+            .expect("tempfile create failed");
+        tf.write_all(&payload)
+            .await
+            .expect("write to tempfile should succeed");
+        tf.sync_all().await.expect("sync should succeed");
+
+        let id = unwrap_single_register(storage.register_temp_file(tf).await, "register");
+        let err = match storage.take(id).await {
+            Ok(_) => panic!("take should fail"),
+            Err(err) => err,
+        };
+        match err {
+            StorageError::Processing(ProcessingError::BackgroundTaskPanic) => {}
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn register_many_limits_inflight_background_workers() {
+        let backend = Arc::new(MemStorage::new());
+        let reader: Arc<dyn crate::backends::StorageReader + Send + Sync> = backend.clone();
+        let writer: Arc<dyn crate::backends::StorageWriter + Send + Sync> = backend;
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+
+        let storage = StorageSystem::build_with_components(
+            std::env::temp_dir().as_path(),
+            reader,
+            writer,
+            Arc::new(MagicContainerWorker),
+            Arc::new(SlowCountingMediaWorker {
+                in_flight: in_flight.clone(),
+                peak: peak.clone(),
+                delay: Duration::from_millis(60),
+            }),
+            1,
+        );
+
+        let files: Vec<Arc<dyn TempData>> = (0..20)
+            .map(|i| Arc::new(MemoryTempData::from_bytes(vec![i as u8])) as Arc<dyn TempData>)
+            .collect();
+
+        let ids = storage
+            .register_many_files(files)
+            .await
+            .expect("register_many should succeed");
+        for id in ids {
+            storage.take(id).await.expect("take should succeed");
+        }
+
+        assert_eq!(in_flight.load(Ordering::SeqCst), 0);
+        assert!(
+            peak.load(Ordering::SeqCst) <= StorageSystem::inflight_limit(1),
+            "in-flight workers should be bounded by queue capacity"
+        );
+    }
+
+    #[tokio::test]
+    async fn build_rejects_unsafe_target_paths() {
+        let backend = Arc::new(MemStorage::new());
+        let storage = StorageSystem::new(std::env::temp_dir().as_path(), backend)
+            .await
+            .expect("storage init");
+
+        let payload = b"unsafe-path".to_vec();
+        let mut tf = storage
+            .new_temp_file()
+            .await
+            .expect("tempfile create failed");
+        tf.write_all(&payload)
+            .await
+            .expect("write to tempfile should succeed");
+        tf.sync_all().await.expect("sync should succeed");
+
+        let id = unwrap_single_register(storage.register_temp_file(tf).await, "register");
+        let fb = unwrap_storage(storage.take(id).await, "take");
+        let err = CoverFileBuilder::from(fb)
+            .build("../escape")
+            .await
+            .expect_err("unsafe target should be rejected");
+
+        match err {
+            StorageError::Io(ioe) => assert_eq!(ioe.kind(), std::io::ErrorKind::InvalidInput),
+            other => panic!("unexpected error: {other}"),
+        }
     }
 }

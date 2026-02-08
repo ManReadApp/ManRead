@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::Arc,
 };
 
@@ -46,9 +46,9 @@ impl FileBuilder {
                 self.target_id.set_extension(ext);
             }
         }
-        self.writer
-            .rename(&self.temp_id, &self.target_id.to_string_lossy().to_owned())
-            .await?;
+        validate_target_key(&self.target_id)?;
+        let key = self.target_id.to_string_lossy().to_string();
+        self.writer.rename(&self.temp_id, &key).await?;
         Ok(())
     }
 
@@ -59,6 +59,28 @@ impl FileBuilder {
         self.target_id.push(path);
         self
     }
+}
+
+fn validate_target_key(path: &Path) -> StorageResult<()> {
+    if path.as_os_str().is_empty() {
+        return Err(StorageError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "target path cannot be empty",
+        )));
+    }
+
+    for comp in path.components() {
+        match comp {
+            Component::Normal(_) => {}
+            _ => {
+                return Err(StorageError::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "target path must be a safe relative path",
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 impl Drop for FileBuilder {

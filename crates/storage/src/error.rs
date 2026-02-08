@@ -26,6 +26,8 @@ pub enum ProcessingError {
     UploadConverted(#[source] std::io::Error),
     #[error("upload temp file failed: {0}")]
     UploadTemp(#[source] std::io::Error),
+    #[error("background task panicked")]
+    BackgroundTaskPanic,
 }
 
 #[derive(Debug, Error)]

@@ -68,7 +68,7 @@ pub trait StorageWriter: Send + Sync + 'static {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
+    use bytes::{Bytes, BytesMut};
     use futures_util::{stream, StreamExt as _};
     use std::time::{Duration, Instant};
 
@@ -171,6 +171,117 @@ mod tests {
         let obj = storage.get("final/key", Some(opts)).await?;
         let got = read_all(obj.stream).await?;
         assert_eq!(got.as_slice(), payload);
+        Ok(())
+    }
+
+    #[cfg(feature = "encode")]
+    #[tokio::test]
+    async fn roundtrip_mem_with_aes_nonzero_counter() -> Result<(), std::io::Error> {
+        let storage = EncryptedStorage::new(MemStorage::new());
+        let payload = b"encrypted-memory-roundtrip-with-nonzero-counter";
+        let opts = Options::new([11u8; 32], [13u8; 12], 42, b"counter-aad".to_vec());
+
+        assert_roundtrip(&storage, "enc/mem/nonzero-counter", payload, Some(opts)).await
+    }
+
+    #[cfg(feature = "encode")]
+    struct ChunkingMemStorage {
+        inner: tokio::sync::Mutex<std::collections::HashMap<String, Bytes>>,
+        chunk_len: usize,
+    }
+
+    #[cfg(feature = "encode")]
+    impl ChunkingMemStorage {
+        fn new(chunk_len: usize) -> Self {
+            Self {
+                inner: tokio::sync::Mutex::new(std::collections::HashMap::new()),
+                chunk_len,
+            }
+        }
+    }
+
+    #[cfg(feature = "encode")]
+    #[async_trait::async_trait]
+    impl StorageWriter for ChunkingMemStorage {
+        async fn write(
+            &self,
+            key: &str,
+            _: Option<Options>,
+            mut stream: ByteStream,
+        ) -> Result<(), std::io::Error> {
+            let mut out = BytesMut::new();
+            while let Some(chunk) = stream.next().await {
+                out.extend_from_slice(&chunk?);
+            }
+            self.inner
+                .lock()
+                .await
+                .insert(key.to_string(), out.freeze());
+            Ok(())
+        }
+
+        async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), std::io::Error> {
+            let mut map = self.inner.lock().await;
+            let value = map.remove(orig_key).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::NotFound, "source key not found")
+            })?;
+            map.insert(target_key.to_string(), value);
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "encode")]
+    #[async_trait::async_trait]
+    impl StorageReader for ChunkingMemStorage {
+        async fn get(&self, key: &str, _: Option<Options>) -> Result<Object, std::io::Error> {
+            let map = self.inner.lock().await;
+            let bytes = map
+                .get(key)
+                .cloned()
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "not found"))?;
+            let len = bytes.len() as u64;
+            let step = self.chunk_len.max(1);
+            let chunks = bytes
+                .chunks(step)
+                .map(|chunk| Ok::<Bytes, std::io::Error>(Bytes::copy_from_slice(chunk)))
+                .collect::<Vec<_>>();
+            let stream: ByteStream = Box::pin(stream::iter(chunks));
+            Ok(Object {
+                stream,
+                content_length: Some(len),
+                content_type: None,
+                etag: None,
+                last_modified: None,
+            })
+        }
+    }
+
+    #[cfg(feature = "encode")]
+    #[tokio::test]
+    async fn roundtrip_mem_with_aes_small_read_chunks() -> Result<(), std::io::Error> {
+        let storage = EncryptedStorage::new(ChunkingMemStorage::new(3));
+        let payload = b"encrypted-stream-partial-frames-should-not-stall".to_vec();
+        let opts = Options::new([17u8; 32], [19u8; 12], 1, b"small-chunk-aad".to_vec());
+
+        storage
+            .write(
+                "enc/chunked",
+                Some(opts.clone()),
+                stream_from_parts(vec![
+                    payload[..11].to_vec(),
+                    payload[11..23].to_vec(),
+                    payload[23..].to_vec(),
+                ]),
+            )
+            .await?;
+
+        let obj = storage.get("enc/chunked", Some(opts)).await?;
+        let got = tokio::time::timeout(Duration::from_secs(2), read_all(obj.stream))
+            .await
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "decrypt stream stalled")
+            })??;
+        assert_eq!(got, payload);
         Ok(())
     }
 }

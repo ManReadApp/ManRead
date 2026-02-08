@@ -2,7 +2,7 @@ use aes_gcm::{
     aead::{AeadInPlace, KeyInit},
     Aes256Gcm, Key, Nonce, Tag,
 };
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 use std::{
@@ -22,7 +22,7 @@ fn try_parse_frames(
     nonce_prefix: &[u8; 8],
     counter: &mut u32,
     aad: &[u8],
-    buf: &mut Vec<u8>,
+    buf: &mut BytesMut,
     out_queue: &mut VecDeque<Result<Bytes, io::Error>>,
 ) -> Result<(), io::Error> {
     loop {
@@ -37,7 +37,7 @@ fn try_parse_frames(
             return Ok(());
         }
 
-        let mut frame = buf.drain(0..needed).collect::<Vec<u8>>();
+        let mut frame = buf.split_to(needed);
         let payload = &mut frame[LEN_LEN..];
         let (ct, rest) = payload.split_at_mut(len);
         let tag_bytes: &[u8] = &rest[..TAG_LEN];
@@ -68,7 +68,7 @@ pin_project! {
         nonce_prefix: [u8; 8],
         counter: u32,
         aad: Vec<u8>,
-        buf: Vec<u8>,
+        buf: BytesMut,
         out_queue: VecDeque<Result<Bytes, io::Error>>,
         done: bool,
     }
@@ -98,7 +98,7 @@ where
                     obj.stream,
                     options.key,
                     options.nonce,
-                    0,
+                    options.counter,
                     options.aad,
                 );
 
@@ -134,7 +134,7 @@ where
             nonce_prefix,
             counter: counter0,
             aad,
-            buf: Vec::new(),
+            buf: BytesMut::new(),
             out_queue: VecDeque::new(),
             done: false,
         }
@@ -148,66 +148,51 @@ where
     type Item = Result<Bytes, io::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
+        let mut this = self.project();
 
-        if let Some(item) = this.out_queue.pop_front() {
-            return Poll::Ready(Some(item));
-        }
-
-        if *this.done {
-            if !this.buf.is_empty() {
-                return Poll::Ready(Some(Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "truncated encrypted stream",
-                ))));
-            }
-            return Poll::Ready(None);
-        }
-
-        match this.input.poll_next(cx) {
-            Poll::Pending => Poll::Pending,
-
-            Poll::Ready(None) => {
-                *this.done = true;
-
-                if let Err(e) = try_parse_frames(
-                    this.cipher,
-                    this.nonce_prefix,
-                    this.counter,
-                    this.aad,
-                    this.buf,
-                    this.out_queue,
-                ) {
-                    return Poll::Ready(Some(Err(e)));
-                }
-
-                if let Some(item) = this.out_queue.pop_front() {
-                    Poll::Ready(Some(item))
-                } else {
-                    Poll::Ready(None)
-                }
+        loop {
+            if let Some(item) = this.out_queue.pop_front() {
+                return Poll::Ready(Some(item));
             }
 
-            Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
-
-            Poll::Ready(Some(Ok(bytes))) => {
-                this.buf.extend_from_slice(&bytes);
-
-                if let Err(e) = try_parse_frames(
-                    this.cipher,
-                    this.nonce_prefix,
-                    this.counter,
-                    this.aad,
-                    this.buf,
-                    this.out_queue,
-                ) {
-                    return Poll::Ready(Some(Err(e)));
+            if *this.done {
+                if !this.buf.is_empty() {
+                    return Poll::Ready(Some(Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "truncated encrypted stream",
+                    ))));
                 }
+                return Poll::Ready(None);
+            }
 
-                if let Some(item) = this.out_queue.pop_front() {
-                    Poll::Ready(Some(item))
-                } else {
-                    Poll::Pending
+            match this.input.as_mut().poll_next(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(None) => {
+                    *this.done = true;
+                    if let Err(e) = try_parse_frames(
+                        this.cipher,
+                        this.nonce_prefix,
+                        this.counter,
+                        this.aad,
+                        this.buf,
+                        this.out_queue,
+                    ) {
+                        return Poll::Ready(Some(Err(e)));
+                    }
+                }
+                Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(e))),
+                Poll::Ready(Some(Ok(bytes))) => {
+                    this.buf.extend_from_slice(&bytes);
+                    if let Err(e) = try_parse_frames(
+                        this.cipher,
+                        this.nonce_prefix,
+                        this.counter,
+                        this.aad,
+                        this.buf,
+                        this.out_queue,
+                    ) {
+                        return Poll::Ready(Some(Err(e)));
+                    }
                 }
             }
         }

@@ -1,4 +1,8 @@
-use std::{io, time::UNIX_EPOCH};
+use std::{
+    io,
+    path::{Component, Path, PathBuf},
+    time::UNIX_EPOCH,
+};
 
 use async_tempfile::TempFile;
 use bytes::Bytes;
@@ -9,12 +13,56 @@ use tokio_util::io::ReaderStream;
 use crate::backends::{ByteStream, Object, Options, StorageReader, StorageWriter};
 
 pub struct DiskStorage {
-    root: std::path::PathBuf,
+    root: PathBuf,
 }
 
 impl DiskStorage {
-    pub fn new(root: impl Into<std::path::PathBuf>) -> Self {
+    pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into() }
+    }
+
+    fn key_path(&self, key: &str) -> Result<PathBuf, io::Error> {
+        let rel = Path::new(key);
+        if rel.as_os_str().is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "storage key cannot be empty",
+            ));
+        }
+
+        for comp in rel.components() {
+            match comp {
+                Component::Normal(_) => {}
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "storage key must be a safe relative path",
+                    ));
+                }
+            }
+        }
+
+        Ok(self.root.join(rel))
+    }
+
+    async fn rename_replace(src: &Path, dst: &Path) -> Result<(), io::Error> {
+        match tokio::fs::rename(src, dst).await {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                let dst_exists = tokio::fs::metadata(dst).await.is_ok();
+                let can_retry = matches!(
+                    err.kind(),
+                    io::ErrorKind::AlreadyExists | io::ErrorKind::PermissionDenied
+                );
+
+                if !dst_exists || !can_retry {
+                    return Err(err);
+                }
+
+                tokio::fs::remove_file(dst).await?;
+                tokio::fs::rename(src, dst).await
+            }
+        }
     }
 }
 
@@ -26,14 +74,23 @@ impl StorageWriter for DiskStorage {
         _: Option<Options>,
         stream: ByteStream,
     ) -> Result<(), io::Error> {
-        let target = self.root.join(key);
+        let target = self.key_path(key)?;
         if let Some(parent) = target.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
 
         let mut stream = Box::pin(stream);
 
-        let mut file = TempFile::new().await.unwrap();
+        let parent = target.parent().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "storage key must contain a parent directory",
+            )
+        })?;
+
+        let mut file = TempFile::new_in(parent)
+            .await
+            .map_err(|e| io::Error::other(format!("tempfile create failed: {e}")))?;
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
@@ -43,27 +100,19 @@ impl StorageWriter for DiskStorage {
         file.flush().await?;
         file.sync_all().await?;
 
-        if tokio::fs::metadata(&target).await.is_ok() {
-            let _ = tokio::fs::remove_file(&target).await;
-        }
-
-        tokio::fs::rename(&file.file_path(), &target).await?;
+        Self::rename_replace(file.file_path().as_path(), &target).await?;
         file.drop_async().await;
         Ok(())
     }
 
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), io::Error> {
-        let src = self.root.join(orig_key);
-        let dst = self.root.join(target_key);
+        let src = self.key_path(orig_key)?;
+        let dst = self.key_path(target_key)?;
         if let Some(parent) = dst.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
 
-        if tokio::fs::metadata(&dst).await.is_ok() {
-            let _ = tokio::fs::remove_file(&dst).await;
-        }
-
-        tokio::fs::rename(&src, &dst).await?;
+        Self::rename_replace(&src, &dst).await?;
         Ok(())
     }
 }
@@ -71,7 +120,7 @@ impl StorageWriter for DiskStorage {
 #[async_trait::async_trait]
 impl StorageReader for DiskStorage {
     async fn get(&self, key: &str, _: Option<Options>) -> Result<Object, std::io::Error> {
-        let path = self.root.join(key);
+        let path = self.key_path(key)?;
         let file = File::open(&path).await?;
         let meta = file.metadata().await.ok();
         let mut lm = meta

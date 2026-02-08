@@ -20,7 +20,7 @@ bincode = "1"
 serde = { workspace = true, features = ["derive"] }
 tokio-util = { workspace = true, features = ["io"] }
 
-tokio.workspace = true
+tokio = { workspace = true, features = ["io-util", "time", "fs"] }
 aes-gcm = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
 
