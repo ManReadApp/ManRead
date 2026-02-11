@@ -1,20 +1,20 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package v1;
 
 message CreateTokenRequest {
   optional string user_id = 1;
 
-  ActivationTokenKind kind = 2;
+  required ActivationTokenKind kind = 2;
 }
 
 message ActivationTokenKind {
-  bool single = 1;
-  Role kind = 2;
+  required bool single = 1;
+  required Role kind = 2;
 }
 
 message ActivateRequest {
-  string key = 1;
+  required string key = 1;
 }
 
 enum Role {

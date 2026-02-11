@@ -1,16 +1,16 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package v1;
 
 import "v1/auth/role_token.proto";
 
 message Claim {
-  string id = 1;
-  Role role = 2;
+  required string id = 1;
+  required Role role = 2;
 
-  JwtType type = 3;
+  required JwtType type = 3;
 
-  uint64 exp = 4;
+  required uint64 exp = 4;
 }
 
 enum JwtType {
@@ -20,16 +20,16 @@ enum JwtType {
 }
 
 message JWTsResponse {
-  string access_token = 1;
-  string refresh_token = 2;
+  required string access_token = 1;
+  required string refresh_token = 2;
 }
 
 message TokenInfo {
-  string token_id = 1;
+  required string token_id = 1;
 
   optional string user_id = 2;
 
-  TokenKind kind = 3;
+  required ActivationTokenKind kind = 3;
 }
 
 enum TokenKind {
@@ -39,5 +39,5 @@ enum TokenKind {
 }
 
 message TokenRefreshRequest {
-  string refresh_token = 1;
+  required string refresh_token = 1;
 }

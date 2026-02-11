@@ -6,8 +6,8 @@ pub mod resp;
 pub mod search;
 
 use crate::v1::{
-    ActivationTokenKind, Claim, Gender, JwtType, MangaReaderResponse, ReaderChapter, ReaderPage,
-    Role, Status, Tag, TagSex,
+    ActivationTokenKind, Claim, Gender, JwtType, MangaReaderResponse, OptionalString,
+    ReaderChapter, ReaderPage, Role, Status, StringList, Tag, TagSex,
 };
 
 use std::collections::HashSet;
@@ -17,6 +17,30 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub mod v1 {
     include!(concat!(env!("OUT_DIR"), "/v1.rs"));
+}
+
+impl From<Vec<String>> for StringList {
+    fn from(value: Vec<String>) -> Self {
+        Self { items: value }
+    }
+}
+
+impl From<StringList> for Vec<String> {
+    fn from(value: StringList) -> Self {
+        value.items
+    }
+}
+
+impl From<Option<String>> for OptionalString {
+    fn from(value: Option<String>) -> Self {
+        Self { value }
+    }
+}
+
+impl From<OptionalString> for Option<String> {
+    fn from(value: OptionalString) -> Self {
+        value.value
+    }
 }
 
 impl MangaReaderResponse {
