@@ -1,7 +1,7 @@
 use actix_multipart::{Field, Multipart};
-use actix_web::web::{self, Data};
+use actix_web::web::Data;
 use actix_web_grants::AuthorityGuard;
-use api_structure::models::auth::role::Permission;
+use api_structure::Permission;
 use apistos::{actix::CreatedJson, api_operation};
 use futures_util::{StreamExt, TryStreamExt as _};
 use storage::{RegisterTempResult, StorageSystem, TempFile};

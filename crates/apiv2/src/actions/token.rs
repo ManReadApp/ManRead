@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use api_structure::models::auth::kind::TokenKind;
+use api_structure::v1::{ActivationTokenKind, TokenKind};
 use db::{
     auth::{AuthTokenDBService, AuthUser, RecordData},
     error::DbResult,
@@ -12,7 +12,11 @@ pub struct TokenAction {
 
 impl TokenAction {
     /// Creates a new auth token which is used to reset passwords or verify email addresses(and set roles).
-    pub async fn create_token(&self, user_id: Option<String>, kind: TokenKind) -> DbResult<()> {
+    pub async fn create_token(
+        &self,
+        user_id: Option<String>,
+        kind: ActivationTokenKind,
+    ) -> DbResult<()> {
         self.token.create(user_id, kind).await
     }
 

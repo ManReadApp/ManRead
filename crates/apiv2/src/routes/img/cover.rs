@@ -1,9 +1,14 @@
+use std::time::{Duration, SystemTime};
+
 use actix_web::{
     error::ErrorInternalServerError,
-    http::header::{ETag, EntityTag, Header, IfModifiedSince, IfNoneMatch, LastModified},
+    http::header::{
+        self, ETag, EntityTag, Header, HttpDate, IfModifiedSince, IfNoneMatch, LastModified,
+    },
     web, HttpRequest, HttpResponse,
 };
-use storage::{Object, Options, StorageSystem};
+use chrono::{DateTime, Utc};
+use storage::{Object, StorageSystem};
 
 fn normalize_etag(s: &str) -> String {
     let trimmed = s.trim();
@@ -22,19 +27,17 @@ fn weak_etag_eq(a: &EntityTag, b: &EntityTag) -> bool {
 pub fn maybe_not_modified(
     req: &HttpRequest,
     obj_etag: Option<&str>,
-    obj_last_modified: Option<DateTime<Utc>>,
+    obj_last_modified: Option<SystemTime>,
 ) -> Option<HttpResponse> {
     let entity_tag: Option<EntityTag> = obj_etag
         .map(normalize_etag)
         .and_then(|s| s.parse::<EntityTag>().ok());
 
-    let last_modified: Option<HttpDate> = obj_last_modified.map(|dt| HttpDate::from(dt.into()));
+    let last_modified: Option<HttpDate> = obj_last_modified.map(|dt| HttpDate::from(dt));
+    let inm = IfNoneMatch::parse(req).ok();
+    let ims = IfModifiedSince::parse(req).ok();
 
-    if let Some(etag) = entity_tag.as_ref() {
-        let inm_hdr = req.headers().get(header::IF_NONE_MATCH)?;
-        let inm_str = inm_hdr.to_str().ok()?;
-        let inm = IfNoneMatch::parse(inm_str).ok()?;
-
+    if let (Some(etag), Some(inm)) = (entity_tag.as_ref(), inm) {
         if match inm {
             IfNoneMatch::Any => true,
             IfNoneMatch::Items(tags) => tags.iter().any(|t| weak_etag_eq(t, etag)),
@@ -50,12 +53,8 @@ pub fn maybe_not_modified(
         return None;
     }
 
-    if let Some(lm) = last_modified {
-        let ims_hdr = req.headers().get(header::IF_MODIFIED_SINCE)?;
-        let ims_str = ims_hdr.to_str().ok()?;
-        let ims = IfModifiedSince::parse(ims_str).ok()?;
-
-        if lm <= *ims.0 {
+    if let (Some(lm), Some(ims)) = (last_modified, ims) {
+        if lm <= ims.0 {
             let mut resp = HttpResponse::NotModified();
             resp.insert_header(LastModified(lm));
             return Some(resp.finish());
@@ -73,7 +72,7 @@ pub async fn download(
     let key = path.into_inner();
     let obj = storage
         .reader
-        .get(&key, None)
+        .get(&key, &Default::default())
         .await
         .map_err(ErrorInternalServerError)?;
 

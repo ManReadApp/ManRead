@@ -4,6 +4,7 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
+export.workspace = true
 actix-web = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 log = { workspace = true }

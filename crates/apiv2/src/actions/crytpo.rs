@@ -9,14 +9,11 @@ use actix_web::{
 use actix_web_grants::authorities::AttachAuthorities;
 
 use actix_web_httpauth::extractors::bearer::BearerAuth;
-use api_structure::models::{
-    auth::{
-        jwt::{Claim, JwtType},
-        role::Role,
-    },
-    manga::visiblity::Visibility,
-};
 
+use api_structure::{
+    now,
+    v1::{Claim, JwtType, Role, Visibility},
+};
 use bcrypt::DEFAULT_COST;
 use db::manga::Manga;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -55,7 +52,7 @@ pub async fn validator(
     match secret.get_claim(cred.token()) {
         Ok(v) => {
             {
-                if matches!(v.jwt_type, JwtType::AccessToken) {
+                if matches!(v.r#type, JwtType::AccessToken) {
                     req.attach(vec![v.role]);
                 }
                 let mut ext = req.extensions_mut();
@@ -101,7 +98,7 @@ impl CryptoService {
     /// Gets the claims from the token
     pub fn get_claim(&self, token: &str) -> ApiResult<Claim> {
         if let Some(v) = self.claims.lock().unwrap().get(token) {
-            if v.exp < now_ms() {
+            if v.exp < now().as_millis() as u64 {
                 self.claims.lock().unwrap().remove(token);
                 return Err(ApiError::ExpiredToken);
             }
@@ -123,7 +120,7 @@ impl CryptoService {
         let token =
             decode::<Claim>(token, &decoding_key, &Validation::new(Algorithm::HS512))?.claims;
 
-        if token.exp < now_ms() {
+        if token.exp < now().as_millis() as u64 {
             Err(ApiError::ExpiredToken)
         } else {
             Ok(token)

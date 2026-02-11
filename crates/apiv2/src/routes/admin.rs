@@ -1,11 +1,9 @@
 use actix_web::web::{Data, Json};
-use api_structure::{
-    req::{admin::create_token::CreateTokenRequest, IdRequest, PaginationRequest},
-    resp::auth::TokenInfo,
-};
+
+use api_structure::v1::{CreateTokenRequest, IdRequest, PaginationRequest, TokenInfo};
 use apistos::{actix::CreatedJson, api_operation};
 
-use crate::actions::token::TokenAction;
+use crate::{actions::token::TokenAction, error::ApiResult};
 
 #[api_operation(
     tag = "admin",

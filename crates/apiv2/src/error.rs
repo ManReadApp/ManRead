@@ -14,7 +14,7 @@ pub enum ApiError {
     EmailExists,
     NoContentDisposition,
     ExpiredToken,
-    DbError(DbError),
+    DbError(String),
     WrongResetToken,
     WriteError(String),
     MultiPart(String),
@@ -25,6 +25,11 @@ pub enum ApiError {
 }
 
 pub type ApiResult<T> = Result<T, ApiError>;
+impl From<DbError> for ApiError {
+    fn from(value: DbError) -> Self {
+        ApiError::DbError(value.to_string())
+    }
+}
 
 impl From<jsonwebtoken::errors::Error> for ApiError {
     fn from(value: jsonwebtoken::errors::Error) -> Self {
@@ -33,6 +38,10 @@ impl From<jsonwebtoken::errors::Error> for ApiError {
 }
 
 impl ApiError {
+    pub fn db_error(msg: impl ToString) -> Self {
+        Self::DbError(msg.to_string())
+    }
+
     pub fn generate_jwt(msg: jsonwebtoken::errors::Error) -> Self {
         ApiError::FailedToEncodeToken(msg.to_string())
     }
@@ -55,7 +64,9 @@ impl From<StorageError> for ApiError {
             StorageError::HandleNotFound => todo!(),
             StorageError::NoDefaultImageAvailable => todo!(),
             StorageError::MissingExtension => todo!(),
-            StorageError::OSError(error) => todo!(),
+            StorageError::Processing(processing_error) => todo!(),
+            StorageError::Io(error) => todo!(),
+            StorageError::TempFile(error) => todo!(),
         }
     }
 }
@@ -63,21 +74,6 @@ impl From<StorageError> for ApiError {
 impl From<JoinError> for ApiError {
     fn from(value: JoinError) -> Self {
         ApiError::FailedToEncodeToken(value.to_string())
-    }
-}
-
-impl From<DbError> for ApiError {
-    fn from(value: DbError) -> Self {
-        match value {
-            DbError::NotFound => todo!(),
-            DbError::InvalidActivationToken => todo!(),
-            DbError::ExpiredToken => todo!(),
-            DbError::NoImage => todo!(),
-            DbError::NoExtension => todo!(),
-            DbError::SearchParseError(_) => todo!(),
-            DbError::SurrealDbError(error) => todo!(),
-            DbError::DbError(storage_error) => todo!(),
-        }
     }
 }
 

@@ -1,21 +1,18 @@
 use actix_web::web::{Data, Json, ReqData};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use api_structure::{
-    models::auth::jwt::Claim,
-    req::auth::{
-        activate::ActivateRequest,
-        login::LoginRequest,
-        register::RegisterRequest,
-        reset_password::{RequestResetPasswordRequest, ResetPasswordRequest},
-        TokenRefreshRequest,
+    req::LoginRequest,
+    v1::{
+        ActivateRequest, Claim, JwTsResponse, RegisterRequest, RequestResetPasswordRequest,
+        ResetPasswordRequest, TokenRefreshRequest,
     },
-    resp::auth::JWTsResponse,
 };
 use apistos::{
     actix::CreatedJson,
     api_operation,
     web::{scope, Scope},
 };
+use chrono::{DateTime, Utc};
 use storage::FileId;
 
 use crate::{
@@ -27,14 +24,14 @@ use crate::{
 async fn signup(
     Json(data): Json<RegisterRequest>,
     service: Data<AuthAction>,
-) -> ApiResult<CreatedJson<JWTsResponse>> {
+) -> ApiResult<CreatedJson<JwTsResponse>> {
     service
         .register(
             &data.email,
             data.name,
             &data.password,
             data.gender,
-            data.birthdate,
+            DateTime::<Utc>::from_timestamp_millis(data.birthdate as i64).unwrap(),
             data.icon_temp_name.map(|v| FileId::new(v)),
         )
         .await
@@ -45,7 +42,7 @@ async fn signup(
 pub async fn signin(
     Json(data): Json<LoginRequest>,
     service: Data<AuthAction>,
-) -> ApiResult<CreatedJson<JWTsResponse>> {
+) -> ApiResult<CreatedJson<JwTsResponse>> {
     service.login(data).await.map(CreatedJson)
 }
 
@@ -71,7 +68,7 @@ pub(crate) async fn logout(
 pub(crate) async fn verify_reset_password(
     Json(data): Json<ResetPasswordRequest>,
     service: Data<AuthAction>,
-) -> ApiResult<CreatedJson<JWTsResponse>> {
+) -> ApiResult<CreatedJson<JwTsResponse>> {
     service.reset_password(data).await.map(CreatedJson)
 }
 #[api_operation(
@@ -94,7 +91,7 @@ pub(crate) async fn request_reset_password(
 pub(crate) async fn refresh(
     Json(data): Json<TokenRefreshRequest>,
     service: Data<AuthAction>,
-) -> ApiResult<CreatedJson<JWTsResponse>> {
+) -> ApiResult<CreatedJson<JwTsResponse>> {
     service.refresh(&data.refresh_token).await.map(CreatedJson)
 }
 
@@ -103,7 +100,7 @@ pub(crate) async fn verify(
     Json(data): Json<ActivateRequest>,
     claim: ReqData<Claim>,
     service: Data<AuthAction>,
-) -> ApiResult<CreatedJson<JWTsResponse>> {
+) -> ApiResult<CreatedJson<JwTsResponse>> {
     service.verify(&data.key, &claim).await.map(CreatedJson)
 }
 

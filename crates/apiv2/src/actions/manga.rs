@@ -1,18 +1,13 @@
-use std::sync::Arc;
-
+use crate::error::{ApiError, ApiResult};
 use api_structure::{
-    models::manga::{
-        chapter::Chapter,
-        search::{Item, ItemData, ItemOrArray, ItemValue, Order},
-        status::Status,
-        tag::Tag as GlobalTag,
+    search::{
+        Array, HomeResponse, Item, ItemData, ItemOrArray, ItemValue, Order, SearchRequest,
+        SearchResponse,
     },
-    req::manga::{
-        add::{AddMangaRequest, Scrapers},
-        edit::EditMangaRequest,
-        search::SearchRequest,
+    v1::{
+        self, AddMangaRequest, Chapter, EditMangaRequest, ExternalSite, MangaInfoResponse,
+        Relation, Status, Tag as GlobalTag, Visibility,
     },
-    resp::manga::{home::HomeResponse, info::MangaInfoResponse},
 };
 use db::{
     auth::RecordData,
@@ -22,14 +17,13 @@ use db::{
     lists::ListDBService,
     manga::{Manga, MangaDBService, Scraper},
     tag::{Tag, TagDBService},
-    user::UserDBService,
+    user::{User, UserDBService},
     version::VersionDBService,
-    RecordIdFunc, RecordIdType, DB,
+    RecordId, RecordIdFunc, RecordIdType, SurrealTableInfo, DB,
 };
-use rand::{rng, seq::IteratorRandom as _};
+use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
+use std::{cmp::Ordering, sync::Arc};
 use storage::{CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
-
-use crate::error::ApiError;
 
 struct MangaActions {
     mangas: Arc<MangaDBService>,
@@ -46,7 +40,7 @@ impl MangaActions {
     async fn prepare_create(
         &self,
         tags: Vec<GlobalTag>,
-        scrapers_: Vec<Scrapers>,
+        scrapers_: Vec<v1::Scraper>,
         artists: Vec<String>,
         authors: Vec<String>,
         publishers: Vec<String>,
@@ -110,7 +104,7 @@ pub async fn convert_to_search_response(
 }
 
 impl MangaActions {
-    pub async fn home(&self, uid: &str) {
+    pub async fn home(&self, uid: &str) -> ApiResult<HomeResponse> {
         let generate = |order: Order, desc, query| {
             let items = match query {
                 None => vec![],
@@ -129,9 +123,9 @@ impl MangaActions {
                 },
             }
         };
-        let mut rng = rng();
 
         let search = |req| async {
+            let mut rng = rng();
             let (_, v) = self
                 .mangas
                 .search(req, RecordIdType::from((User::name(), uid)), false)
@@ -171,7 +165,7 @@ impl MangaActions {
         })
     }
 
-    pub async fn search(&self, data: SearchRequest, uid: &str) {
+    pub async fn search(&self, data: SearchRequest, uid: &str) -> ApiResult<()> {
         let (max, search) = self
             .mangas
             .search(data, RecordIdType::from((User::name(), uid)), true)
@@ -182,9 +176,10 @@ impl MangaActions {
         for v in search {
             resp.push(convert_to_search_response(v, &self.tags, &mut rng).await?);
         }
+        Ok(())
     }
 
-    pub async fn info(&self, id: String, uid: &str) {
+    pub async fn info(&self, id: String, uid: &str) -> ApiResult<()> {
         let manga = self.mangas.get(&id).await?;
         let chapters_ = self.chapters.get_simple(manga.chapters.into_iter()).await?;
         let mut chapters = vec![];
@@ -203,7 +198,11 @@ impl MangaActions {
         }
         chapters.sort_by(|a, b| a.chapter.partial_cmp(&b.chapter).unwrap_or(Ordering::Equal));
         let resp = MangaInfoResponse {
-            titles: manga.titles,
+            titles: manga
+                .titles
+                .into_iter()
+                .map(|v| (v.0, v.1.into()))
+                .collect(),
             kind: self.kinds.get_name(manga.kind.clone()).await?,
             description: manga.description,
             tags: self
@@ -245,7 +244,7 @@ impl MangaActions {
                 .users
                 .get_name_from_ids(manga.publishers.into_iter())
                 .await?,
-            cover_ext: manga.covers,
+            cover_ext: manga.covers.into_iter().map(|v| v.into()).collect(),
             sources: manga
                 .sources
                 .into_iter()
@@ -258,7 +257,13 @@ impl MangaActions {
             relations: self
                 .mangas
                 .get_names(manga.relations.into_iter(), vec!["en".to_owned()])
-                .await?,
+                .await?
+                .into_iter()
+                .map(|v| Relation {
+                    manga_id: v.0,
+                    kind: v.1,
+                })
+                .collect(),
             scraper: manga.scraper.iter().any(|v| v.enabled),
             scrapers: {
                 let mut scrapers = Vec::new();
@@ -267,10 +272,11 @@ impl MangaActions {
                     let target = v
                         .target
                         .get(&*DB)
-                        .await?
-                        .ok_or(ApiError::DbError(DbError::NotFound))?;
+                        .await
+                        .unwrap()
+                        .ok_or(ApiError::db_error(DbError::NotFound))?;
 
-                    scrapers.push(Scrapers {
+                    scrapers.push(api_structure::v1::Scraper {
                         channel: target.data.name,
                         url: v.url,
                     });
@@ -282,15 +288,17 @@ impl MangaActions {
             chapters,
             manga_id: id,
         };
+        Ok(())
     }
 
-    pub async fn delete(&self, id: Strig) {
+    pub async fn delete(&self, id: String) -> ApiResult<()> {
         self.mangas
             .set_visibility(id, Visibility::AdminReview)
             .await?;
+        Ok(())
     }
 
-    pub async fn edit(&self, data: EditMangaRequest) {
+    pub async fn edit(&self, data: EditMangaRequest) -> ApiResult<()> {
         let (tags, scrapers, artists, authors, publishers) = self
             .prepare_create(
                 data.tags,
@@ -304,7 +312,7 @@ impl MangaActions {
         self.mangas
             .update(
                 &data.manga_id,
-                data.names,
+                data.names.into_iter().map(|v| (v.0, v.1.into())).collect(),
                 data.status,
                 data.description,
                 tags,
@@ -317,10 +325,11 @@ impl MangaActions {
             )
             .await?;
         self.mangas.regenerate_tags(&data.manga_id).await?;
+        Ok(())
     }
 
-    pub async fn create(&self, data: AddMangaRequest, uid: &str) {
-        let file = CoverFileBuilder::from(self.fs.take(FileId(data.image_temp_name)).await?);
+    pub async fn create(&self, data: AddMangaRequest, uid: &str) -> ApiResult<()> {
+        let file = CoverFileBuilder::from(self.fs.take(FileId::new(data.image_temp_name)).await?);
         let (tags, scrapers, artists, authors, publishers) = self
             .prepare_create(
                 data.tags,
@@ -331,14 +340,14 @@ impl MangaActions {
             )
             .await?;
         let manga = Manga {
-            titles: data.names,
+            titles: data.names.into_iter().map(|v| (v.0, v.1.into())).collect(),
             kind: self.kinds.get_or_create(&data.kind).await?,
             description: data.description,
             generated_tags: tags.clone(),
             tags,
             status: data.status as u64,
             visibility: Visibility::Visible as u64,
-            uploader: RecordIdType::from(RecordId::from((User::name(), &uid))),
+            uploader: RecordIdType::from(RecordId::from((User::name(), uid))),
             artists: artists
                 .into_iter()
                 .map(RecordIdType::from)
@@ -363,6 +372,7 @@ impl MangaActions {
         };
         let mid = self.mangas.add(manga).await?;
         file.build(&mid.thing.id().to_string()).await?;
+        Ok(())
     }
 
     pub async fn add_cover(&self, file_id: &str) {

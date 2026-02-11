@@ -4,15 +4,11 @@ use crate::{
     actions::crytpo::CryptoService,
     error::{ApiError, ApiResult},
 };
+
 use api_structure::{
-    models::auth::{
-        gender::Gender,
-        jwt::{Claim, REFRESH_SECS},
-        kind::TokenKind,
-        role::Role,
-    },
-    req::auth::{login::LoginRequest, reset_password::ResetPasswordRequest},
-    resp::auth::JWTsResponse,
+    req::LoginRequest,
+    v1::{ActivationTokenKind, Claim, Gender, JwTsResponse, ResetPasswordRequest, Role, TokenKind},
+    REFRESH_SECS,
 };
 use chrono::{DateTime, Utc};
 use db::{
@@ -40,7 +36,7 @@ impl AuthAction {
         gender: Gender,
         birthdate: DateTime<Utc>,
         icon: Option<FileId>,
-    ) -> ApiResult<JWTsResponse> {
+    ) -> ApiResult<JwTsResponse> {
         if self.users.email_exists(email).await {
             return Err(ApiError::EmailExists);
         }
@@ -49,7 +45,7 @@ impl AuthAction {
         }
 
         let pw_hash = self.crypto.hash_password(&password).await?;
-        let cover_builder = self.fs.get_user_cover(icon, None).await?;
+        let cover_builder = self.fs.get_user_cover(icon).await?;
 
         let user = self
             .users
@@ -62,14 +58,13 @@ impl AuthAction {
                 gender as u32,
             )
             .await?;
-        cover_builder.build(&user.id.id().to_string()).await?;
-
+        let d = cover_builder.build(&user.id.id().to_string()).await?;
         self.new_jwt(&user.id.id().to_string(), Role::NotVerified)
     }
 
     /// helper to generate jwt
-    fn new_jwt(&self, user_id: &str, role: Role) -> ApiResult<JWTsResponse> {
-        Ok(JWTsResponse {
+    fn new_jwt(&self, user_id: &str, role: Role) -> ApiResult<JwTsResponse> {
+        Ok(JwTsResponse {
             access_token: self
                 .crypto
                 .encode_claim(&Claim::new_access(user_id.to_owned(), role))?,
@@ -80,7 +75,7 @@ impl AuthAction {
     }
 
     /// login action if credentials are valid
-    pub async fn login(&self, data: LoginRequest) -> ApiResult<JWTsResponse> {
+    pub async fn login(&self, data: LoginRequest) -> ApiResult<JwTsResponse> {
         let user = match &data {
             LoginRequest::Username(l) => self.users.get_by_name(&l.username).await,
             LoginRequest::Email(l) => self.users.get_by_mail(&l.email).await,
@@ -92,7 +87,10 @@ impl AuthAction {
         if !valid {
             return Err(ApiError::PasswordIncorrect);
         }
-        self.new_jwt(&user.id.id().to_string(), Role::from(user.data.role))
+        self.new_jwt(
+            &user.id.id().to_string(),
+            Role::try_from(user.data.role).unwrap(),
+        )
     }
 
     pub async fn logout(&self, claim: &Claim) -> DbResult<()> {
@@ -100,10 +98,10 @@ impl AuthAction {
     }
 
     /// generates refresh token if possible
-    pub async fn refresh(&self, refresh_token: &str) -> ApiResult<JWTsResponse> {
+    pub async fn refresh(&self, refresh_token: &str) -> ApiResult<JwTsResponse> {
         let claim = self.crypto.get_claim(&refresh_token)?;
         let (role, generated) = self.users.get_role_and_generated(claim.id.as_str()).await?;
-        if generated > claim.exp - Duration::from_secs(REFRESH_SECS).as_millis() {
+        if generated > claim.exp as u128 - Duration::from_secs(REFRESH_SECS).as_millis() {
             return Err(ApiError::ExpiredToken);
         }
         self.new_jwt(&claim.id, role)
@@ -114,7 +112,7 @@ impl AuthAction {
         self.token
             .create(
                 Some(uid),
-                TokenKind {
+                ActivationTokenKind {
                     single: true,
                     kind: Role::NotVerified,
                 },
@@ -134,7 +132,7 @@ impl AuthAction {
     }
 
     /// resets password with Role::NotVerified token
-    pub async fn reset_password(&self, data: ResetPasswordRequest) -> ApiResult<JWTsResponse> {
+    pub async fn reset_password(&self, data: ResetPasswordRequest) -> ApiResult<JwTsResponse> {
         let user = self.get_user_id(data.email, &data.ident).await?;
         let token = self.token.find(&data.key).await?;
         is_token_valid(&token, &user.id.id().to_string())?;
@@ -153,12 +151,12 @@ impl AuthAction {
         if token.data.get_kind().single {
             token.delete_s(&*DB).await.map_err(DbError::from)?;
         }
-        let role = Role::from(user.data.role);
+        let role = Role::try_from(user.data.role).unwrap();
         self.new_jwt(&user.id.id().to_string(), role)
     }
 
     /// uses a token and set user role
-    pub async fn verify(&self, key: &str, claim: &Claim) -> ApiResult<JWTsResponse> {
+    pub async fn verify(&self, key: &str, claim: &Claim) -> ApiResult<JwTsResponse> {
         let find = self.token.find(&key).await?;
         is_token_valid(&find, &claim.id.to_string())?;
 
