@@ -4,8 +4,8 @@ use crate::{error::StorageResult, temp::TempData, MangaBundleMetadata, StorageEr
 
 pub(crate) const CHAPTER_MAGIC: &[u8; 8] = b"MRCHAP01";
 pub(crate) const MANGA_MAGIC: &[u8; 8] = b"MRMANG01";
-const MAX_CONTAINER_ENTRIES: usize = 10_000;
-const MAX_MANGA_METADATA_BYTES: u64 = 1024 * 1024;
+const MAX_CONTAINER_ENTRIES: usize = 100_000;
+const MAX_MANGA_METADATA_BYTES: u64 = 1024 * 1024 * 50;
 
 pub(crate) enum ContainerPayload {
     SingleFile(Arc<dyn TempData>),

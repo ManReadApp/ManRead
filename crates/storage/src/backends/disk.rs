@@ -10,7 +10,7 @@ use futures_util::StreamExt;
 use tokio::{fs::File, io::AsyncWriteExt as _};
 use tokio_util::io::ReaderStream;
 
-use crate::backends::{ByteStream, Object, Options, StorageReader, StorageWriter};
+use crate::backends::{ByteStream, GenerateOptions, Object, Options, StorageReader, StorageWriter};
 
 pub struct DiskStorage {
     root: PathBuf,
@@ -65,15 +65,11 @@ impl DiskStorage {
         }
     }
 }
+impl GenerateOptions for DiskStorage {}
 
 #[async_trait::async_trait]
 impl StorageWriter for DiskStorage {
-    async fn write(
-        &self,
-        key: &str,
-        _: Option<Options>,
-        stream: ByteStream,
-    ) -> Result<(), io::Error> {
+    async fn write(&self, key: &str, _: &Options, stream: ByteStream) -> Result<(), io::Error> {
         let target = self.key_path(key)?;
         if let Some(parent) = target.parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -119,7 +115,7 @@ impl StorageWriter for DiskStorage {
 
 #[async_trait::async_trait]
 impl StorageReader for DiskStorage {
-    async fn get(&self, key: &str, _: Option<Options>) -> Result<Object, std::io::Error> {
+    async fn get(&self, key: &str, _: &Options) -> Result<Object, std::io::Error> {
         let path = self.key_path(key)?;
         let file = File::open(&path).await?;
         let meta = file.metadata().await.ok();

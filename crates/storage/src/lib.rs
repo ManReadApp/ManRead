@@ -4,6 +4,7 @@ mod error;
 mod temp;
 mod workers;
 
+pub use backends::CacheBackend;
 pub use backends::DelayStorage;
 #[cfg(feature = "disk")]
 pub use backends::DiskStorage;
@@ -62,7 +63,7 @@ struct StoredFile {
 
 enum EntryState {
     Processing { state_tx: watch::Sender<()> },
-    Uploaded { handle: String },
+    Uploaded { handle: String, options: Options },
     Failed { error: ProcessingError },
 }
 
@@ -83,10 +84,11 @@ impl StoredFile {
         handle: String,
         dims: Option<(u32, u32)>,
         ext: Option<(&'static str, &'static str)>,
+        options: Options,
     ) {
         self.dims = dims;
         self.ext = ext;
-        self.state = EntryState::Uploaded { handle };
+        self.state = EntryState::Uploaded { handle, options };
     }
 
     fn mark_failed(&mut self, error: ProcessingError) {
@@ -243,7 +245,12 @@ impl StorageSystem {
                 if let Some(entry) = map.get_mut(&id2) {
                     match result {
                         Ok(Ok(upload)) => {
-                            entry.mark_uploaded(upload.handle, upload.dims, upload.ext);
+                            entry.mark_uploaded(
+                                upload.handle,
+                                upload.dims,
+                                upload.ext,
+                                upload.options,
+                            );
                         }
                         Ok(Err(error)) => {
                             entry.mark_failed(error);
@@ -270,31 +277,10 @@ impl StorageSystem {
     pub async fn register_temp_file(&self, tf: TempFile) -> StorageResult<RegisterTempResult> {
         let source: Arc<dyn TempData> = Arc::new(FileTempData::from_tempfile(tf).await?);
         match self.container_worker.extract_payload(source).await? {
-            ContainerPayload::SingleFile(tf) => {
-                if matches!(
-                    self.media_worker.detect_ext(&tf).await,
-                    Some((mime, _)) if mime == "application/pdf"
-                ) {
-                    let Some(path) = tf.as_local_path() else {
-                        return Err(StorageError::Io(std::io::Error::other(
-                            "pdf requires local file-backed input",
-                        )));
-                    };
-                    let pages = self
-                        .media_worker
-                        .split_pdf_to_png_pages(&path)
-                        .await
-                        .map_err(StorageError::Processing)?;
-                    return self
-                        .register_many_files(pages)
-                        .await
-                        .map(RegisterTempResult::Chapter);
-                }
-
-                self.register_single_temp_file(tf)
-                    .await
-                    .map(RegisterTempResult::File)
-            }
+            ContainerPayload::SingleFile(tf) => self
+                .register_single_temp_file(tf)
+                .await
+                .map(RegisterTempResult::File),
             ContainerPayload::Chapter(images) => self
                 .register_many_files(images)
                 .await
@@ -325,8 +311,9 @@ impl StorageSystem {
                 };
 
                 match &entry.state {
-                    EntryState::Uploaded { handle } => {
+                    EntryState::Uploaded { handle, options } => {
                         let handle = handle.clone();
+                        let o = options.clone();
                         let entry = map.remove(id.inner_ref()).unwrap();
                         return Ok(FileBuilder {
                             dims: entry.dims,
@@ -334,6 +321,7 @@ impl StorageSystem {
                             temp_id: handle,
                             target_id: PathBuf::new(),
                             allowed_drop: false,
+                            options: o,
                             writer: self.writer.clone(),
                         });
                     }
@@ -361,11 +349,7 @@ impl StorageSystem {
         }
     }
 
-    pub async fn get_user_cover(
-        &self,
-        id: Option<FileId>,
-        options: Option<Options>,
-    ) -> StorageResult<UserCoverFileBuilder> {
+    pub async fn get_user_cover(&self, id: Option<FileId>) -> StorageResult<UserCoverFileBuilder> {
         let item = match id {
             Some(id) => self.take(id).await.map(UserCoverFileBuilder::from),
             None => {
@@ -376,12 +360,14 @@ impl StorageSystem {
                 let f = File::open(&ri).await?;
                 let id = PathBuf::from(format!("temp/{}", uuid::Uuid::new_v4()));
                 let id = id.to_string_lossy();
+                let options = Options::default();
                 self.writer
-                    .write(&id, options, file_to_bytestream(f))
+                    .write(&id, &options, file_to_bytestream(f))
                     .await?;
                 Ok(UserCoverFileBuilder::from(FileBuilder {
                     dims: None,
                     allowed_drop: false,
+                    options,
                     temp_id: id.to_string(),
                     ext: {
                         let mut bytes = Vec::new();
@@ -441,7 +427,6 @@ impl StorageSystem {
 mod tests {
     use std::{
         io::Cursor,
-        path::Path,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc,
@@ -460,7 +445,7 @@ mod tests {
             containers::MagicContainerWorker,
             media::{MediaWorker, PreparedUpload},
         },
-        CoverFileBuilder, FileId, MangaBundleMetadata, MemStorage, RegisterTempResult,
+        CoverFileBuilder, FileId, MangaBundleMetadata, MemStorage, Options, RegisterTempResult,
         StorageError, StorageSystem, CHAPTER_MAGIC, MANGA_MAGIC,
     };
 
@@ -472,7 +457,7 @@ mod tests {
 
         let mut out = Vec::new();
         let mut stream = reader
-            .get(key, None)
+            .get(key, &Default::default())
             .await
             .expect("expected object to exist")
             .stream;
@@ -730,13 +715,6 @@ mod tests {
             None
         }
 
-        async fn split_pdf_to_png_pages(
-            &self,
-            _path: &Path,
-        ) -> Result<Vec<Arc<dyn TempData>>, ProcessingError> {
-            Ok(Vec::new())
-        }
-
         async fn process_and_upload(
             &self,
             _source: Arc<dyn TempData>,
@@ -779,13 +757,6 @@ mod tests {
             None
         }
 
-        async fn split_pdf_to_png_pages(
-            &self,
-            _path: &Path,
-        ) -> Result<Vec<Arc<dyn TempData>>, ProcessingError> {
-            Ok(Vec::new())
-        }
-
         async fn process_and_upload(
             &self,
             _source: Arc<dyn TempData>,
@@ -800,6 +771,7 @@ mod tests {
                 handle: format!("temp/{}", uuid::Uuid::new_v4()),
                 dims: None,
                 ext: None,
+                options: Options::default(),
             })
         }
     }

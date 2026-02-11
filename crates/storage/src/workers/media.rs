@@ -1,7 +1,12 @@
-use std::{io::Cursor, path::Path, sync::Arc};
+use std::{
+    io::{BufReader, Cursor},
+    path::Path,
+    sync::Arc,
+};
 
 use async_tempfile::TempFile;
 use futures_util::{StreamExt as _, TryStreamExt as _};
+use image::ImageReader;
 use tokio::{
     fs::File,
     io::{self, AsyncSeekExt as _, AsyncWriteExt as _},
@@ -12,22 +17,20 @@ use tokio_util::io::ReaderStream;
 use crate::{
     backends::{ByteStream, StorageWriter},
     error::ProcessingError,
-    temp::{FileTempData, MemoryTempData, TempData},
+    temp::{MemoryTempData, TempData},
+    Options,
 };
 
 pub(crate) struct PreparedUpload {
     pub(crate) handle: String,
     pub(crate) dims: Option<(u32, u32)>,
     pub(crate) ext: Option<(&'static str, &'static str)>,
+    pub(crate) options: Options,
 }
 
 #[async_trait::async_trait]
 pub(crate) trait MediaWorker: Send + Sync {
     async fn detect_ext(&self, source: &Arc<dyn TempData>) -> Option<(&'static str, &'static str)>;
-    async fn split_pdf_to_png_pages(
-        &self,
-        path: &Path,
-    ) -> Result<Vec<Arc<dyn TempData>>, ProcessingError>;
     async fn process_and_upload(
         &self,
         source: Arc<dyn TempData>,
@@ -57,77 +60,6 @@ impl MediaWorker for DefaultMediaWorker {
         }
     }
 
-    async fn split_pdf_to_png_pages(
-        &self,
-        path: &Path,
-    ) -> Result<Vec<Arc<dyn TempData>>, ProcessingError> {
-        let path = path.to_path_buf();
-        let (workdir, pages) = tokio::task::spawn_blocking(
-            move || -> Result<(std::path::PathBuf, Vec<std::path::PathBuf>), std::io::Error> {
-                let workdir =
-                    std::env::temp_dir().join(format!("storage_pdf_{}", uuid::Uuid::new_v4()));
-                std::fs::create_dir_all(&workdir)?;
-                let prefix = workdir.join("page");
-
-                let output = std::process::Command::new("pdftoppm")
-                    .arg("-png")
-                    .arg(&path)
-                    .arg(&prefix)
-                    .output()?;
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    let _ = std::fs::remove_dir_all(&workdir);
-                    return Err(std::io::Error::other(format!(
-                        "pdftoppm failed: {}",
-                        stderr.trim()
-                    )));
-                }
-
-                let mut pages: Vec<_> = std::fs::read_dir(&workdir)?
-                    .filter_map(Result::ok)
-                    .map(|e| e.path())
-                    .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("png"))
-                    .collect();
-                pages.sort();
-
-                if pages.is_empty() {
-                    let _ = std::fs::remove_dir_all(&workdir);
-                    return Err(std::io::Error::other(
-                        "pdftoppm produced no pages for pdf input",
-                    ));
-                }
-
-                Ok((workdir, pages))
-            },
-        )
-        .await
-        .map_err(ProcessingError::PdfWorkerJoin)?
-        .map_err(ProcessingError::SplitPdf)?;
-
-        let mut out: Vec<Arc<dyn TempData>> = Vec::with_capacity(pages.len());
-        for page in pages {
-            let mut page_file = File::open(&page).await.map_err(ProcessingError::SplitPdf)?;
-            let mut tf = TempFile::new()
-                .await
-                .map_err(|e| ProcessingError::SplitPdf(std::io::Error::other(e.to_string())))?;
-            tokio::io::copy(&mut page_file, &mut tf)
-                .await
-                .map_err(ProcessingError::SplitPdf)?;
-            tf.flush().await.map_err(ProcessingError::SplitPdf)?;
-            tf.sync_all().await.map_err(ProcessingError::SplitPdf)?;
-            tf.seek(std::io::SeekFrom::Start(0))
-                .await
-                .map_err(ProcessingError::SplitPdf)?;
-            let file_temp = FileTempData::from_tempfile(tf)
-                .await
-                .map_err(ProcessingError::SplitPdf)?;
-            out.push(Arc::new(file_temp));
-        }
-
-        let _ = tokio::fs::remove_dir_all(workdir).await;
-        Ok(out)
-    }
-
     async fn process_and_upload(
         &self,
         source: Arc<dyn TempData>,
@@ -149,6 +81,10 @@ impl MediaWorker for DefaultMediaWorker {
         let mut final_ext = ext;
         let mut dims = None;
         let upload_handle = format!("temp/{}", uuid::Uuid::new_v4());
+        if is_image {
+            //TODO: spawn hashing task, which will run in a worker pool. States are, waiting, done-processing, processing. Items that are truly done or had an error get removed. its possible to attach an id to them or mark them as canceled in any state. marked as canceled will get removed & not further processed. if the id is set it will flush the hash to the db. it is only used at done-processing. wake up on done-processing and the others should just set the id, because it will reach done processing anyway and then flush it to the db.
+        }
+        let options = writer.generate_options();
 
         if is_image && !allowed {
             let buffer = source
@@ -181,7 +117,7 @@ impl MediaWorker for DefaultMediaWorker {
             writer
                 .write(
                     &upload_handle,
-                    None,
+                    &options,
                     converted
                         .open_stream()
                         .await
@@ -191,43 +127,24 @@ impl MediaWorker for DefaultMediaWorker {
                 .map_err(ProcessingError::UploadConverted)?;
         } else {
             if is_image {
-                if let Some(path) = source.as_local_path() {
-                    dims = Some(
-                        tokio::task::spawn_blocking(move || match image::image_dimensions(&path) {
-                            Ok(v) => Ok(v),
-                            Err(_) => {
-                                let file = std::fs::File::open(&path)?;
-                                let reader = std::io::BufReader::new(file);
-                                image::ImageReader::new(reader)
-                                    .with_guessed_format()?
-                                    .into_dimensions()
-                            }
-                        })
-                        .await
-                        .map_err(ProcessingError::DimensionWorkerJoin)?
-                        .map_err(ProcessingError::ReadImageDimensions)?,
-                    );
-                } else {
-                    let bytes = source
-                        .read_all()
-                        .await
-                        .map_err(ProcessingError::ReadTempFile)?;
-                    dims = Some(
-                        tokio::task::spawn_blocking(move || {
-                            image::ImageReader::new(Cursor::new(bytes))
-                                .with_guessed_format()?
-                                .into_dimensions()
-                        })
-                        .await
-                        .map_err(ProcessingError::DimensionWorkerJoin)?
-                        .map_err(ProcessingError::ReadImageDimensions)?,
-                    );
-                }
+                let s = source.clone();
+                let s = s.open().await.unwrap();
+                dims = Some(
+                    tokio::task::spawn_blocking(move || {
+                        let v: ImageReader<BufReader<_>> = ImageReader::new(BufReader::new(s));
+                        v.with_guessed_format()
+                            .map_err(|e| image::ImageError::IoError(e))
+                            .and_then(|v| v.into_dimensions())
+                    })
+                    .await
+                    .map_err(ProcessingError::DimensionWorkerJoin)?
+                    .map_err(ProcessingError::ReadImageDimensions)?,
+                );
             }
             writer
                 .write(
                     &upload_handle,
-                    None,
+                    &options,
                     source
                         .open_stream()
                         .await
@@ -241,6 +158,7 @@ impl MediaWorker for DefaultMediaWorker {
             handle: upload_handle,
             dims,
             ext: final_ext,
+            options,
         })
     }
 }

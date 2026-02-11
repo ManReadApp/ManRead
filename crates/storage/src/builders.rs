@@ -3,7 +3,11 @@ use std::{
     sync::Arc,
 };
 
-use crate::{backends::StorageWriter, error::StorageResult, FileBuilderExt, StorageError};
+use crate::{
+    backends::{AesOptions, StorageWriter},
+    error::StorageResult,
+    FileBuilderExt, Options, StorageError,
+};
 
 pub struct FileBuilder {
     pub(crate) temp_id: String,
@@ -11,6 +15,7 @@ pub struct FileBuilder {
     pub(crate) ext: Option<(&'static str, &'static str)>,
     pub(crate) dims: Option<(u32, u32)>,
     pub(crate) allowed_drop: bool,
+    pub(crate) options: Options,
     pub(crate) writer: Arc<dyn StorageWriter>,
 }
 
@@ -38,7 +43,7 @@ impl FileBuilder {
         self.ext.map(|v| v.1).ok_or(StorageError::MissingExtension)
     }
 
-    async fn build(mut self) -> StorageResult<()> {
+    async fn build(mut self) -> StorageResult<Option<AesOptions>> {
         self.allowed_drop = true;
         if let Some((_, ext)) = self.ext {
             let ext = ext.strip_prefix('.').unwrap_or(ext);
@@ -49,7 +54,7 @@ impl FileBuilder {
         validate_target_key(&self.target_id)?;
         let key = self.target_id.to_string_lossy().to_string();
         self.writer.rename(&self.temp_id, &key).await?;
-        Ok(())
+        Ok(self.options.aes.clone())
     }
 
     fn add_path<P>(mut self, path: P) -> Self
@@ -135,19 +140,19 @@ fn from_cover(fb: FileBuilder) -> FileBuilder {
 }
 
 impl UserCoverFileBuilder {
-    pub async fn build(self, id: &str) -> StorageResult<()> {
+    pub async fn build(self, id: &str) -> StorageResult<Option<AesOptions>> {
         self.b.add_path(id).build().await
     }
 }
 
 impl CoverFileBuilder {
-    pub async fn build(self, id: &str) -> StorageResult<()> {
+    pub async fn build(self, id: &str) -> StorageResult<Option<AesOptions>> {
         self.b.add_path(id).build().await
     }
 }
 
 impl MangaPageFileBuilder {
-    pub async fn build(self, id: usize) -> StorageResult<()> {
+    pub async fn build(self, id: usize) -> StorageResult<Option<AesOptions>> {
         self.b.add_path(id.to_string()).build().await
     }
 }

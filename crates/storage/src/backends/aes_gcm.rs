@@ -12,7 +12,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::backends::{ByteStream, Object, Options, StorageReader, StorageWriter};
+use crate::backends::{ByteStream, GenerateOptions, Object, Options, StorageReader, StorageWriter};
 
 const TAG_LEN: usize = 16;
 const LEN_LEN: usize = 4;
@@ -89,17 +89,17 @@ impl<S> StorageReader for EncryptedStorage<S>
 where
     S: StorageReader,
 {
-    async fn get(&self, key: &str, options: Option<Options>) -> Result<Object, io::Error> {
-        let mut obj = self.inner.get(key, options.clone()).await?;
+    async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
+        let mut obj = self.inner.get(key, options).await?;
 
-        match options {
+        match &options.aes {
             Some(options) => {
                 let decrypting = Aes256GcmChunkedDecrypt::new(
                     obj.stream,
                     options.key,
                     options.nonce,
                     options.counter,
-                    options.aad,
+                    options.aad.clone(),
                 );
 
                 obj.stream = Box::pin(decrypting);
@@ -313,6 +313,11 @@ where
         }
     }
 }
+impl<S: GenerateOptions> GenerateOptions for EncryptedStorage<S> {
+    fn generate_options(&self) -> Options {
+        Options::new_aes()
+    }
+}
 
 #[async_trait::async_trait]
 impl<S> StorageWriter for EncryptedStorage<S>
@@ -322,24 +327,24 @@ where
     async fn write(
         &self,
         key: &str,
-        options: Option<Options>,
+        options: &Options,
         stream: ByteStream,
     ) -> Result<(), std::io::Error> {
-        match options {
-            Some(options) => {
-                let aad = options.aad.clone();
+        match options.aes.clone() {
+            Some(aes_options) => {
+                let aad = aes_options.aad.clone();
                 let encrypting = Aes256GcmChunkedEncrypt::new(
                     stream,
-                    options.key,
-                    options.nonce,
-                    options.counter,
+                    aes_options.key,
+                    aes_options.nonce,
+                    aes_options.counter,
                     aad,
                 );
 
                 let enc_stream: ByteStream = Box::pin(encrypting);
-                self.inner.write(key, Some(options), enc_stream).await
+                self.inner.write(key, options, enc_stream).await
             }
-            None => self.inner.write(key, None, stream).await,
+            None => self.inner.write(key, options, stream).await,
         }
     }
 
