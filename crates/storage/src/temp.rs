@@ -1,4 +1,5 @@
 use std::{
+    fs::File as StdFile,
     io::{self, Cursor, Read, Seek, SeekFrom},
     path::PathBuf,
     sync::Arc,
@@ -8,7 +9,7 @@ use async_tempfile::TempFile;
 use bytes::Bytes;
 use futures_util::{stream, StreamExt as _};
 use tokio::{
-    fs::File,
+    fs::File as TokioFile,
     io::{AsyncReadExt as _, AsyncSeekExt as _},
     sync::Mutex,
     task::spawn_blocking,
@@ -53,8 +54,59 @@ pub(crate) struct FileTempData {
 
 struct FileTempInner {
     _temp: Option<TempFile>,
-    file: Mutex<File>,
+    file: Mutex<TokioFile>,
     path: PathBuf,
+}
+
+struct FileSliceReader {
+    file: StdFile,
+    start: u64,
+    len: u64,
+    pos: u64,
+}
+
+impl Read for FileSliceReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.pos >= self.len || buf.is_empty() {
+            return Ok(0);
+        }
+
+        let remaining = (self.len - self.pos) as usize;
+        let to_read = remaining.min(buf.len());
+        let n = self.file.read(&mut buf[..to_read])?;
+        self.pos = self.pos.saturating_add(n as u64);
+        Ok(n)
+    }
+}
+
+impl Seek for FileSliceReader {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let len = self.len as i128;
+        let cur = self.pos as i128;
+        let next = match pos {
+            SeekFrom::Start(v) => v as i128,
+            SeekFrom::End(v) => len + v as i128,
+            SeekFrom::Current(v) => cur + v as i128,
+        };
+
+        if next < 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "invalid seek to negative position",
+            ));
+        }
+
+        let next = u64::try_from(next).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "seek position overflow")
+        })?;
+        let abs = self.start.checked_add(next).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "seek position overflow")
+        })?;
+
+        self.file.seek(SeekFrom::Start(abs))?;
+        self.pos = next;
+        Ok(next)
+    }
 }
 
 impl FileTempData {
@@ -65,7 +117,7 @@ impl FileTempData {
         let full_len = tf.metadata().await?.len();
         Ok(Self {
             inner: Arc::new(FileTempInner {
-                file: Mutex::new(File::open(tf.file_path()).await?),
+                file: Mutex::new(TokioFile::open(tf.file_path()).await?),
                 path: tf.file_path().to_path_buf(),
                 _temp: Some(tf),
             }),
@@ -88,7 +140,15 @@ impl Drop for FileTempInner {
 #[async_trait::async_trait]
 impl TempData for FileTempData {
     async fn open(&self) -> std::io::Result<Box<DynReadSeekSend>> {
-        todo!()
+        let mut file = TokioFile::open(&self.inner.path).await?;
+        file.seek(SeekFrom::Start(self.offset)).await?;
+        let file = file.into_std().await;
+        Ok(Box::new(FileSliceReader {
+            file,
+            start: self.offset,
+            len: self.len,
+            pos: 0,
+        }))
     }
     async fn len(&self) -> std::io::Result<u64> {
         Ok(self.len)
@@ -113,7 +173,7 @@ impl TempData for FileTempData {
     }
 
     async fn open_stream(&self) -> std::io::Result<ByteStream> {
-        let mut file = File::open(&self.inner.path).await?;
+        let mut file = TokioFile::open(&self.inner.path).await?;
         file.seek(std::io::SeekFrom::Start(self.offset)).await?;
         let reader = file.take(self.len);
         let stream = ReaderStream::new(reader).boxed();

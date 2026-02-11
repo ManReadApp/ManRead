@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/api",
     "crates/api_structure",
     "crates/apiv2",
     "crates/db",
@@ -15,8 +14,8 @@ members = [
     "crates/search-parser",
     "crates/storage",
 ]
+exclude = ["crates/api", "frontend"]
 
-exclude = ["frontend"]
 [workspace.package]
 edition = "2021"
 version = "0.1.0"

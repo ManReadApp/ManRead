@@ -163,7 +163,7 @@ mod tests {
     async fn manga_container_rejects_large_metadata() {
         let mut payload = Vec::new();
         payload.extend_from_slice(MANGA_MAGIC);
-        payload.extend_from_slice(&(1024_u32 * 1024 + 1).to_le_bytes());
+        payload.extend_from_slice(&(50_u32 * 1024 * 1024 + 1).to_le_bytes());
         let source: Arc<dyn TempData> = Arc::new(MemoryTempData::from_bytes(payload));
 
         let err = match MagicContainerWorker.extract_payload(source).await {

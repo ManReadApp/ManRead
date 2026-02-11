@@ -18,7 +18,7 @@ use rand::{rngs::OsRng, TryRngCore};
 
 use std::{
     pin::Pin,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use bytes::Bytes;
@@ -49,8 +49,12 @@ impl AesOptions {
         let mut key = [0u8; 32];
         let mut nonce = [0u8; 12];
 
-        OsRng.try_fill_bytes(&mut key);
-        OsRng.try_fill_bytes(&mut nonce);
+        OsRng
+            .try_fill_bytes(&mut key)
+            .expect("os rng should be available for aes key generation");
+        OsRng
+            .try_fill_bytes(&mut nonce)
+            .expect("os rng should be available for aes nonce generation");
 
         Self {
             key,
@@ -95,6 +99,32 @@ mod tests {
     use bytes::{Bytes, BytesMut};
     use futures_util::{stream, StreamExt as _};
     use std::time::{Duration, Instant};
+
+    #[cfg(feature = "encode")]
+    use crate::{backends::s3::KeyMapper, StorageError};
+
+    #[cfg(feature = "encode")]
+    #[derive(Default)]
+    struct TestAesMapper {
+        inner: tokio::sync::Mutex<std::collections::HashMap<String, AesOptions>>,
+    }
+
+    #[cfg(feature = "encode")]
+    #[async_trait::async_trait]
+    impl KeyMapper<AesOptions> for TestAesMapper {
+        async fn get(&self, key: &str) -> Result<Option<AesOptions>, StorageError> {
+            Ok(self.inner.lock().await.get(key).cloned())
+        }
+
+        async fn set(&self, key: &str, value: AesOptions) -> Result<(), StorageError> {
+            self.inner.lock().await.insert(key.to_owned(), value);
+            Ok(())
+        }
+
+        async fn remove(&self, key: &str) -> Result<Option<AesOptions>, StorageError> {
+            Ok(self.inner.lock().await.remove(key))
+        }
+    }
 
     fn stream_from_parts(parts: Vec<Vec<u8>>) -> ByteStream {
         let chunks = parts
@@ -161,11 +191,10 @@ mod tests {
     #[cfg(feature = "encode")]
     #[tokio::test]
     async fn roundtrip_mem_with_aes() -> Result<(), std::io::Error> {
-        let storage = EncryptedStorage::new(MemStorage::new());
+        let storage = EncryptedStorage::new(MemStorage::new(), TestAesMapper::default());
         let payload = b"encrypted-memory-roundtrip-with-multiple-chunks";
-        let opts = Options::new([7u8; 32], [9u8; 12], 0, b"roundtrip-aad".to_vec());
 
-        assert_roundtrip(&storage, "enc/mem", payload, &opts).await
+        assert_roundtrip(&storage, "enc/mem", payload, &Options::default()).await
     }
 
     #[cfg(feature = "encode")]
@@ -174,9 +203,8 @@ mod tests {
         let storage = EncryptedStorage::new(DelayStorage::new(
             MemStorage::new(),
             Duration::from_millis(10),
-        ));
+        ), TestAesMapper::default());
         let payload = b"encrypted-delayed-memory-roundtrip-with-multiple-chunks";
-        let opts = Options::new([3u8; 32], [5u8; 12], 0, b"rename-aad".to_vec());
 
         storage
             .write(
@@ -190,7 +218,7 @@ mod tests {
             .await?;
         storage.rename("tmp/key", "final/key").await?;
 
-        let obj = storage.get("final/key", &opts).await?;
+        let obj = storage.get("final/key", &Options::default()).await?;
         let got = read_all(obj.stream).await?;
         assert_eq!(got.as_slice(), payload);
         Ok(())
@@ -198,12 +226,17 @@ mod tests {
 
     #[cfg(feature = "encode")]
     #[tokio::test]
-    async fn roundtrip_mem_with_aes_nonzero_counter() -> Result<(), std::io::Error> {
-        let storage = EncryptedStorage::new(MemStorage::new());
-        let payload = b"encrypted-memory-roundtrip-with-nonzero-counter";
-        let opts = Options::new([11u8; 32], [13u8; 12], 42, b"counter-aad".to_vec());
+    async fn roundtrip_mem_with_aes_internal_options() -> Result<(), std::io::Error> {
+        let storage = EncryptedStorage::new(MemStorage::new(), TestAesMapper::default());
+        let payload = b"encrypted-memory-roundtrip-with-internal-options";
 
-        assert_roundtrip(&storage, "enc/mem/nonzero-counter", payload, &opts).await
+        assert_roundtrip(
+            &storage,
+            "enc/mem/internal-options",
+            payload,
+            &Options::default(),
+        )
+        .await
     }
 
     #[cfg(feature = "encode")]
@@ -276,9 +309,8 @@ mod tests {
     #[cfg(feature = "encode")]
     #[tokio::test]
     async fn roundtrip_mem_with_aes_small_read_chunks() -> Result<(), std::io::Error> {
-        let storage = EncryptedStorage::new(ChunkingMemStorage::new(3));
+        let storage = EncryptedStorage::new(ChunkingMemStorage::new(3), TestAesMapper::default());
         let payload = b"encrypted-stream-partial-frames-should-not-stall".to_vec();
-        let opts = Options::new([17u8; 32], [19u8; 12], 1, b"small-chunk-aad".to_vec());
 
         storage
             .write(
@@ -291,7 +323,7 @@ mod tests {
             )
             .await?;
 
-        let obj = storage.get("enc/chunked", &opts).await?;
+        let obj = storage.get("enc/chunked", &Options::default()).await?;
         let got = tokio::time::timeout(Duration::from_secs(2), read_all(obj.stream))
             .await
             .map_err(|_| {
