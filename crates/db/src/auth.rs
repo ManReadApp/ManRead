@@ -1,4 +1,4 @@
-use api_structure::models::auth::kind::TokenKind;
+use api_structure::v1::ActivationTokenKind;
 use helper::random_string;
 use serde::{Deserialize, Serialize};
 pub use surrealdb_extras::RecordData;
@@ -34,8 +34,8 @@ pub struct AuthUser {
 }
 
 impl AuthUser {
-    pub fn get_kind(&self) -> TokenKind {
-        TokenKind::try_from(self.kind as u32).unwrap()
+    pub fn get_kind(&self) -> ActivationTokenKind {
+        ActivationTokenKind::try_from(self.kind).unwrap()
     }
 }
 
@@ -75,12 +75,12 @@ impl AuthTokenDBService {
         }
         Ok(search.remove(0))
     }
-    pub async fn create(&self, user_id: Option<String>, kind: TokenKind) -> DbResult<()> {
+    pub async fn create(&self, user_id: Option<String>, kind: ActivationTokenKind) -> DbResult<()> {
         let user = user_id.map(|v| RecordIdType::from((User::name(), v.as_str())));
         AuthUser {
             user,
             token: random_string(6),
-            kind: u32::from(kind),
+            kind: u32::try_from(kind).unwrap(),
             active_until_timestamp: None,
         }
         .add_i(&*DB)

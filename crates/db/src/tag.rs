@@ -1,4 +1,4 @@
-use api_structure::models::manga::tag::{Tag as GlobalTag, TagSex};
+use api_structure::v1::{Tag as GlobalTag, TagSex};
 use serde::{Deserialize, Serialize};
 use surrealdb_extras::{RecordData, RecordIdFunc, RecordIdType, SurrealSelect, SurrealTable};
 use surrealdb_extras::{SurrealTableInfo, ThingArray};
@@ -35,7 +35,7 @@ impl TagDBService {
             .map(|v| GlobalTag {
                 tag: v.data.tag,
                 description: v.data.description,
-                sex: TagSex::from(v.data.sex),
+                sex: TagSex::try_from(v.data.sex).unwrap(),
             })
             .collect())
     }
@@ -56,7 +56,7 @@ impl TagDBService {
             .map(|item| GlobalTag {
                 tag: item.tag,
                 description: item.description,
-                sex: TagSex::from(item.sex),
+                sex: TagSex::try_from(item.sex).unwrap(),
             })
             .collect())
     }

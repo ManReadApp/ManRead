@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use api_structure::models::{auth::role::Role, manga::tag::Tag};
+use api_structure::v1::{Role, Tag};
 use chrono::{DateTime, Utc};
 use helper::random_string;
 use serde::{Deserialize, Serialize};
@@ -349,7 +349,7 @@ impl UserDBService {
             .await?
             .ok_or(DbError::NotFound)?;
         Ok((
-            Role::from(data.data.role),
+            Role::try_from(data.data.role).unwrap(),
             data.data
                 .generated
                 .map(|v| v.into_inner().to_u64())

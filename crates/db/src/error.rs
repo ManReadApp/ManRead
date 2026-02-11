@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use storage::StorageError;
 
+#[derive(Debug)]
 pub enum DbError {
     NotFound,
     InvalidActivationToken,

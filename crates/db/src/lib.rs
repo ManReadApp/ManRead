@@ -12,8 +12,9 @@ pub mod tag;
 pub mod user;
 pub mod version;
 pub mod version_link;
-
 use std::sync::{Arc, LazyLock};
+pub use surrealdb::RecordId;
+pub use surrealdb_extras::SurrealTableInfo;
 
 use surrealdb::engine::remote::ws::Client;
 use surrealdb::Surreal;

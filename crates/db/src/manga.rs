@@ -1,16 +1,8 @@
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Range,
-};
+use std::collections::{HashMap, HashSet};
 
 use api_structure::{
-    models::manga::{
-        search::{Array, Item, ItemOrArray, ItemValue, Order},
-        status::Status,
-        tag::TagSex,
-        visiblity::Visibility,
-    },
-    req::manga::search::SearchRequest,
+    search::{Array, Item, ItemOrArray, ItemValue, Order, SearchRequest},
+    v1::{Status, TagSex, Visibility},
 };
 use serde::{Deserialize, Serialize};
 use surrealdb::{opt::PatchOp, Datetime};

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use storage::{FileBuilder, FileBuilderExt as _, MangaPageFileBuilder};
+use storage::{FileBuilderExt as _, MangaPageFileBuilder};
 use surrealdb::Datetime;
 use surrealdb_extras::{RecordData, RecordIdType, SurrealTable, ThingArray};
 
@@ -51,8 +51,10 @@ impl PageDBService {
             }
             .add(&*DB)
             .await?;
-            out.push(p.ok_or(DbError::NotFound)?);
-            page.build(index + 1).await?
+            let p = p.ok_or(DbError::NotFound)?;
+
+            let enc = page.build(index + 1).await?;
+            out.push(p);
         }
         Ok(out.into_iter().map(Into::into).collect())
     }
