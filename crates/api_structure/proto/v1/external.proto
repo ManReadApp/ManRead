@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package v1;
+
+message ExternalSite {
+  string url = 1;
+  string icon_uri = 2;
+}

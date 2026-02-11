@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package v1;
+
+import "google/protobuf/wrappers.proto";
+import "v1/util.proto";
+
+message ReaderChapter {
+  string chapter_id = 1;
+  repeated string titles = 2;
+  double chapter = 3;
+  repeated string sources = 4;
+
+  optional string release_date = 5;
+
+  map<string, string> versions = 6;
+}
+
+message ReaderPage {
+  string page_id = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+  string ext = 4;
+
+  bool translation = 5;
+
+  Progress progress = 6;
+}
+
+message Progress {
+  double width_start = 1;
+  double width_end = 2;
+  double height_start = 3;
+  double height_end = 4;
+}
+
+message ReaderPageResponse {
+  string version_id = 1;
+
+  double hide_top = 2;
+  double hide_bottom = 3;
+
+  map<uint32, ReaderPage> pages = 4;
+}
+
+message MangaReaderResponse {
+  string manga_id = 1;
+
+  map<string, StringList> titles = 2;
+
+  string kind = 3;
+
+  optional string description = 4;
+
+  repeated ReaderChapter chapters = 5;
+
+  bool favorite = 6;
+
+  string open_chapter = 7;
+
+  double progress = 8;
+}
+
+message ReadProgressRequest {
+  string chapter_id = 1;
+  double progress = 2;
+}
+
+message MangaReaderRequest {
+  string manga_id = 1;
+
+  google.protobuf.StringValue chapter_id = 2;
+}
+
+message ReaderPageRequest {
+  string chapter_version_id = 1;
+}

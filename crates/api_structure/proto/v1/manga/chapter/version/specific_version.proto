@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package v1;
+
+message ChapterVersionDeleteRequest {
+  string chapter_id = 1;
+  string version_id = 2;
+}
+
+message Page {
+  string id = 1;
+  uint32 page = 2;
+  uint32 width = 3;
+  uint32 height = 4;
+  string ext = 5;
+}
+
+message ChapterVersion {
+  map<uint32, Page> pages = 1;
+
+  optional string link = 2;
+}

@@ -2,22 +2,20 @@ use apistos::ApiComponent;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub mod admin;
-pub mod auth;
-pub mod chapter;
-pub mod fonts;
-pub mod list;
-pub mod manga;
-pub mod reader;
-pub mod version;
+use crate::v1::{LoginWithEmailAndPassword, LoginWithUsernameAndPassword};
 
-#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
-pub struct IdRequest {
-    pub id: String,
+#[derive(Deserialize, Serialize, JsonSchema, ApiComponent)]
+#[serde(untagged)]
+pub enum LoginRequest {
+    Username(LoginWithUsernameAndPassword),
+    Email(LoginWithEmailAndPassword),
 }
 
-#[derive(Serialize, Deserialize, ApiComponent, JsonSchema)]
-pub struct PaginationRequest {
-    pub page: u32,
-    pub limit: u32,
+impl LoginRequest {
+    pub fn password(&self) -> String {
+        match self {
+            LoginRequest::Username(v) => v.password.clone(),
+            LoginRequest::Email(v) => v.password.clone(),
+        }
+    }
 }

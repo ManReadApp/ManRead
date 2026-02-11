@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package v1;
+
+import "v1/auth/role_token.proto";
+
+message Claim {
+  string id = 1;
+  Role role = 2;
+
+  JwtType type = 3;
+
+  uint64 exp = 4;
+}
+
+enum JwtType {
+  JWT_TYPE_UNSPECIFIED = 0;
+  JWT_TYPE_ACCESS_TOKEN = 1;
+  JWT_TYPE_REFRESH_TOKEN = 2;
+}
+
+message JWTsResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message TokenInfo {
+  string token_id = 1;
+
+  optional string user_id = 2;
+
+  TokenKind kind = 3;
+}
+
+enum TokenKind {
+  TOKEN_KIND_UNSPECIFIED = 0;
+  TOKEN_KIND_ACCESS = 1;
+  TOKEN_KIND_REFRESH = 2;
+}
+
+message TokenRefreshRequest {
+  string refresh_token = 1;
+}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package v1;
+
+message AddListRequest {
+  string name = 1;
+}
+
+message DeleteListRequest {
+  string name = 1;
+}
+
+message AddMangaToListRequest {
+  string manga_id = 1;
+}
+
+message RemoveMangaToListRequest {
+  string manga_id = 1;
+}

@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package v1;
+import "v1/util.proto";
+import "v1/tag.proto";
+import "google/protobuf/wrappers.proto";
+import "v1/manga/chapter/chapter.proto";
+import "v1/external.proto";
+
+message MangaInfoRequest {
+  string manga_id = 1;
+}
+
+message Relation {
+  string manga_id = 1;
+  string kind = 2;
+}
+
+message Scraper {
+  string channel = 1;
+  string url = 2;
+}
+
+
+message EditMangaRequest {
+  string manga_id = 1;
+
+  map<string, StringList> names = 2;
+
+  string kind = 3;
+
+  Status status = 4;
+
+  optional string description = 5;
+
+  repeated Tag tags = 6;
+
+  repeated string authors = 7;
+  repeated string publishers = 8;
+  repeated string artists = 9;
+
+  repeated string sources = 10;
+
+  repeated Scraper scrapers = 11;
+}
+
+message AddMangaRequest {
+  map<string, StringList> names = 1;
+
+  string kind = 2;
+
+  Status status = 3;
+
+  optional string description = 4;
+
+  repeated Tag tags = 5;
+
+  string image_temp_name = 6;
+
+  repeated string authors = 7;
+  repeated string publishers = 8;
+  repeated string artists = 9;
+
+  repeated string sources = 10;
+
+  repeated Scraper scrapers = 11;
+}
+
+message UpdateMangaRequest {
+  string id = 1;
+
+  map<string, StringList> names = 2;
+
+  string kind = 3;
+
+  uint64 status = 4;
+
+  optional string description = 5;
+
+  repeated Tag tags = 6;
+
+  repeated string author_ids = 7;
+  repeated string artist_ids = 8;
+
+  repeated string sources = 9;
+
+  repeated Scraper scrapers = 10;
+}
+
+message OptionalString {
+  optional string value = 1;
+}
+
+message MangaInfoResponse {
+  string manga_id = 1;
+
+  map<string, StringList> titles = 2;
+
+  string kind = 3;
+
+  optional string description = 4;
+
+  repeated Tag tags = 5;
+
+  Status status = 6;
+  Visibility visibility = 7;
+
+  string uploader = 8;
+
+  bool my = 9;
+
+  repeated string artists = 10;
+  repeated string authors = 11;
+  repeated string publishers = 12;
+
+  repeated OptionalString cover_ext = 13;
+
+  repeated Chapter chapters = 14;
+
+  repeated ExternalSite sources = 15;
+
+  repeated Scraper scrapers = 16;
+
+  repeated Relation relations = 17;
+
+  bool scraper = 18;
+  bool favorite = 19;
+  bool progress = 20;
+}
+
+enum Status {
+  STATUS_DROPPED = 0;
+  STATUS_HIATUS = 1;
+  STATUS_ONGOING = 2;
+  STATUS_COMPLETED = 3;
+  STATUS_UPCOMING = 4;
+}
+
+enum Visibility {
+  // Everyone
+  VISIBILITY_VISIBLE = 0;
+
+  // Admins, co-admins, mods, and author
+  VISIBILITY_HIDDEN = 1;
+
+  // Admins, co-admins, mods
+  VISIBILITY_ADMIN_REVIEW = 2;
+}

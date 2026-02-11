@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package v1;
+
+message TagsRequest {
+  string query = 1;
+  uint32 limit = 2;
+  TagSex sex = 3;
+}
+
+message Tag {
+  string tag = 1;
+  optional string description = 2;
+  TagSex sex = 3;
+}
+
+enum TagSex {
+  TAG_SEX_UNKNOWN = 0;
+  TAG_SEX_FEMALE = 1;
+  TAG_SEX_MALE = 2;
+  TAG_SEX_BOTH = 3;
+  TAG_SEX_NONE = 4;
+  TAG_SEX_FEMALE_MALE = 5;
+  TAG_SEX_MALE_FEMALE = 6;
+}

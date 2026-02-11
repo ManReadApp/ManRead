@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package v1;
+
+
+message LoginWithUsernameAndPassword {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginWithEmailAndPassword {
+  string email = 1;
+  string password = 2;
+}

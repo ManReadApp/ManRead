@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package v1;
+import "v1/auth/user.proto";
+import "google/protobuf/wrappers.proto";
+
+message RegisterRequest {
+  string name = 1;
+  string email = 2;
+  string password = 3;
+
+  uint64 birthdate = 4;
+
+  Gender gender = 5;
+  google.protobuf.StringValue icon_temp_name = 6;
+}

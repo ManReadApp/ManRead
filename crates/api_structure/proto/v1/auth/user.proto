@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package v1;
+import "v1/util.proto";
+import "google/protobuf/wrappers.proto";
+import "v1/auth/reset_password.proto";
+
+message UpdateUserRequest {
+  StringList name = 1;
+  PasswordChange password = 2;
+  google.protobuf.StringValue icon_temp_name = 3;
+  google.protobuf.StringValue description = 4;
+  StringList links = 5;
+  google.protobuf.StringValue thumbnail = 6;
+}
+
+message AdminCreateUserRequest {
+  string name = 1;
+}
+
+message UserSearchRequest {
+  string query = 1;
+  uint32 page = 2;
+  uint32 limit = 3;
+}
+
+enum Gender {
+  GENDER_UNKNOWN = 0;
+  GENDER_MALE = 1;
+  GENDER_FEMALE = 2;
+}

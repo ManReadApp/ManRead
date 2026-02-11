@@ -12,3 +12,11 @@ serde = { workspace = true, features = ["derive", "rc"] }
 chrono = { workspace = true, features = ["serde"] }
 schemars = { workspace = true }
 apistos = { workspace = true }
+prost = { git = "https://github.com/ManReadApp/prost.git", branch = "enum" }
+bytes.workspace = true
+prost-types = { git = "https://github.com/ManReadApp/prost.git", branch = "enum" }
+prost-derive = { git = "https://github.com/ManReadApp/prost.git", branch = "enum" }
+
+[build-dependencies]
+prost-build = { git = "https://github.com/ManReadApp/prost.git", branch = "enum" }
+prost-derive = { git = "https://github.com/ManReadApp/prost.git", branch = "enum" }

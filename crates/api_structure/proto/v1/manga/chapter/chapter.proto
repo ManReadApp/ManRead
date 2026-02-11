@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package v1;
+
+import "v1/tag.proto";
+
+message Chapter {
+  string id = 1;
+  repeated string titles = 2;
+
+  double chapter = 3;
+
+  repeated Tag tags = 4;
+  repeated string sources = 5;
+
+  optional string release_date = 6;
+}
+
+message ChapterInfoResponse {
+  repeated string titles = 1;
+  double chapter = 2;
+  repeated Tag tags = 3;
+  repeated string sources = 4;
+  optional string release_date = 5;
+  map<string, string> versions = 6;
+}

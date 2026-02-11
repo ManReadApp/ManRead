@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package v1;
+
+message MangaCoverRequest {
+  string manga_id = 1;
+  string file_ext = 2;
+}
+
+message MangaReaderImageRequest {
+  string manga_id = 1;
+  string chapter_id = 2;
+  string version_id = 3;
+  uint32 page = 4;
+  string file_ext = 5;
+}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package v1;
+
+import "google/protobuf/wrappers.proto";
+
+
+message ChapterVersionEditRequest {
+  string id = 1;
+  google.protobuf.StringValue rename = 2;
+  google.protobuf.StringValue update_translate_opts = 3;
+}
+
+message VersionInfoResponse {
+  string id = 1;
+  string name = 2;
+
+  optional string translate_opts = 3;
+}

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package v1;
+
+message StringList {
+  repeated string items = 1;
+}
+
+message IdRequest {
+  string id = 1;
+}
+
+message PaginationRequest {
+  uint32 page = 1;
+  uint32 limit = 2;
+}
