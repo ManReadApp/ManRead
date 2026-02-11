@@ -16,7 +16,10 @@ pub use disk::DiskStorage;
 pub use memory::MemStorage;
 use rand::{rngs::OsRng, TryRngCore};
 
-use std::{pin::Pin, time::Duration};
+use std::{
+    pin::Pin,
+    time::{Duration, SystemTime},
+};
 
 use bytes::Bytes;
 use futures_core::Stream;
@@ -28,7 +31,7 @@ pub struct Object {
     pub content_length: Option<u64>,
     pub content_type: Option<mime::Mime>,
     pub etag: Option<String>,
-    pub last_modified: Option<Duration>,
+    pub last_modified: Option<SystemTime>,
 }
 
 //TODO: cache policy: when set cache_download => on manga image + download next 2 chapters and 2 prev; cleanup cache: on next chapter

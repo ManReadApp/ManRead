@@ -1,7 +1,6 @@
 use std::{
     io,
     path::{Component, Path, PathBuf},
-    time::UNIX_EPOCH,
 };
 
 use async_tempfile::TempFile;
@@ -118,17 +117,7 @@ impl StorageReader for DiskStorage {
         let path = self.key_path(key)?;
         let file = File::open(&path).await?;
         let meta = file.metadata().await.ok();
-        let mut lm = meta
-            .as_ref()
-            .map(|v| v.modified().ok())
-            .flatten()
-            .map(|v| v.duration_since(UNIX_EPOCH).ok())
-            .flatten();
-        if let Some(secs) = lm.map(|v| v.as_secs()) {
-            if secs >= 253_402_300_800 {
-                lm = None;
-            }
-        }
+        let lm = meta.as_ref().map(|v| v.modified().ok()).flatten();
 
         let len = meta.map(|m| m.len());
 
