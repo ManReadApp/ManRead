@@ -14,6 +14,7 @@ pub use delay::DelayStorage;
 #[cfg(feature = "disk")]
 pub use disk::DiskStorage;
 pub use memory::MemStorage;
+use rand::{rngs::OsRng, TryRngCore};
 
 use std::{pin::Pin, time::Duration};
 
@@ -40,59 +41,46 @@ pub struct AesOptions {
     aad: Vec<u8>,
 }
 
-#[derive(Clone)]
-pub struct Options {
-    pub(crate) aes: Option<AesOptions>,
-    pub cache_download: bool,
-}
+impl AesOptions {
+    pub fn new() -> Self {
+        let mut key = [0u8; 32];
+        let mut nonce = [0u8; 12];
 
-impl Options {
-    pub fn new_aes() -> Self {
-        todo!()
-    }
-    pub fn new(key: [u8; 32], nonce: [u8; 12], counter: u32, aad: Vec<u8>) -> Self {
-        Options {
-            aes: Some(AesOptions {
-                key,
-                nonce,
-                counter,
-                aad,
-            }),
-            cache_download: false,
+        OsRng.try_fill_bytes(&mut key);
+        OsRng.try_fill_bytes(&mut nonce);
+
+        Self {
+            key,
+            nonce,
+            aad: Vec::new(),
+            counter: 0,
         }
     }
+}
+
+#[derive(Clone)]
+pub struct Options {
+    pub cache_download: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Options {
-            aes: None,
             cache_download: false,
         }
     }
 }
 
 #[async_trait::async_trait]
-pub trait StorageReader: Send + Sync + 'static + GenerateOptions {
+pub trait StorageReader: Send + Sync + 'static {
     /// reads file as stream
     async fn get(&self, key: &str, options: &Options) -> Result<Object, std::io::Error>;
 }
 
-pub trait GenerateOptions {
-    fn generate_options(&self) -> Options {
-        Options::default()
-    }
-}
-
 #[async_trait::async_trait]
-pub trait StorageWriter: Send + Sync + 'static + GenerateOptions {
+pub trait StorageWriter: Send + Sync + 'static {
     /// add new object
-    async fn write(
-        &self,
-        key: &str,
-        options: &Options,
-        stream: ByteStream,
-    ) -> Result<(), std::io::Error>;
+    async fn write(&self, key: &str, stream: ByteStream) -> Result<(), std::io::Error>;
 
     /// already uploaded under a different key(old key gets removed and added under new key)
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), std::io::Error>;
@@ -132,7 +120,6 @@ mod tests {
         storage
             .write(
                 key,
-                options,
                 stream_from_parts(vec![
                     payload[..8].to_vec(),
                     payload[8..17].to_vec(),
@@ -191,7 +178,6 @@ mod tests {
         storage
             .write(
                 "tmp/key",
-                &opts,
                 stream_from_parts(vec![
                     payload[..13].to_vec(),
                     payload[13..29].to_vec(),
@@ -233,17 +219,10 @@ mod tests {
         }
     }
 
-    impl GenerateOptions for ChunkingMemStorage {}
-
     #[cfg(feature = "encode")]
     #[async_trait::async_trait]
     impl StorageWriter for ChunkingMemStorage {
-        async fn write(
-            &self,
-            key: &str,
-            _: &Options,
-            mut stream: ByteStream,
-        ) -> Result<(), std::io::Error> {
+        async fn write(&self, key: &str, mut stream: ByteStream) -> Result<(), std::io::Error> {
             let mut out = BytesMut::new();
             while let Some(chunk) = stream.next().await {
                 out.extend_from_slice(&chunk?);
@@ -301,7 +280,6 @@ mod tests {
         storage
             .write(
                 "enc/chunked",
-                &opts,
                 stream_from_parts(vec![
                     payload[..11].to_vec(),
                     payload[11..23].to_vec(),

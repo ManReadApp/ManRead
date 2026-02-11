@@ -2,7 +2,7 @@ use std::{io, time::Duration};
 
 use tokio::time::sleep;
 
-use crate::backends::{GenerateOptions, Object, Options, StorageReader, StorageWriter};
+use crate::backends::{Object, Options, StorageReader, StorageWriter};
 
 pub struct DelayStorage<S> {
     inner: S,
@@ -36,12 +36,6 @@ impl<S> DelayStorage<S> {
     }
 }
 
-impl<S: GenerateOptions> GenerateOptions for DelayStorage<S> {
-    fn generate_options(&self) -> Options {
-        self.inner.generate_options()
-    }
-}
-
 #[async_trait::async_trait]
 impl<S> StorageReader for DelayStorage<S>
 where
@@ -58,14 +52,9 @@ impl<S> StorageWriter for DelayStorage<S>
 where
     S: StorageWriter,
 {
-    async fn write(
-        &self,
-        key: &str,
-        options: &Options,
-        stream: crate::backends::ByteStream,
-    ) -> Result<(), io::Error> {
+    async fn write(&self, key: &str, stream: crate::backends::ByteStream) -> Result<(), io::Error> {
         sleep(self.write_delay).await;
-        self.inner.write(key, options, stream).await
+        self.inner.write(key, stream).await
     }
 
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), io::Error> {

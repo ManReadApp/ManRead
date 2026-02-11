@@ -12,7 +12,9 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::backends::{ByteStream, GenerateOptions, Object, Options, StorageReader, StorageWriter};
+use crate::backends::{
+    s3::KeyMapper, AesOptions, ByteStream, Object, Options, StorageReader, StorageWriter,
+};
 
 const TAG_LEN: usize = 16;
 const LEN_LEN: usize = 4;
@@ -76,11 +78,15 @@ pin_project! {
 
 pub struct EncryptedStorage<S> {
     inner: S,
+    mapper: Box<dyn KeyMapper<AesOptions>>,
 }
 
 impl<S> EncryptedStorage<S> {
-    pub fn new(inner: S) -> Self {
-        Self { inner }
+    pub fn new<T: KeyMapper<AesOptions>>(inner: S, mapper: T) -> Self {
+        Self {
+            inner,
+            mapper: Box::new(mapper),
+        }
     }
 }
 
@@ -91,8 +97,9 @@ where
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
         let mut obj = self.inner.get(key, options).await?;
+        let aes = self.mapper.get(key).await.unwrap();
 
-        match &options.aes {
+        match &aes {
             Some(options) => {
                 let decrypting = Aes256GcmChunkedDecrypt::new(
                     obj.stream,
@@ -313,42 +320,30 @@ where
         }
     }
 }
-impl<S: GenerateOptions> GenerateOptions for EncryptedStorage<S> {
-    fn generate_options(&self) -> Options {
-        Options::new_aes()
-    }
-}
 
 #[async_trait::async_trait]
 impl<S> StorageWriter for EncryptedStorage<S>
 where
     S: StorageWriter,
 {
-    async fn write(
-        &self,
-        key: &str,
-        options: &Options,
-        stream: ByteStream,
-    ) -> Result<(), std::io::Error> {
-        match options.aes.clone() {
-            Some(aes_options) => {
-                let aad = aes_options.aad.clone();
-                let encrypting = Aes256GcmChunkedEncrypt::new(
-                    stream,
-                    aes_options.key,
-                    aes_options.nonce,
-                    aes_options.counter,
-                    aad,
-                );
+    async fn write(&self, key: &str, stream: ByteStream) -> Result<(), std::io::Error> {
+        let aes_options = AesOptions::new();
+        self.mapper.set(key, aes_options.clone()).await.unwrap();
+        let aad = aes_options.aad.clone();
+        let encrypting = Aes256GcmChunkedEncrypt::new(
+            stream,
+            aes_options.key,
+            aes_options.nonce,
+            aes_options.counter,
+            aad,
+        );
 
-                let enc_stream: ByteStream = Box::pin(encrypting);
-                self.inner.write(key, options, enc_stream).await
-            }
-            None => self.inner.write(key, options, stream).await,
-        }
+        let enc_stream: ByteStream = Box::pin(encrypting);
+        self.inner.write(key, enc_stream).await
     }
 
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), std::io::Error> {
+        self.mapper.rename(orig_key, target_key).await.unwrap();
         self.inner.rename(orig_key, target_key).await
     }
 }

@@ -63,7 +63,7 @@ struct StoredFile {
 
 enum EntryState {
     Processing { state_tx: watch::Sender<()> },
-    Uploaded { handle: String, options: Options },
+    Uploaded { handle: String },
     Failed { error: ProcessingError },
 }
 
@@ -84,11 +84,10 @@ impl StoredFile {
         handle: String,
         dims: Option<(u32, u32)>,
         ext: Option<(&'static str, &'static str)>,
-        options: Options,
     ) {
         self.dims = dims;
         self.ext = ext;
-        self.state = EntryState::Uploaded { handle, options };
+        self.state = EntryState::Uploaded { handle };
     }
 
     fn mark_failed(&mut self, error: ProcessingError) {
@@ -245,12 +244,7 @@ impl StorageSystem {
                 if let Some(entry) = map.get_mut(&id2) {
                     match result {
                         Ok(Ok(upload)) => {
-                            entry.mark_uploaded(
-                                upload.handle,
-                                upload.dims,
-                                upload.ext,
-                                upload.options,
-                            );
+                            entry.mark_uploaded(upload.handle, upload.dims, upload.ext);
                         }
                         Ok(Err(error)) => {
                             entry.mark_failed(error);
@@ -311,9 +305,8 @@ impl StorageSystem {
                 };
 
                 match &entry.state {
-                    EntryState::Uploaded { handle, options } => {
+                    EntryState::Uploaded { handle } => {
                         let handle = handle.clone();
-                        let o = options.clone();
                         let entry = map.remove(id.inner_ref()).unwrap();
                         return Ok(FileBuilder {
                             dims: entry.dims,
@@ -321,7 +314,6 @@ impl StorageSystem {
                             temp_id: handle,
                             target_id: PathBuf::new(),
                             allowed_drop: false,
-                            options: o,
                             writer: self.writer.clone(),
                         });
                     }
@@ -360,14 +352,10 @@ impl StorageSystem {
                 let f = File::open(&ri).await?;
                 let id = PathBuf::from(format!("temp/{}", uuid::Uuid::new_v4()));
                 let id = id.to_string_lossy();
-                let options = Options::default();
-                self.writer
-                    .write(&id, &options, file_to_bytestream(f))
-                    .await?;
+                self.writer.write(&id, file_to_bytestream(f)).await?;
                 Ok(UserCoverFileBuilder::from(FileBuilder {
                     dims: None,
                     allowed_drop: false,
-                    options,
                     temp_id: id.to_string(),
                     ext: {
                         let mut bytes = Vec::new();
@@ -445,7 +433,7 @@ mod tests {
             containers::MagicContainerWorker,
             media::{MediaWorker, PreparedUpload},
         },
-        CoverFileBuilder, FileId, MangaBundleMetadata, MemStorage, Options, RegisterTempResult,
+        CoverFileBuilder, FileId, MangaBundleMetadata, MemStorage, RegisterTempResult,
         StorageError, StorageSystem, CHAPTER_MAGIC, MANGA_MAGIC,
     };
 
@@ -771,7 +759,6 @@ mod tests {
                 handle: format!("temp/{}", uuid::Uuid::new_v4()),
                 dims: None,
                 ext: None,
-                options: Options::default(),
             })
         }
     }

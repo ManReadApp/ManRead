@@ -71,6 +71,7 @@ Manga container payload: bincode metadata + ordered image blobs.
 
 If input is PDF (`application/pdf`), pages are split to PNG files and treated like a chapter (`Vec<FileId>`).
 Current implementation uses `pdftoppm` in a worker.
+TODO: get rid of pdftoppm
 
 ## Internal State
 

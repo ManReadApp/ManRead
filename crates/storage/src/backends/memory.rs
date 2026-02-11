@@ -3,7 +3,7 @@ use futures_util::{stream, TryStreamExt as _};
 use std::{collections::HashMap, io};
 use tokio::sync::RwLock;
 
-use crate::backends::{ByteStream, GenerateOptions, Object, Options, StorageReader, StorageWriter};
+use crate::backends::{ByteStream, Object, Options, StorageReader, StorageWriter};
 
 pub struct MemStorage {
     inner: RwLock<HashMap<String, Bytes>>,
@@ -23,7 +23,7 @@ impl MemStorage {
 
 #[async_trait::async_trait]
 impl StorageWriter for MemStorage {
-    async fn write(&self, key: &str, _: &Options, mut stream: ByteStream) -> Result<(), io::Error> {
+    async fn write(&self, key: &str, mut stream: ByteStream) -> Result<(), io::Error> {
         let mut buf = BytesMut::new();
 
         while let Some(chunk) = stream.try_next().await? {
@@ -48,7 +48,6 @@ impl StorageWriter for MemStorage {
         Ok(())
     }
 }
-impl GenerateOptions for MemStorage {}
 #[async_trait::async_trait]
 impl StorageReader for MemStorage {
     async fn get(&self, key: &str, _: &Options) -> Result<Object, std::io::Error> {

@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
 use crate::{
-    backends::{ByteStream, GenerateOptions, StorageReader, StorageWriter},
+    backends::{ByteStream, StorageReader, StorageWriter},
     DiskStorage, Object, Options,
 };
 
@@ -26,13 +26,8 @@ impl<S> CacheBackend<S> {
 
 #[async_trait::async_trait]
 impl<S: StorageWriter> StorageWriter for CacheBackend<S> {
-    async fn write(
-        &self,
-        key: &str,
-        options: &Options,
-        stream: ByteStream,
-    ) -> Result<(), io::Error> {
-        self.inner.write(key, options, stream).await
+    async fn write(&self, key: &str, stream: ByteStream) -> Result<(), io::Error> {
+        self.inner.write(key, stream).await
     }
 
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), io::Error> {
@@ -65,12 +60,6 @@ where
     }
 }
 
-impl<S: GenerateOptions> GenerateOptions for CacheBackend<S> {
-    fn generate_options(&self) -> Options {
-        self.inner.generate_options()
-    }
-}
-
 #[async_trait::async_trait]
 impl<S: StorageReader> StorageReader for CacheBackend<S> {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, std::io::Error> {
@@ -91,7 +80,7 @@ impl<S: StorageReader> StorageReader for CacheBackend<S> {
         let obj = self.inner.get(key, options).await?;
 
         if options.cache_download {
-            self.sr.write(key, options, obj.stream).await?;
+            self.sr.write(key, obj.stream).await?;
 
             self.sr.get(key, options).await
         } else {

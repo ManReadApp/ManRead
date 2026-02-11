@@ -1,31 +1,23 @@
 use std::{
-    io::{BufReader, Cursor},
-    path::Path,
+    io::{self, BufReader},
     sync::Arc,
 };
 
-use async_tempfile::TempFile;
 use futures_util::{StreamExt as _, TryStreamExt as _};
 use image::ImageReader;
-use tokio::{
-    fs::File,
-    io::{self, AsyncSeekExt as _, AsyncWriteExt as _},
-    sync::Semaphore,
-};
+use tokio::{fs::File, sync::Semaphore};
 use tokio_util::io::ReaderStream;
 
 use crate::{
     backends::{ByteStream, StorageWriter},
     error::ProcessingError,
     temp::{MemoryTempData, TempData},
-    Options,
 };
 
 pub(crate) struct PreparedUpload {
     pub(crate) handle: String,
     pub(crate) dims: Option<(u32, u32)>,
     pub(crate) ext: Option<(&'static str, &'static str)>,
-    pub(crate) options: Options,
 }
 
 #[async_trait::async_trait]
@@ -84,7 +76,6 @@ impl MediaWorker for DefaultMediaWorker {
         if is_image {
             //TODO: spawn hashing task, which will run in a worker pool. States are, waiting, done-processing, processing. Items that are truly done or had an error get removed. its possible to attach an id to them or mark them as canceled in any state. marked as canceled will get removed & not further processed. if the id is set it will flush the hash to the db. it is only used at done-processing. wake up on done-processing and the others should just set the id, because it will reach done processing anyway and then flush it to the db.
         }
-        let options = writer.generate_options();
 
         if is_image && !allowed {
             let buffer = source
@@ -117,7 +108,6 @@ impl MediaWorker for DefaultMediaWorker {
             writer
                 .write(
                     &upload_handle,
-                    &options,
                     converted
                         .open_stream()
                         .await
@@ -144,7 +134,6 @@ impl MediaWorker for DefaultMediaWorker {
             writer
                 .write(
                     &upload_handle,
-                    &options,
                     source
                         .open_stream()
                         .await
@@ -158,7 +147,6 @@ impl MediaWorker for DefaultMediaWorker {
             handle: upload_handle,
             dims,
             ext: final_ext,
-            options,
         })
     }
 }
