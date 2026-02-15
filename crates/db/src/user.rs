@@ -13,13 +13,15 @@ use surrealdb_extras::{
 use crate::{
     error::{DbError, DbResult},
     tag::Empty,
-    DB,
+    DbSession,
 };
 
 use super::manga::vec_default;
 
-#[derive(Default)]
-pub struct UserDBService {}
+#[derive(Clone)]
+pub struct UserDBService {
+    db: DbSession,
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum NotificationMode {
@@ -149,9 +151,15 @@ pub struct UserRolePassword {
     pub password: String,
 }
 
+impl Default for UserDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
+
 impl UserDBService {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
     }
 
     pub async fn get_or_create(&self, name: &str) -> DbResult<RecordIdFunc> {
@@ -179,7 +187,7 @@ impl UserDBService {
         limit: u32,
     ) -> DbResult<Vec<RecordData<SimpleUser>>> {
         let user: Vec<RecordData<SimpleUser>> = User::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!(
                 "WHERE names.any(|$s| string::contains(string::lowercase($s), \"{}\")) LIMIT {} START {}",
                 query.to_lowercase(),
@@ -219,7 +227,7 @@ impl UserDBService {
             updated: Default::default(),
             created: Default::default(),
         }
-        .add(&*DB)
+        .add(self.db.as_ref())
         .await?
         .ok_or(DbError::NotFound)?;
         Ok(RecordData {
@@ -234,21 +242,21 @@ impl UserDBService {
 
     pub async fn replace_names(&self, id: &str, names: Vec<String>) -> DbResult<()> {
         let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/names", names))
+            .patch(self.db.as_ref(), PatchOp::replace("/names", names))
             .await?;
         Ok(())
     }
 
     pub async fn set_password(&self, id: &str, password: String) -> DbResult<()> {
         let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/password", password))
+            .patch(self.db.as_ref(), PatchOp::replace("/password", password))
             .await?;
         Ok(())
     }
 
     pub async fn list(&self, page: u32, limit: u32) -> DbResult<Vec<RecordData<SimpleUser>>> {
         Ok(User::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!("LIMIT {} START {}", limit, (page - 1) * limit)),
         )
         .await?)
@@ -256,7 +264,7 @@ impl UserDBService {
 
     pub async fn info(&self, id: &str) -> DbResult<RecordData<User>> {
         RecordIdFunc::from((User::name(), id))
-            .get(&*DB)
+            .get(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)
     }
@@ -267,35 +275,35 @@ impl UserDBService {
 
     pub async fn add_achievement(&self, id: &str, achievement: Achievement) -> DbResult<()> {
         let _: Option<Empty> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::add("/achievements", achievement))
+            .patch(self.db.as_ref(), PatchOp::add("/achievements", achievement))
             .await?;
         Ok(())
     }
 
     pub async fn replace_description(&self, id: &str, description: String) -> DbResult<()> {
         let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/bio", description))
+            .patch(self.db.as_ref(), PatchOp::replace("/bio", description))
             .await?;
         Ok(())
     }
 
     pub async fn replace_icon_ext(&self, id: &str, icon_ext: &str) -> DbResult<()> {
         let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/icon_ext", icon_ext))
+            .patch(self.db.as_ref(), PatchOp::replace("/icon_ext", icon_ext))
             .await?;
         Ok(())
     }
 
     pub async fn replace_thumb_ext(&self, id: &str, thumb_ext: &str) -> DbResult<()> {
         let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/thumb_ext", thumb_ext))
+            .patch(self.db.as_ref(), PatchOp::replace("/thumb_ext", thumb_ext))
             .await?;
         Ok(())
     }
 
     pub async fn replace_links(&self, id: &str, links: Vec<String>) -> DbResult<()> {
         let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/links", links))
+            .patch(self.db.as_ref(), PatchOp::replace("/links", links))
             .await?;
         Ok(())
     }
@@ -304,17 +312,20 @@ impl UserDBService {
         todo!()
     }
     pub async fn email_exists(&self, email: &String) -> bool {
-        User::search(&*DB, Some(format!("WHERE email == \"{}\" LIMIT 1", email)))
-            .await
-            .map(|v: Vec<RecordData<Empty>>| !v.is_empty())
-            .unwrap_or_default()
+        User::search(
+            self.db.as_ref(),
+            Some(format!("WHERE email == \"{}\" LIMIT 1", email)),
+        )
+        .await
+        .map(|v: Vec<RecordData<Empty>>| !v.is_empty())
+        .unwrap_or_default()
     }
     pub async fn get_name_from_ids(
         &self,
         ids: impl Iterator<Item = RecordIdType<User>>,
     ) -> DbResult<Vec<String>> {
         let v: Vec<RecordData<UserName>> = ThingArray::from(ids.collect::<Vec<_>>())
-            .get_part(&*DB)
+            .get_part(self.db.as_ref())
             .await?;
         Ok(v.into_iter()
             .map(|v| v.data.names.first().cloned().unwrap_or_default())
@@ -322,7 +333,7 @@ impl UserDBService {
     }
     pub async fn name_exists(&self, name: &String) -> bool {
         let v: Vec<RecordData<Empty>> = User::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!(
                 "WHERE array::some(names, |$n: string| string::lowercase($n) = '{name}') LIMIT 1"
             )),
@@ -333,14 +344,14 @@ impl UserDBService {
     }
     pub async fn set_role(&self, id: &str, role: Role) -> DbResult<()> {
         let _: Option<Empty> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/role", role as u32))
+            .patch(self.db.as_ref(), PatchOp::replace("/role", role as u32))
             .await?;
         Ok(())
     }
     pub async fn get_by_name(&self, name: &str) -> DbResult<RecordData<UserRolePassword>> {
         let name = name.to_lowercase();
         let mut v: Vec<RecordData<UserRolePassword>> = User::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!(
                 "WHERE array::some(names, |$n: string| string::lowercase($n) = '{name}') LIMIT 1"
             )),
@@ -353,8 +364,11 @@ impl UserDBService {
     }
     pub async fn get_by_mail(&self, mail: &String) -> DbResult<RecordData<UserRolePassword>> {
         let mail = mail.to_lowercase();
-        let mut v: Vec<RecordData<UserRolePassword>> =
-            User::search(&*DB, Some(format!("WHERE email == '{mail}' LIMIT 1"))).await?;
+        let mut v: Vec<RecordData<UserRolePassword>> = User::search(
+            self.db.as_ref(),
+            Some(format!("WHERE email == '{mail}' LIMIT 1")),
+        )
+        .await?;
         if v.is_empty() {
             return Err(DbError::NotFound);
         }
@@ -363,14 +377,17 @@ impl UserDBService {
 
     pub async fn get_by_id(&self, id: &str) -> DbResult<RecordData<UserRolePassword>> {
         let r = RecordIdFunc::from((User::name(), id))
-            .get(&*DB)
+            .get(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)?;
         Ok(r)
     }
 
     pub async fn get_name_by_id(&self, id: RecordIdType<User>) -> DbResult<RecordData<String>> {
-        let data: RecordData<UserName> = id.get_part(&*DB).await?.ok_or(DbError::NotFound)?;
+        let data: RecordData<UserName> = id
+            .get_part(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
         Ok(RecordData {
             id: data.id,
             data: data.data.names.first().unwrap().clone(),
@@ -379,7 +396,7 @@ impl UserDBService {
 
     pub async fn get_role_and_generated(&self, id: &str) -> DbResult<(Role, u128)> {
         let data: RecordData<RoleExpiry> = RecordIdFunc::from((User::name(), id))
-            .get_part(&*DB)
+            .get_part(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)?;
         Ok((
@@ -398,7 +415,7 @@ impl UserDBService {
     pub async fn logout(&self, id: &str) -> DbResult<()> {
         let dt = Datetime::default();
         let _: Option<Empty> = RecordIdFunc::from((User::name(), id))
-            .patch(&*DB, PatchOp::replace("/generated", dt))
+            .patch(self.db.as_ref(), PatchOp::replace("/generated", dt))
             .await?;
         Ok(())
     }

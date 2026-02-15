@@ -5,7 +5,7 @@ use surrealdb_extras::{SurrealTable, SurrealTableInfo};
 use crate::{
     error::{DbError, DbResult},
     tag::Empty,
-    DB,
+    DbSession,
 };
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
@@ -25,27 +25,39 @@ pub enum LogLevel {
     Error,
 }
 
-#[derive(Default)]
-pub struct LogDbService;
+#[derive(Clone)]
+pub struct LogDbService {
+    db: DbSession,
+}
+
+impl Default for LogDbService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
 
 impl LogDbService {
-    pub async fn error(err: DbError) -> DbResult<()> {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
+    pub async fn error(&self, err: DbError) -> DbResult<()> {
         LogMessage {
             message: err.to_string(),
             level: LogLevel::Error,
             created_at: Datetime::default(),
         }
-        .add(&*DB)
+        .add(self.db.as_ref())
         .await?;
         Ok(())
     }
 
     pub async fn list(&self) -> DbResult<Vec<LogMessage>> {
-        let v: Vec<LogMessage> = LogMessage::all(&*DB).await?;
+        let v: Vec<LogMessage> = LogMessage::all(self.db.as_ref()).await?;
         Ok(v)
     }
     pub async fn clear(&self) -> DbResult<()> {
-        let _: Vec<Empty> = DB.delete(LogMessage::name()).await?;
+        let _: Vec<Empty> = self.db.delete(LogMessage::name()).await?;
         Ok(())
     }
 }

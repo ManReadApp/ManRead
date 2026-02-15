@@ -12,58 +12,94 @@ pub mod tag;
 pub mod user;
 pub mod version;
 pub mod version_link;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, OnceLock};
 pub use surrealdb::RecordId;
 pub use surrealdb_extras::SurrealTableInfo;
 
-use surrealdb::engine::remote::ws::Client;
+use surrealdb::engine::any::Any;
 use surrealdb::Surreal;
 
-use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
+use surrealdb::opt::auth::Root;
 pub use surrealdb_extras::{RecordIdFunc, RecordIdType};
 
 use crate::auth::AuthTokenDBService;
 use crate::user::UserDBService;
 
-pub static DB: LazyLock<Surreal<Client>> = LazyLock::new(Surreal::init);
+pub type DbClient = Surreal<Any>;
+pub type DbSession = Arc<DbClient>;
+static GLOBAL_DB: OnceLock<DbSession> = OnceLock::new();
 
-pub struct DbConfig {
-    host: String,
-    port: u16,
-    username: String,
-    password: String,
+#[derive(Clone)]
+pub struct RemoteDbConfig {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+    pub namespace: String,
+    pub database: String,
+}
+
+#[derive(Clone)]
+pub struct MemoryDbConfig {
+    pub namespace: String,
+    pub database: String,
+}
+
+#[derive(Clone)]
+pub enum DbConfig {
+    Remote(RemoteDbConfig),
+    Memory(MemoryDbConfig),
 }
 
 impl Default for DbConfig {
     fn default() -> Self {
-        Self {
+        Self::Remote(RemoteDbConfig {
             host: "localhost".to_string(),
             port: 8083,
             username: "root".to_string(),
             password: "root".to_string(),
-        }
+            namespace: "manread".to_string(),
+            database: "manread".to_string(),
+        })
     }
 }
 
 #[derive(Clone)]
 pub struct DbHandle {
+    pub session: DbSession,
     pub tokens: Arc<AuthTokenDBService>,
     pub users: Arc<UserDBService>,
 }
 
 pub async fn init_db(config: DbConfig) -> Result<DbHandle, surrealdb::Error> {
-    DB.connect::<Ws>(&format!("{}:{}", config.host, config.port))
-        .await?;
+    let db = Arc::new(Surreal::init());
+    match &config {
+        DbConfig::Remote(cfg) => {
+            DbClient::connect(db.as_ref(), format!("ws://{}:{}", cfg.host, cfg.port)).await?;
+            db.signin(Root {
+                username: &cfg.username,
+                password: &cfg.password,
+            })
+            .await?;
+            db.use_ns(&cfg.namespace).use_db(&cfg.database).await?;
+        }
+        DbConfig::Memory(cfg) => {
+            DbClient::connect(db.as_ref(), "mem://").await?;
+            db.use_ns(&cfg.namespace).use_db(&cfg.database).await?;
+        }
+    }
 
-    DB.signin(Root {
-        username: &config.username,
-        password: &config.password,
-    })
-    .await?;
-
-    DB.use_ns("manread").use_db("manread").await?;
+    let _ = GLOBAL_DB.set(db.clone());
     Ok(DbHandle {
-        users: Arc::default(),
-        tokens: Arc::default(),
+        session: db.clone(),
+        users: Arc::new(UserDBService::new(db.clone())),
+        tokens: Arc::new(AuthTokenDBService::new(db)),
     })
+}
+
+pub(crate) fn global_db() -> DbSession {
+    GLOBAL_DB
+        .get()
+        .cloned()
+        .expect("Database not initialized. Call init_db() before using Default services.")
 }

@@ -4,10 +4,12 @@ use surrealdb_extras::{RecordData, RecordIdFunc, RecordIdType, SurrealSelect, Su
 use surrealdb_extras::{SurrealTableInfo, ThingArray};
 
 use crate::error::DbResult;
-use crate::DB;
+use crate::DbSession;
 
-#[derive(Default)]
-pub struct TagDBService {}
+#[derive(Clone)]
+pub struct TagDBService {
+    db: DbSession,
+}
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
 #[db("tags")]
@@ -24,10 +26,20 @@ pub struct Tag {
 #[derive(SurrealSelect, Deserialize)]
 pub struct Empty {}
 
+impl Default for TagDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
+
 impl TagDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn search(&self, query: &str) -> DbResult<Vec<GlobalTag>> {
         let v: Vec<RecordData<Tag>> = Tag::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!("WHERE string::contains(tag, \"{}\")", query)),
         )
         .await?;
@@ -41,7 +53,7 @@ impl TagDBService {
     }
     pub async fn get_tags_internal(&self, ids: Vec<RecordIdFunc>) -> DbResult<Vec<Tag>> {
         let thing = ThingArray::from(ids);
-        let items: Vec<Tag> = thing.get(&*DB).await?;
+        let items: Vec<Tag> = thing.get(self.db.as_ref()).await?;
         Ok(items)
     }
     pub async fn get_tags(&self, ids: impl Iterator<Item = String>) -> DbResult<Vec<GlobalTag>> {
@@ -49,7 +61,7 @@ impl TagDBService {
             ids.map(|id| RecordIdFunc::from((Tag::name(), id.as_str())))
                 .collect::<Vec<_>>(),
         );
-        let items: Vec<Tag> = thing.get(&*DB).await?;
+        let items: Vec<Tag> = thing.get(self.db.as_ref()).await?;
 
         Ok(items
             .into_iter()
@@ -67,7 +79,7 @@ impl TagDBService {
         let mut out = vec![];
         for tag in tags {
             let search: Vec<RecordData<Empty>> = Tag::search(
-                &*DB,
+                self.db.as_ref(),
                 Some(format!(
                     "WHERE tag = \"{}\" AND sex = {} LIMIT 1",
                     tag.tag, tag.sex
@@ -82,7 +94,7 @@ impl TagDBService {
                     description: tag.description,
                     sex: tag.sex as u64,
                 }
-                .add_i(&*DB)
+                .add_i(self.db.as_ref())
                 .await?;
                 out.push(v.id);
             }

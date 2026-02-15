@@ -6,7 +6,8 @@ use surrealdb::{Datetime, RecordId};
 use surrealdb_extras::{RecordData, RecordIdType, SurrealTable, SurrealTableInfo};
 
 use crate::{
-    chapter::ChapterDBService, error::DbResult, manga::Manga, tag::Empty, version::Version, DB,
+    chapter::ChapterDBService, error::DbResult, manga::Manga, tag::Empty, version::Version,
+    DbSession,
 };
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
@@ -30,12 +31,21 @@ pub struct ScraperSearch {
     pub updated_at: Datetime,
 }
 
-#[derive(Default)]
-pub struct ScraperDbService;
+#[derive(Clone)]
+pub struct ScraperDbService {
+    db: DbSession,
+}
+
+impl Default for ScraperDbService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
 
 impl ScraperDbService {
     pub async fn next_chapter(&self) -> DbResult<Option<RecordData<ScraperEntry>>> {
-        let v: Vec<RecordData<ScraperEntry>> = DB
+        let v: Vec<RecordData<ScraperEntry>> = self
+            .db
             .query(format!(
                 "SELECT * FROM {} WHERE state == 'Approved' LIMIT 1",
                 ScraperEntry::name()
@@ -44,8 +54,8 @@ impl ScraperDbService {
             .take(0)?;
         Ok(v.into_iter().next())
     }
-    pub fn new() -> Self {
-        ScraperDbService {}
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
     }
 
     pub async fn get_items(
@@ -53,7 +63,8 @@ impl ScraperDbService {
         manga: RecordIdType<Manga>,
         version: RecordIdType<Version>,
     ) -> DbResult<Vec<RecordData<ScraperEntry>>> {
-        let v: Vec<RecordData<ScraperEntry>> = DB
+        let v: Vec<RecordData<ScraperEntry>> = self
+            .db
             .query(format!(
                 "SELECT * FROM {} WHERE manga = $manga AND version = $version",
                 ScraperEntry::name()
@@ -72,7 +83,7 @@ impl ScraperDbService {
             "SELECT manga,version FROM {} WHERE state = 'Pending' GROUP by manga,version",
             ScraperEntry::name()
         );
-        let data: Vec<MangaVersion> = DB.query(query).await?.take(0)?;
+        let data: Vec<MangaVersion> = self.db.query(query).await?.take(0)?;
 
         Ok(data.into_iter().map(|v| (v.manga, v.version)).collect())
     }
@@ -85,7 +96,8 @@ impl ScraperDbService {
     ) -> DbResult<()> {
         //TODO: dont load all into memory
 
-        let data: Vec<String> = DB
+        let data: Vec<String> = self
+            .db
             .query(format!(
                 "(SELECT data.url FROM {} WHERE manga = $manga AND version = $version).data.url",
                 ScraperEntry::name(),
@@ -109,19 +121,22 @@ impl ScraperDbService {
 
         let mut new = vec![];
         for item in items {
-            let exists = ChapterDBService::exists_by_url(item.data.url.clone()).await?;
+            let exists = ChapterDBService::new(self.db.clone())
+                .exists_by_url(item.data.url.clone())
+                .await?;
             if !exists {
                 new.push(item)
             }
         }
 
         if !new.is_empty() {
-            let _: Vec<Empty> = DB.insert(ScraperEntry::name()).content(new).await?;
+            let _: Vec<Empty> = self.db.insert(ScraperEntry::name()).content(new).await?;
         }
 
         let id = format!("{}###{}", manga.id().to_string(), version.id().to_string());
 
-        let _: Option<Empty> = DB
+        let _: Option<Empty> = self
+            .db
             .upsert((ScraperSearch::name(), id.as_str()))
             .content(ScraperSearch {
                 updated_at: Datetime::default(),
@@ -135,7 +150,8 @@ impl ScraperDbService {
         timestamp: Datetime,
     ) -> DbResult<Vec<(RecordIdType<Manga>, RecordIdType<Version>)>> {
         println!("loading");
-        let data: Vec<RecordId> = DB
+        let data: Vec<RecordId> = self
+            .db
             .query(format!(
                 "(SELECT id FROM {} WHERE updated_at > $timestamp).id",
                 ScraperSearch::name()

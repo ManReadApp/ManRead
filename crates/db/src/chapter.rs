@@ -9,7 +9,7 @@ use surrealdb_extras::{
 
 use crate::{
     error::{DbError, DbResult},
-    DB,
+    DbSession,
 };
 
 use super::{
@@ -55,8 +55,10 @@ pub struct Chapter {
 pub struct ChapterTag {
     pub tags: Vec<RecordIdType<Tag>>,
 }
-#[derive(Default)]
-pub struct ChapterDBService;
+#[derive(Clone)]
+pub struct ChapterDBService {
+    db: DbSession,
+}
 
 #[derive(Deserialize)]
 pub struct ChapterPart2 {
@@ -65,7 +67,17 @@ pub struct ChapterPart2 {
     versions: Vec<String>,
 }
 
+impl Default for ChapterDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
+
 impl ChapterDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn get_chapter_by_version(
         &self,
         manga_id: RecordIdType<Manga>,
@@ -73,7 +85,7 @@ impl ChapterDBService {
     ) -> DbResult<Vec<(RecordIdFunc, f64, Vec<String>)>> {
         println!("loaded");
         let version = version.to_string();
-        let query:Vec<RecordData<ChapterPart2>> = DB.query(format!("SELECT id, chapter,titles,object::keys(versions) as versions FROM (SELECT chapters FROM {})[0].chapters;", manga_id)).await?.take(0)?;
+        let query:Vec<RecordData<ChapterPart2>> = self.db.query(format!("SELECT id, chapter,titles,object::keys(versions) as versions FROM (SELECT chapters FROM {})[0].chapters;", manga_id)).await?.take(0)?;
         Ok(query
             .into_iter()
             .filter(|v| v.data.versions.contains(&version))
@@ -81,8 +93,9 @@ impl ChapterDBService {
             .collect::<Vec<_>>())
     }
 
-    pub async fn exists_by_url(url: String) -> DbResult<bool> {
-        let count: Option<usize> = DB
+    pub async fn exists_by_url(&self, url: String) -> DbResult<bool> {
+        let count: Option<usize> = self
+            .db
             .query(format!(
                 "(SELECT count() FROM {} WHERE sources CONTAINS $url LIMIT 1)[0].count",
                 Chapter::name()
@@ -98,7 +111,7 @@ impl ChapterDBService {
         chaptrs: Vec<RecordIdType<Chapter>>,
     ) -> DbResult<Vec<RecordIdType<Tag>>> {
         let v = ThingArray(chaptrs.into_iter().map(|v| v.thing.0).collect());
-        let v: Vec<ChapterTag> = v.get(&*DB).await?;
+        let v: Vec<ChapterTag> = v.get(self.db.as_ref()).await?;
         let v = v.into_iter().flat_map(|v| v.tags).collect();
         Ok(v)
     }
@@ -110,7 +123,7 @@ impl ChapterDBService {
         let manga_id = RecordIdFunc::from((Manga::name(), manga_id)).to_string();
         let chapter_id = RecordIdFunc::from((Chapter::name(), chapter_id)).to_string();
         let query = format!("SELECT id, chapter FROM (SELECT chapters FROM {})[0].chapters WHERE chapter > (SELECT chapter FROM {})[0].chapter ORDER BY chapter LIMIT 1;", manga_id, chapter_id);
-        let mut a: Vec<RecordData<Empty>> = DB.query(query).await?.take(0)?;
+        let mut a: Vec<RecordData<Empty>> = self.db.query(query).await?.take(0)?;
         if a.is_empty() {
             Err(DbError::NotFound)
         } else {
@@ -120,8 +133,11 @@ impl ChapterDBService {
 
     pub async fn get_manga_id(&self, chapter_id: &str) -> DbResult<String> {
         let chapter_id = RecordIdFunc::from((Chapter::name(), chapter_id)).to_string();
-        let mut v: Vec<RecordData<Empty>> =
-            Manga::search(&*DB, Some(format!("WHERE {chapter_id} in chapters"))).await?;
+        let mut v: Vec<RecordData<Empty>> = Manga::search(
+            self.db.as_ref(),
+            Some(format!("WHERE {chapter_id} in chapters")),
+        )
+        .await?;
         if v.is_empty() {
             return Err(DbError::NotFound);
         }
@@ -137,7 +153,7 @@ impl ChapterDBService {
 
     pub async fn get_by_id(&self, chapter_id: &str) -> DbResult<Chapter> {
         RecordIdFunc::from((Chapter::name(), chapter_id))
-            .get(&*DB)
+            .get(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)
     }
@@ -161,12 +177,12 @@ impl ChapterDBService {
             updated: Default::default(),
             created: Default::default(),
         }
-        .add(&*DB)
+        .add(self.db.as_ref())
         .await?
         .ok_or(DbError::NotFound)?;
         //TODO: add tags to manga generated
         let _: Option<Empty> = RecordIdFunc::from((Manga::name(), manga_id))
-            .patch(&*DB, PatchOp::add("/chapters", id.id.clone()))
+            .patch(self.db.as_ref(), PatchOp::add("/chapters", id.id.clone()))
             .await?;
 
         //TODO: also reload chapter progress
@@ -188,30 +204,33 @@ impl ChapterDBService {
             updated: Default::default(),
             created: Default::default(),
         }
-        .add_i(&*DB)
+        .add_i(self.db.as_ref())
         .await?
         .id;
         let ch = RecordIdFunc::from((Chapter::name(), chapter_id));
         let _: Option<Empty> = ch
             .clone()
             .patch(
-                &*DB,
+                self.db.as_ref(),
                 PatchOp::add(&format!("/versions/{}", version.to_string()), value),
             )
             .await?;
         for title in titles {
             let _: Option<Empty> = ch
                 .clone()
-                .patch(&*DB, PatchOp::add("/titles", title))
+                .patch(self.db.as_ref(), PatchOp::add("/titles", title))
                 .await?;
         }
         for tag in tags {
-            let _: Option<Empty> = ch.clone().patch(&*DB, PatchOp::add("/tags", tag)).await?;
+            let _: Option<Empty> = ch
+                .clone()
+                .patch(self.db.as_ref(), PatchOp::add("/tags", tag))
+                .await?;
         }
         for source in sources {
             let _: Option<Empty> = ch
                 .clone()
-                .patch(&*DB, PatchOp::add("/sources", source))
+                .patch(self.db.as_ref(), PatchOp::add("/sources", source))
                 .await?;
         }
         Ok(())
@@ -224,7 +243,7 @@ impl ChapterDBService {
             Chapter::name(),
             manga_id,
         );
-        let mut res: Vec<RecordData<Chapter>> = DB.query(query).await?.take(0)?;
+        let mut res: Vec<RecordData<Chapter>> = self.db.query(query).await?.take(0)?;
         if res.is_empty() {
             return Err(DbError::NotFound);
         }
@@ -235,8 +254,9 @@ impl ChapterDBService {
         &self,
         ids: impl Iterator<Item = RecordIdType<Chapter>>,
     ) -> DbResult<Vec<RecordData<Chapter>>> {
-        let v: Vec<RecordData<Chapter>> =
-            ThingArray::from(ids.collect::<Vec<_>>()).get(&*DB).await?;
+        let v: Vec<RecordData<Chapter>> = ThingArray::from(ids.collect::<Vec<_>>())
+            .get(self.db.as_ref())
+            .await?;
         Ok(v)
     }
 
@@ -245,7 +265,7 @@ impl ChapterDBService {
         ids: impl Iterator<Item = RecordIdType<Chapter>>,
     ) -> DbResult<Vec<RecordData<ChapterPart>>> {
         let v: Vec<RecordData<ChapterPart>> = ThingArray::from(ids.collect::<Vec<_>>())
-            .get_part(&*DB)
+            .get_part(self.db.as_ref())
             .await?;
         Ok(v)
     }

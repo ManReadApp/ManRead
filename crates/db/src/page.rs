@@ -5,7 +5,7 @@ use surrealdb_extras::{RecordData, RecordIdType, SurrealTable, ThingArray};
 
 use crate::{
     error::{DbError, DbResult},
-    DB,
+    DbSession,
 };
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
@@ -28,12 +28,24 @@ pub struct Page {
     pub created: Datetime,
 }
 
-#[derive(Default)]
-pub struct PageDBService;
+#[derive(Clone)]
+pub struct PageDBService {
+    db: DbSession,
+}
+
+impl Default for PageDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
 
 impl PageDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn get(&self, ids: Vec<RecordIdType<Page>>) -> DbResult<Vec<RecordData<Page>>> {
-        let out: Vec<RecordData<Page>> = ThingArray::from(ids).get(&*DB).await?;
+        let out: Vec<RecordData<Page>> = ThingArray::from(ids).get(self.db.as_ref()).await?;
         Ok(out)
     }
     pub async fn add(&self, pages: Vec<MangaPageFileBuilder>) -> DbResult<Vec<RecordIdType<Page>>> {
@@ -49,7 +61,7 @@ impl PageDBService {
                 updated: Default::default(),
                 created: Default::default(),
             }
-            .add(&*DB)
+            .add(self.db.as_ref())
             .await?;
             let p = p.ok_or(DbError::NotFound)?;
 

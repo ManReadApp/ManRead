@@ -3,7 +3,7 @@ use surrealdb_extras::{RecordData, RecordIdType, SurrealTable, SurrealTableInfo}
 
 use crate::{
     error::{DbError, DbResult},
-    DB,
+    DbSession,
 };
 
 use super::tag::Empty;
@@ -15,23 +15,35 @@ pub struct Kind {
     pub kind: String,
 }
 
-#[derive(Default)]
-pub struct KindDBService {}
+#[derive(Clone)]
+pub struct KindDBService {
+    db: DbSession,
+}
+
+impl Default for KindDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
 
 impl KindDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn all(&self) -> DbResult<Vec<String>> {
-        let v: Vec<RecordData<Kind>> = Kind::all(&*DB).await?;
+        let v: Vec<RecordData<Kind>> = Kind::all(self.db.as_ref()).await?;
         Ok(v.into_iter().map(|v| v.data.kind).collect())
     }
 
     pub async fn get_or_create(&self, kind: &str) -> DbResult<RecordIdType<Kind>> {
         let mut v: Vec<RecordData<Empty>> =
-            Kind::search(&*DB, Some(format!("WHERE kind = '{}'", kind))).await?;
+            Kind::search(self.db.as_ref(), Some(format!("WHERE kind = '{}'", kind))).await?;
         if v.is_empty() {
             let v = Kind {
                 kind: kind.to_owned(),
             }
-            .add_i(&*DB)
+            .add_i(self.db.as_ref())
             .await?;
             Ok(v.id.into())
         } else {
@@ -40,6 +52,11 @@ impl KindDBService {
     }
 
     pub async fn get_name(&self, id: RecordIdType<Kind>) -> DbResult<String> {
-        Ok(id.get(&*DB).await?.ok_or(DbError::NotFound)?.data.kind)
+        Ok(id
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?
+            .data
+            .kind)
     }
 }

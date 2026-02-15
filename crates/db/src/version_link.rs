@@ -4,7 +4,7 @@ use surrealdb_extras::{RecordIdType, SurrealTable, SurrealTableInfo};
 
 use crate::{
     error::{DbError, DbResult},
-    DB,
+    DbSession,
 };
 
 use super::{page::Page, version::Version};
@@ -25,13 +25,25 @@ pub struct ChapterVersion {
     pub created: Datetime,
 }
 
-#[derive(Default)]
-pub struct ChapterVersionDBService {}
+#[derive(Clone)]
+pub struct ChapterVersionDBService {
+    db: DbSession,
+}
+
+impl Default for ChapterVersionDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
 
 impl ChapterVersionDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn get(&self, id: &str) -> DbResult<ChapterVersion> {
         let item = RecordIdType::from((ChapterVersion::name(), id))
-            .get(&*DB)
+            .get(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)?;
         Ok(item.data)

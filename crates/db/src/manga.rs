@@ -14,7 +14,7 @@ use surrealdb_extras::{
 use crate::{
     chapter::ChapterDBService,
     error::{DbError, DbResult},
-    DB,
+    DbSession,
 };
 
 use super::{
@@ -120,8 +120,10 @@ fn true_default() -> bool {
     true
 }
 
-#[derive(Default)]
-pub struct MangaDBService {}
+#[derive(Clone)]
+pub struct MangaDBService {
+    db: DbSession,
+}
 
 fn get_with_prio(v: HashMap<String, Vec<String>>, prio: &Vec<String>) -> String {
     for prio in prio {
@@ -402,22 +404,43 @@ fn search_array(q: &str, arr: &Array) -> bool {
         ItemOrArray::Array(array) => search_array(q, array),
     })
 }
+impl Default for MangaDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
+
 impl MangaDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn add_cover(&self, mid: &str, ext: &str) -> DbResult<usize> {
         let id = RecordIdFunc::from((Manga::name(), mid));
-        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let _: Empty = id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
         let v: Option<Manga> = id
-            .patch(&*DB, PatchOp::add("/covers/-", Some(ext.to_owned())))
+            .patch(
+                self.db.as_ref(),
+                PatchOp::add("/covers/-", Some(ext.to_owned())),
+            )
             .await?;
         Ok(v.unwrap().covers.len() - 1)
     }
 
     pub async fn remove_cover(&self, mid: &str, index: usize) -> DbResult<()> {
         let id = RecordIdFunc::from((Manga::name(), mid));
-        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let _: Empty = id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
         let _: Option<Empty> = id
             .patch(
-                &*DB,
+                self.db.as_ref(),
                 PatchOp::replace(&format!("/covers/{}", index), None::<String>),
             )
             .await?;
@@ -426,19 +449,30 @@ impl MangaDBService {
 
     pub async fn add_art(&self, mid: &str, ext: &str) -> DbResult<usize> {
         let id = RecordIdFunc::from((Manga::name(), mid));
-        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let _: Empty = id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
         let v: Option<Manga> = id
-            .patch(&*DB, PatchOp::add("/art_ext/-", Some(ext.to_owned())))
+            .patch(
+                self.db.as_ref(),
+                PatchOp::add("/art_ext/-", Some(ext.to_owned())),
+            )
             .await?;
         Ok(v.unwrap().art_ext.len() - 1)
     }
 
     pub async fn remove_art(&self, mid: &str, index: usize) -> DbResult<()> {
         let id = RecordIdFunc::from((Manga::name(), mid));
-        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let _: Empty = id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
         let _: Option<Empty> = id
             .patch(
-                &*DB,
+                self.db.as_ref(),
                 PatchOp::replace(&format!("/art_ext/{}", index), None::<String>),
             )
             .await?;
@@ -446,7 +480,7 @@ impl MangaDBService {
     }
 
     pub async fn scrapers(&self) -> DbResult<Vec<RecordIdType<Manga>>> {
-        let items:Vec<RecordData<Empty>> = Manga::search(&*DB, Some(format!("WHERE array::len(array::filter(scraper, |$item| $item.enabled = true OR $item.enabled IS NONE)) > 0;"))).await?;
+        let items:Vec<RecordData<Empty>> = Manga::search(self.db.as_ref(), Some(format!("WHERE array::len(array::filter(scraper, |$item| $item.enabled = true OR $item.enabled IS NONE)) > 0;"))).await?;
         Ok(items.into_iter().map(|v| v.id.into()).collect())
     }
     pub async fn get_names(
@@ -455,7 +489,7 @@ impl MangaDBService {
         name_prio: Vec<String>,
     ) -> DbResult<Vec<(String, String)>> {
         let v: Vec<RecordData<MangaName>> = ThingArray::from(ids.collect::<Vec<_>>())
-            .get_part(&*DB)
+            .get_part(self.db.as_ref())
             .await?;
         Ok(v.into_iter()
             .map(|v| {
@@ -468,14 +502,14 @@ impl MangaDBService {
     }
     pub async fn exists(&self, id: &str) -> DbResult<()> {
         let _: RecordData<Empty> = RecordIdFunc::from((Manga::name(), id))
-            .get_part(&*DB)
+            .get_part(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)?;
         Ok(())
     }
     pub async fn add(&self, manga: Manga) -> DbResult<RecordIdType<Manga>> {
         manga
-            .add(&*DB)
+            .add(self.db.as_ref())
             .await?
             .map(|v| v.id.clone().into())
             .ok_or(DbError::NotFound)
@@ -550,10 +584,11 @@ impl MangaDBService {
 
         let query = format!("SELECT {what} FROM {tb} {} {order_by} {limit}", &query_);
         println!("{query}");
-        let data: Vec<RecordData<Manga>> = DB.query(query).await?.take(0)?;
+        let data: Vec<RecordData<Manga>> = self.db.query(query).await?.take(0)?;
 
         if count {
-            let count: Option<Count> = DB
+            let count: Option<Count> = self
+                .db
                 .query(format!("SELECT count() FROM {tb} {query_} GROUP ALL;"))
                 .await?
                 .take(0)?;
@@ -565,10 +600,18 @@ impl MangaDBService {
 
     pub async fn regenerate_tags(&self, id: &str) -> DbResult<()> {
         let id: RecordIdType<Manga> = RecordIdType::from((Manga::name(), id));
-        let info = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let info = id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
         let mut tags = info.data.tags;
         let chapters = info.data.chapters;
-        tags.extend(ChapterDBService {}.get_tags(chapters).await?);
+        tags.extend(
+            ChapterDBService::new(self.db.clone())
+                .get_tags(chapters)
+                .await?,
+        );
         let tags = tags
             .into_iter()
             .map(|v| v.thing.0)
@@ -576,7 +619,7 @@ impl MangaDBService {
             .into_iter()
             .map(|v| RecordIdFunc::from(v))
             .collect::<Vec<_>>();
-        id.patch(&*DB, PatchOp::replace("generated_tags", tags))
+        id.patch(self.db.as_ref(), PatchOp::replace("generated_tags", tags))
             .await?;
         Ok(())
     }
@@ -598,50 +641,59 @@ impl MangaDBService {
         let id = RecordIdFunc::from((Manga::name(), id));
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/titles", titles))
+            .patch(self.db.as_ref(), PatchOp::replace("/titles", titles))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/description", description))
+            .patch(
+                self.db.as_ref(),
+                PatchOp::replace("/description", description),
+            )
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/tags", tags))
+            .patch(self.db.as_ref(), PatchOp::replace("/tags", tags))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/authors", authors))
+            .patch(self.db.as_ref(), PatchOp::replace("/authors", authors))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/artists", artists))
+            .patch(self.db.as_ref(), PatchOp::replace("/artists", artists))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/publishers", publishers))
+            .patch(
+                self.db.as_ref(),
+                PatchOp::replace("/publishers", publishers),
+            )
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/kind", kind))
+            .patch(self.db.as_ref(), PatchOp::replace("/kind", kind))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/scraper", scrapers))
+            .patch(self.db.as_ref(), PatchOp::replace("/scraper", scrapers))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/sources", sources))
+            .patch(self.db.as_ref(), PatchOp::replace("/sources", sources))
             .await?;
         let _: Option<Empty> = id
             .clone()
-            .patch(&*DB, PatchOp::replace("/status", status as u64))
+            .patch(self.db.as_ref(), PatchOp::replace("/status", status as u64))
             .await?;
         Ok(())
     }
 
     pub async fn set_visibility(&self, id: &str, visibility: Visibility) -> DbResult<()> {
         let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
-            .patch(&*DB, PatchOp::replace("/visibility", visibility as u64))
+            .patch(
+                self.db.as_ref(),
+                PatchOp::replace("/visibility", visibility as u64),
+            )
             .await?;
         Ok(())
     }
@@ -660,7 +712,7 @@ impl MangaDBService {
             })
             .collect::<Vec<_>>();
         let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
-            .patch(&*DB, PatchOp::replace("/volumes", vols))
+            .patch(self.db.as_ref(), PatchOp::replace("/volumes", vols))
             .await?;
         Ok(())
     }
@@ -668,7 +720,7 @@ impl MangaDBService {
     pub async fn add_relation(&self, id: &str, relation_id: &str) -> DbResult<()> {
         let relation_id = RecordIdFunc::from((Manga::name(), relation_id));
         let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
-            .patch(&*DB, PatchOp::add("/relations", relation_id))
+            .patch(self.db.as_ref(), PatchOp::add("/relations", relation_id))
             .await?;
         Ok(())
     }
@@ -681,7 +733,10 @@ impl MangaDBService {
             .position(|v| v.id().to_string() == relation_id)
         {
             let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
-                .patch(&*DB, PatchOp::remove(&format!("/relations/{}", v)))
+                .patch(
+                    self.db.as_ref(),
+                    PatchOp::remove(&format!("/relations/{}", v)),
+                )
                 .await?;
         }
 
@@ -693,7 +748,7 @@ impl MangaDBService {
         if let Some(v) = info.scraper.iter().position(|v| v.url == url) {
             let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
                 .patch(
-                    &*DB,
+                    self.db.as_ref(),
                     PatchOp::replace(&format!("/scraper/{}/enabled", v), value),
                 )
                 .await?;
@@ -704,7 +759,7 @@ impl MangaDBService {
 
     pub async fn get(&self, id: &str) -> DbResult<Manga> {
         RecordIdFunc::from((Manga::name(), id))
-            .get(&*DB)
+            .get(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)
     }

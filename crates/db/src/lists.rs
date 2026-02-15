@@ -7,7 +7,7 @@ use surrealdb_extras::{
 use crate::{
     error::{DbError, DbResult},
     progress::UserProgress,
-    DB,
+    DbSession,
 };
 
 use super::{manga::Manga, tag::Empty, user::User};
@@ -33,14 +33,16 @@ pub struct MangaListName {
     pub name: String,
 }
 
-#[derive(Default)]
-pub struct ListDBService {}
+#[derive(Clone)]
+pub struct ListDBService {
+    db: DbSession,
+}
 
-async fn get_list(name: &str, user: &str) -> DbResult<RecordData<MangaList>> {
+async fn get_list(db: &DbSession, name: &str, user: &str) -> DbResult<RecordData<MangaList>> {
     let user = RecordIdFunc::from((User::name(), user)).to_string();
     //TODO: name shouldnt contain escape characters, sql injection
     let mut v = MangaList::search(
-        &*DB,
+        db.as_ref(),
         Some(format!("WHERE name = '{name}' AND user = {user} LIMIT 1")),
     )
     .await?;
@@ -49,7 +51,17 @@ async fn get_list(name: &str, user: &str) -> DbResult<RecordData<MangaList>> {
     }
     Ok(v.remove(0))
 }
+impl Default for ListDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
+
 impl ListDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn add(&self, name: &str, user: &str) -> DbResult<()> {
         MangaList {
             name: name.to_owned(),
@@ -58,20 +70,20 @@ impl ListDBService {
             updated: Default::default(),
             created: Default::default(),
         }
-        .add_i(&*DB)
+        .add_i(self.db.as_ref())
         .await?;
         Ok(())
     }
     pub async fn add_manga(&self, name: &str, user: &str, manga: &str) -> DbResult<()> {
         let manga = RecordIdFunc::from((Manga::name(), manga));
-        let _: Option<RecordData<Empty>> = get_list(name, user)
+        let _: Option<RecordData<Empty>> = get_list(&self.db, name, user)
             .await?
-            .patch(&*DB, PatchOp::add("/mangas", manga))
+            .patch(self.db.as_ref(), PatchOp::add("/mangas", manga))
             .await?;
         Ok(())
     }
     pub async fn remove_manga(&self, name: &str, user: &str, manga_id: &str) -> DbResult<()> {
-        let list = get_list(name, user).await?;
+        let list = get_list(&self.db, name, user).await?;
         let index = list
             .data
             .mangas
@@ -81,23 +93,29 @@ impl ListDBService {
             .map(|v| v.0)
             .ok_or(DbError::NotFound)?;
         let _: Option<RecordData<Empty>> = list
-            .patch(&*DB, PatchOp::remove(&format!("/mangas/{index}")))
+            .patch(
+                self.db.as_ref(),
+                PatchOp::remove(&format!("/mangas/{index}")),
+            )
             .await?;
         Ok(())
     }
     pub async fn delete(&self, name: &str, user: &str) -> DbResult<()> {
-        get_list(name, user).await?.delete_s(&*DB).await?;
+        get_list(&self.db, name, user)
+            .await?
+            .delete_s(self.db.as_ref())
+            .await?;
         Ok(())
     }
 
     pub async fn get(&self, user: &str) -> DbResult<Vec<String>> {
         let user = RecordIdFunc::from((User::name(), user)).to_string();
         let m: Vec<RecordData<MangaListName>> =
-            MangaList::search(&*DB, Some(format!("WHERE user = {user}"))).await?;
+            MangaList::search(self.db.as_ref(), Some(format!("WHERE user = {user}"))).await?;
         Ok(m.into_iter().map(|v| v.data.name).collect())
     }
     pub async fn is_favorite(&self, manga_id: &str, user: &str) -> bool {
-        let list = get_list("favorites", user).await;
+        let list = get_list(&self.db, "favorites", user).await;
         match list {
             Ok(list) => list
                 .data
@@ -112,7 +130,7 @@ impl ListDBService {
         let user = RecordIdFunc::from((User::name(), user)).to_string();
         let manga_id = RecordIdFunc::from((Manga::name(), manga_id)).to_string();
         let v: Vec<RecordData<Empty>> = UserProgress::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!(
                 "WHERE user = {user} AND manga = {manga_id} LIMIT 1"
             )),

@@ -9,12 +9,14 @@ use surrealdb_extras::SurrealTableInfo as _;
 
 use crate::error::DbError;
 use crate::error::DbResult;
-use crate::DB;
+use crate::DbSession;
 
 use super::user::User;
 
-#[derive(Default)]
-pub struct AuthTokenDBService {}
+#[derive(Clone)]
+pub struct AuthTokenDBService {
+    db: DbSession,
+}
 
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
 #[db("auth_tokens")]
@@ -53,23 +55,37 @@ pub fn is_token_valid(token: &RecordData<AuthUser>, user_id: &str) -> DbResult<(
     Ok(())
 }
 
+impl Default for AuthTokenDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
+
 impl AuthTokenDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn list(&self, page: u32, limit: u32) -> DbResult<Vec<RecordData<AuthUser>>> {
         let offset = (page - 1) * limit;
-        let search: Vec<RecordData<AuthUser>> =
-            AuthUser::search(&*DB, Some(format!("LIMIT {limit} START {offset}"))).await?;
+        let search: Vec<RecordData<AuthUser>> = AuthUser::search(
+            self.db.as_ref(),
+            Some(format!("LIMIT {limit} START {offset}")),
+        )
+        .await?;
         Ok(search)
     }
     pub async fn delete(&self, id: &str) -> DbResult<()> {
         RecordIdFunc::from((AuthUser::name(), id))
-            .delete_s(&*DB)
+            .delete_s(self.db.as_ref())
             .await?;
         Ok(())
     }
     pub async fn find(&self, token: &str) -> DbResult<RecordData<AuthUser>> {
         let query = format!("WHERE token = \"{token}\"",);
 
-        let mut search: Vec<RecordData<AuthUser>> = AuthUser::search(&*DB, Some(query)).await?;
+        let mut search: Vec<RecordData<AuthUser>> =
+            AuthUser::search(self.db.as_ref(), Some(query)).await?;
         if search.is_empty() {
             return Err(DbError::NotFound);
         }
@@ -83,7 +99,7 @@ impl AuthTokenDBService {
             kind: u32::try_from(kind).unwrap(),
             active_until_timestamp: None,
         }
-        .add_i(&*DB)
+        .add_i(self.db.as_ref())
         .await?;
         Ok(())
     }

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use surrealdb::{opt::PatchOp, Datetime};
 use surrealdb_extras::{RecordData, RecordIdFunc, RecordIdType, SurrealTable, SurrealTableInfo};
 
-use crate::{chapter::ChapterDBService, error::DbResult, tag::Empty, DB};
+use crate::{chapter::ChapterDBService, error::DbResult, tag::Empty, DbSession};
 
 use super::{chapter::Chapter, manga::Manga, user::User};
 
@@ -22,17 +22,29 @@ pub struct UserProgress {
     pub updated: Datetime,
 }
 
-#[derive(Default)]
-pub struct UserProgressDBService {}
+#[derive(Clone)]
+pub struct UserProgressDBService {
+    db: DbSession,
+}
+
+impl Default for UserProgressDBService {
+    fn default() -> Self {
+        Self::new(crate::global_db())
+    }
+}
 
 impl UserProgressDBService {
+    pub fn new(db: DbSession) -> Self {
+        Self { db }
+    }
+
     pub async fn get_progress(
         &self,
         user_id: &str,
         manga_id: &str,
     ) -> DbResult<(RecordIdType<Chapter>, f64)> {
         let mut record: Vec<RecordData<UserProgress>> = UserProgress::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!(
                 "WHERE user = {} AND manga = {} ORDER BY updated DESC LIMIT 1",
                 RecordIdFunc::from((User::name(), user_id)),
@@ -56,7 +68,7 @@ impl UserProgressDBService {
         progress: f64,
     ) -> DbResult<()> {
         let mut record: Vec<RecordData<Empty>> = UserProgress::search(
-            &*DB,
+            self.db.as_ref(),
             Some(format!(
                 "WHERE user = {} AND manga = {} AND chapter = {} LIMIT 1",
                 RecordIdFunc::from((User::name(), user_id)),
@@ -73,13 +85,13 @@ impl UserProgressDBService {
                 progress,
                 updated: Default::default(),
             }
-            .add(&*DB)
+            .add(self.db.as_ref())
             .await?;
         } else {
             let _: Option<Empty> = record
                 .remove(0)
                 .id
-                .patch(&*DB, PatchOp::replace("/progress", progress))
+                .patch(self.db.as_ref(), PatchOp::replace("/progress", progress))
                 .await?;
         }
         Ok(())
@@ -91,7 +103,7 @@ impl UserProgressDBService {
         manga_id: &str,
         chapter_id: &str,
     ) -> DbResult<()> {
-        let chapter_id = ChapterDBService::default()
+        let chapter_id = ChapterDBService::new(self.db.clone())
             .get_next_chapter(manga_id, chapter_id)
             .await?;
         self.update(user_id, manga_id, &chapter_id.id().to_string(), 0.0)
