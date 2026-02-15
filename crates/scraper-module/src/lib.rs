@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-pub use api_structure::models::manga::external_search::ValidSearches;
+pub use api_structure::search::ValidSearches;
 use async_trait::async_trait;
 #[cfg(feature = "json")]
 use serde_json::Value;

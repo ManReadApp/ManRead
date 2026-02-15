@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use api_structure::v1::{ActivationTokenKind, TokenKind};
+use api_structure::v1::ActivationTokenKind;
 use db::{
     auth::{AuthTokenDBService, AuthUser, RecordData},
     error::DbResult,

@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package v1;
 
+import "v1/auth/role.proto";
+
 message CreateTokenRequest {
   optional string user_id = 1;
 
@@ -15,13 +17,4 @@ message ActivationTokenKind {
 
 message ActivateRequest {
   required string key = 1;
-}
-
-enum Role {
-  ROLE_NOT_VERIFIED = 0;
-  ROLE_USER = 1;
-  ROLE_AUTHOR = 2;
-  ROLE_MODERATOR = 3;
-  ROLE_CO_ADMIN = 4;
-  ROLE_ADMIN = 5;
 }

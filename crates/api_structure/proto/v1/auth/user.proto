@@ -1,9 +1,12 @@
 syntax = "proto3";
 
 package v1;
-import "v1/util.proto";
+
 import "google/protobuf/wrappers.proto";
 import "v1/auth/reset_password.proto";
+import "v1/auth/role.proto";
+import "v1/tag.proto";
+import "v1/util.proto";
 
 message UpdateUserRequest {
   StringList name = 1;
@@ -18,14 +21,37 @@ message AdminCreateUserRequest {
   string name = 1;
 }
 
-message UserSearchRequest {
-  string query = 1;
-  uint32 page = 2;
-  uint32 limit = 3;
-}
-
 enum Gender {
   GENDER_UNKNOWN = 0;
   GENDER_MALE = 1;
   GENDER_FEMALE = 2;
+}
+
+message SimpleUser {
+  string id = 1;
+  repeated string names = 2;
+  optional string icon_ext = 3;
+  Gender gender = 4;
+}
+
+message User {
+  string id = 1;
+
+  repeated string names = 2;
+
+  Role role = 3;
+
+  repeated Tag tags = 4;
+
+  repeated uint64 achievements = 5;
+
+  optional string bio = 6;
+  optional string location = 7;
+
+  repeated string links = 8;
+
+  optional string thumb_ext = 9;
+  optional string icon_ext = 10;
+
+  Gender gender = 11;
 }

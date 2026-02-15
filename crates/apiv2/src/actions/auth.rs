@@ -7,7 +7,7 @@ use crate::{
 
 use api_structure::{
     req::LoginRequest,
-    v1::{ActivationTokenKind, Claim, Gender, JwTsResponse, ResetPasswordRequest, Role, TokenKind},
+    v1::{ActivationTokenKind, Claim, Gender, JwTsResponse, ResetPasswordRequest, Role},
     REFRESH_SECS,
 };
 use chrono::{DateTime, Utc};
@@ -58,7 +58,7 @@ impl AuthAction {
                 gender as u32,
             )
             .await?;
-        let d = cover_builder.build(&user.id.id().to_string()).await?;
+        cover_builder.build(&user.id.id().to_string()).await?;
         self.new_jwt(&user.id.id().to_string(), Role::NotVerified)
     }
 

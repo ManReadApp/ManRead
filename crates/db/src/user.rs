@@ -62,6 +62,40 @@ pub enum Achievement {
     Reviewed(u32),
 }
 
+impl From<u64> for Achievement {
+    fn from(value: u64) -> Self {
+        let tag = (value >> 32) as u32;
+        let payload = (value & 0xFFFF_FFFF) as u32;
+
+        match tag {
+            TAG_JOINED => Achievement::Joined,
+            TAG_READ => Achievement::Read(payload),
+            TAG_FAVORITED => Achievement::Favorited(payload),
+            TAG_COMMENTED => Achievement::Commented(payload),
+            TAG_REVIEWED => Achievement::Reviewed(payload),
+            other => todo!("Unknown tag: {}", other),
+        }
+    }
+}
+const TAG_JOINED: u32 = 0;
+const TAG_READ: u32 = 1;
+const TAG_FAVORITED: u32 = 2;
+const TAG_COMMENTED: u32 = 3;
+const TAG_REVIEWED: u32 = 4;
+impl From<Achievement> for u64 {
+    fn from(value: Achievement) -> Self {
+        let (tag, payload): (u32, u32) = match value {
+            Achievement::Joined => (TAG_JOINED, 0),
+            Achievement::Read(v) => (TAG_READ, v),
+            Achievement::Favorited(v) => (TAG_FAVORITED, v),
+            Achievement::Commented(v) => (TAG_COMMENTED, v),
+            Achievement::Reviewed(v) => (TAG_REVIEWED, v),
+        };
+
+        ((tag as u64) << 32) | (payload as u64)
+    }
+}
+
 //TODO: comments/reviews(manga), chat
 #[derive(SurrealTable, Serialize, Deserialize, Debug, Clone)]
 #[db("users")]
@@ -228,7 +262,7 @@ impl UserDBService {
     }
 
     pub async fn delete(&self, id: &str) -> DbResult<()> {
-        todo!()
+        todo!("mark only")
     }
 
     pub async fn add_achievement(&self, id: &str, achievement: Achievement) -> DbResult<()> {

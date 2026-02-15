@@ -22,7 +22,10 @@ use std::{
 
 pub use async_tempfile::TempFile;
 
-pub use builders::{CoverFileBuilder, FileBuilder, MangaPageFileBuilder, UserCoverFileBuilder};
+pub use builders::{
+    ArtFileBuilder, CoverFileBuilder, FileBuilder, MangaPageFileBuilder, UserBannerBuilder,
+    UserCoverFileBuilder,
+};
 pub use error::StorageError;
 use futures_util::{FutureExt as _, StreamExt as _, TryStreamExt as _};
 use rand::prelude::IndexedRandom;
@@ -553,7 +556,7 @@ mod tests {
         let id = unwrap_single_register(storage.register_temp_file(tf).await, "register");
         let fb = unwrap_storage(storage.take(id).await, "take");
         CoverFileBuilder::from(fb)
-            .build("plain-roundtrip")
+            .build("plain-roundtrip", 0)
             .await
             .unwrap_or_else(|_| panic!("build failed"));
 
@@ -586,7 +589,7 @@ mod tests {
         assert_eq!(fb.dims, Some((3, 2)));
 
         CoverFileBuilder::from(fb)
-            .build("png-kept")
+            .build("png-kept", 0)
             .await
             .unwrap_or_else(|_| panic!("build failed"));
         let got = read_all_bytes(&storage.reader, "covers/png-kept.png").await;
@@ -618,7 +621,7 @@ mod tests {
         assert_eq!(fb.dims, Some((4, 5)));
 
         CoverFileBuilder::from(fb)
-            .build("bmp-converted")
+            .build("bmp-converted", 0)
             .await
             .unwrap_or_else(|_| panic!("build failed"));
         let got = read_all_bytes(&storage.reader, "covers/bmp-converted.jpeg").await;
@@ -858,7 +861,7 @@ mod tests {
         let id = unwrap_single_register(storage.register_temp_file(tf).await, "register");
         let fb = unwrap_storage(storage.take(id).await, "take");
         let err = CoverFileBuilder::from(fb)
-            .build("../escape")
+            .build("../escape", 0)
             .await
             .expect_err("unsafe target should be rejected");
 

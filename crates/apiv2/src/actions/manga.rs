@@ -23,7 +23,7 @@ use db::{
 };
 use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
 use std::{cmp::Ordering, sync::Arc};
-use storage::{CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
+use storage::{ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
 
 struct MangaActions {
     mangas: Arc<MangaDBService>,
@@ -165,7 +165,11 @@ impl MangaActions {
         })
     }
 
-    pub async fn search(&self, data: SearchRequest, uid: &str) -> ApiResult<()> {
+    pub async fn search(
+        &self,
+        data: SearchRequest,
+        uid: &str,
+    ) -> ApiResult<(Vec<SearchResponse>, u64)> {
         let (max, search) = self
             .mangas
             .search(data, RecordIdType::from((User::name(), uid)), true)
@@ -176,10 +180,10 @@ impl MangaActions {
         for v in search {
             resp.push(convert_to_search_response(v, &self.tags, &mut rng).await?);
         }
-        Ok(())
+        Ok((resp, max))
     }
 
-    pub async fn info(&self, id: String, uid: &str) -> ApiResult<()> {
+    pub async fn info(&self, id: String, uid: &str) -> ApiResult<MangaInfoResponse> {
         let manga = self.mangas.get(&id).await?;
         let chapters_ = self.chapters.get_simple(manga.chapters.into_iter()).await?;
         let mut chapters = vec![];
@@ -197,7 +201,7 @@ impl MangaActions {
             });
         }
         chapters.sort_by(|a, b| a.chapter.partial_cmp(&b.chapter).unwrap_or(Ordering::Equal));
-        let resp = MangaInfoResponse {
+        Ok(MangaInfoResponse {
             titles: manga
                 .titles
                 .into_iter()
@@ -287,11 +291,10 @@ impl MangaActions {
             progress: self.lists.is_reading(&id, uid).await,
             chapters,
             manga_id: id,
-        };
-        Ok(())
+        })
     }
 
-    pub async fn delete(&self, id: String) -> ApiResult<()> {
+    pub async fn delete(&self, id: &str) -> ApiResult<()> {
         self.mangas
             .set_visibility(id, Visibility::AdminReview)
             .await?;
@@ -371,25 +374,78 @@ impl MangaActions {
             volumes: vec![],
         };
         let mid = self.mangas.add(manga).await?;
-        file.build(&mid.thing.id().to_string()).await?;
+        file.build(&mid.thing.id().to_string(), 0).await?;
         Ok(())
     }
 
-    pub async fn add_cover(&self, file_id: &str) {
-        todo!()
-    }
-    pub async fn remove_cover(&self, cover_index: usize) {
-        todo!()
+    pub async fn add_cover(&self, mid: &str, file_id: &str) -> ApiResult<()> {
+        let file = CoverFileBuilder::from(self.fs.take(FileId::new(file_id.to_owned())).await?);
+        let index = self.mangas.add_cover(mid, file.ext()?).await?;
+        file.build(mid, index).await?;
+
+        Ok(())
     }
 
-    pub async fn add_volume_range(&self, start: f64, end: Option<f64>, title: Option<String>) {}
-    pub async fn edit_volume_range(
-        &self,
-        index: usize,
-        start: f64,
-        end: Option<f64>,
-        title: Option<String>,
-    ) {
+    pub async fn remove_cover(&self, mid: &str, cover_index: usize) -> ApiResult<()> {
+        self.mangas.remove_cover(mid, cover_index).await?;
+        Ok(())
     }
-    pub async fn remove_volume_range(&self, index: usize) {}
+
+    pub async fn add_art(&self, mid: &str, file_id: &str) -> ApiResult<()> {
+        let file = ArtFileBuilder::from(self.fs.take(FileId::new(file_id.to_owned())).await?);
+        let index = self.mangas.add_art(mid, file.ext()?).await?;
+        file.build(mid, index).await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_art(&self, mid: &str, file_index: usize) -> ApiResult<()> {
+        self.mangas.remove_art(mid, file_index).await?;
+        Ok(())
+    }
+
+    pub async fn confirm_delete(&self, id: &str) -> ApiResult<()> {
+        self.mangas.set_visibility(id, Visibility::Hidden).await?;
+        Ok(())
+    }
+
+    pub async fn set_volume_range(&self, id: &str, vols: Vec<VolumeRange>) -> ApiResult<()> {
+        self.mangas
+            .set_volumes(
+                id,
+                vols.into_iter()
+                    .map(|v| (v.title, v.start, v.end))
+                    .collect(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn add_relation(&self, mid: &str, relation_id: &str) -> ApiResult<()> {
+        self.mangas.add_relation(relation_id, mid).await?;
+        self.mangas.add_relation(mid, relation_id).await?;
+        Ok(())
+    }
+
+    pub async fn remove_relation(&self, mid: &str, relation_id: &str) -> ApiResult<()> {
+        self.mangas.remove_relation(mid, relation_id).await?;
+        self.mangas.remove_relation(relation_id, mid).await?;
+        Ok(())
+    }
+
+    pub async fn disable_scraper(&self, mid: &str, url: &str) -> ApiResult<()> {
+        self.mangas.set_scraper(mid, url, false).await?;
+        Ok(())
+    }
+
+    pub async fn enable_scraper(&self, mid: &str, url: &str) -> ApiResult<()> {
+        self.mangas.set_scraper(mid, url, true).await?;
+        Ok(())
+    }
+}
+
+pub struct VolumeRange {
+    pub start: f64,
+    pub end: Option<f64>,
+    pub title: Option<String>,
 }

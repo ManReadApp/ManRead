@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package v1;
 
+import "v1/auth/role.proto";
 import "v1/auth/role_token.proto";
 
 message Claim {

@@ -1,8 +1,9 @@
 syntax = "proto3";
 
 package v1;
-import "v1/auth/user.proto";
+
 import "google/protobuf/wrappers.proto";
+import "v1/auth/user.proto";
 
 message RegisterRequest {
   string name = 1;

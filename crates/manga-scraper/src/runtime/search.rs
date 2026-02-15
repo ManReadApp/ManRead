@@ -1,4 +1,4 @@
-use api_structure::models::manga::external_search::ValidSearches;
+use api_structure::search::ValidSearches;
 use async_trait::async_trait;
 use scraper::Html;
 use scraper_module::{

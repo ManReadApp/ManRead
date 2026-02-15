@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Mutex, time::SystemTime};
+use std::{collections::HashMap, sync::Mutex};
 
 use actix_web::{
     dev::ServiceRequest,
@@ -33,13 +33,6 @@ impl CryptoService {
             claims: Mutex::new(HashMap::new()),
         }
     }
-}
-
-fn now_ms() -> u128 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
 }
 
 pub async fn validator(

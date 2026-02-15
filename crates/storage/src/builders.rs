@@ -118,20 +118,29 @@ macro_rules! builder_wrapper {
     };
 }
 
-builder_wrapper!(MangaPageFileBuilder, from_no_change);
+builder_wrapper!(MangaPageFileBuilder, from_manga);
 builder_wrapper!(UserCoverFileBuilder, from_user_cover);
 builder_wrapper!(CoverFileBuilder, from_cover);
+builder_wrapper!(ArtFileBuilder, from_art);
+builder_wrapper!(UserBannerBuilder, from_banner);
 
-fn from_no_change(fb: FileBuilder) -> FileBuilder {
-    fb
+fn from_manga(fb: FileBuilder) -> FileBuilder {
+    unreachable!()
 }
 
 fn from_user_cover(fb: FileBuilder) -> FileBuilder {
     fb.add_path("users/icon")
 }
+fn from_banner(fb: FileBuilder) -> FileBuilder {
+    fb.add_path("users/banner")
+}
 
 fn from_cover(fb: FileBuilder) -> FileBuilder {
     fb.add_path("covers")
+}
+
+fn from_art(fb: FileBuilder) -> FileBuilder {
+    fb.add_path("arts")
 }
 
 impl UserCoverFileBuilder {
@@ -140,14 +149,31 @@ impl UserCoverFileBuilder {
     }
 }
 
-impl CoverFileBuilder {
+impl UserBannerBuilder {
     pub async fn build(self, id: &str) -> StorageResult<()> {
         self.b.add_path(id).build().await
     }
 }
 
+impl ArtFileBuilder {
+    pub async fn build(self, id: &str, index: usize) -> StorageResult<()> {
+        self.b.add_path(format!("{}_{}", id, index)).build().await
+    }
+}
+
+impl CoverFileBuilder {
+    pub async fn build(self, id: &str, index: usize) -> StorageResult<()> {
+        let id = if index == 0 {
+            id.to_owned()
+        } else {
+            format!("{}_{}", id, index)
+        };
+        self.b.add_path(id).build().await
+    }
+}
+
 impl MangaPageFileBuilder {
-    pub async fn build(self, id: usize) -> StorageResult<()> {
-        self.b.add_path(id.to_string()).build().await
+    pub async fn build(self, page: usize) -> StorageResult<()> {
+        self.b.add_path(page.to_string()).build().await
     }
 }

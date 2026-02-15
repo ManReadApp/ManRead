@@ -101,7 +101,7 @@ impl PartialEq for Manga {
 pub struct Volume {
     pub title: Option<String>,
     pub start: f64,
-    pub end: f64,
+    pub end: Option<f64>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -403,6 +403,48 @@ fn search_array(q: &str, arr: &Array) -> bool {
     })
 }
 impl MangaDBService {
+    pub async fn add_cover(&self, mid: &str, ext: &str) -> DbResult<usize> {
+        let id = RecordIdFunc::from((Manga::name(), mid));
+        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let v: Option<Manga> = id
+            .patch(&*DB, PatchOp::add("/covers/-", Some(ext.to_owned())))
+            .await?;
+        Ok(v.unwrap().covers.len() - 1)
+    }
+
+    pub async fn remove_cover(&self, mid: &str, index: usize) -> DbResult<()> {
+        let id = RecordIdFunc::from((Manga::name(), mid));
+        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let _: Option<Empty> = id
+            .patch(
+                &*DB,
+                PatchOp::replace(&format!("/covers/{}", index), None::<String>),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn add_art(&self, mid: &str, ext: &str) -> DbResult<usize> {
+        let id = RecordIdFunc::from((Manga::name(), mid));
+        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let v: Option<Manga> = id
+            .patch(&*DB, PatchOp::add("/art_ext/-", Some(ext.to_owned())))
+            .await?;
+        Ok(v.unwrap().art_ext.len() - 1)
+    }
+
+    pub async fn remove_art(&self, mid: &str, index: usize) -> DbResult<()> {
+        let id = RecordIdFunc::from((Manga::name(), mid));
+        let _: Empty = id.clone().get(&*DB).await?.ok_or(DbError::NotFound)?;
+        let _: Option<Empty> = id
+            .patch(
+                &*DB,
+                PatchOp::replace(&format!("/art_ext/{}", index), None::<String>),
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn scrapers(&self) -> DbResult<Vec<RecordIdType<Manga>>> {
         let items:Vec<RecordData<Empty>> = Manga::search(&*DB, Some(format!("WHERE array::len(array::filter(scraper, |$item| $item.enabled = true OR $item.enabled IS NONE)) > 0;"))).await?;
         Ok(items.into_iter().map(|v| v.id.into()).collect())
@@ -597,10 +639,66 @@ impl MangaDBService {
         Ok(())
     }
 
-    pub async fn set_visibility(&self, id: String, visibility: Visibility) -> DbResult<()> {
-        let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id.as_str()))
+    pub async fn set_visibility(&self, id: &str, visibility: Visibility) -> DbResult<()> {
+        let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
             .patch(&*DB, PatchOp::replace("/visibility", visibility as u64))
             .await?;
+        Ok(())
+    }
+
+    pub async fn set_volumes(
+        &self,
+        id: &str,
+        volumes: Vec<(Option<String>, f64, Option<f64>)>,
+    ) -> DbResult<()> {
+        let vols = volumes
+            .into_iter()
+            .map(|v| Volume {
+                title: v.0,
+                start: v.1,
+                end: v.2,
+            })
+            .collect::<Vec<_>>();
+        let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
+            .patch(&*DB, PatchOp::replace("/volumes", vols))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn add_relation(&self, id: &str, relation_id: &str) -> DbResult<()> {
+        let relation_id = RecordIdFunc::from((Manga::name(), relation_id));
+        let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
+            .patch(&*DB, PatchOp::add("/relations", relation_id))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn remove_relation(&self, id: &str, relation_id: &str) -> DbResult<()> {
+        let info = self.get(id).await?;
+        if let Some(v) = info
+            .relations
+            .iter()
+            .position(|v| v.id().to_string() == relation_id)
+        {
+            let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
+                .patch(&*DB, PatchOp::remove(&format!("/relations/{}", v)))
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn set_scraper(&self, id: &str, url: &str, value: bool) -> DbResult<()> {
+        let info = self.get(id).await?;
+        if let Some(v) = info.scraper.iter().position(|v| v.url == url) {
+            let _: Option<Empty> = RecordIdFunc::from((Manga::name(), id))
+                .patch(
+                    &*DB,
+                    PatchOp::replace(&format!("/scraper/{}/enabled", v), value),
+                )
+                .await?;
+        }
+
         Ok(())
     }
 

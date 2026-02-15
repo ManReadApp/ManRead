@@ -14,3 +14,9 @@ message PaginationRequest {
   uint32 page = 1;
   uint32 limit = 2;
 }
+
+message SearchRequest {
+  string query = 1;
+  uint32 page = 2;
+  uint32 limit = 3;
+}
