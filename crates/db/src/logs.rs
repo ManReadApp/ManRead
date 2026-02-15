@@ -30,12 +30,6 @@ pub struct LogDbService {
     db: DbSession,
 }
 
-impl Default for LogDbService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl LogDbService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

@@ -27,12 +27,6 @@ pub struct UserProgressDBService {
     db: DbSession,
 }
 
-impl Default for UserProgressDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl UserProgressDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

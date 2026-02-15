@@ -20,12 +20,6 @@ pub struct KindDBService {
     db: DbSession,
 }
 
-impl Default for KindDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl KindDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

@@ -404,11 +404,6 @@ fn search_array(q: &str, arr: &Array) -> bool {
         ItemOrArray::Array(array) => search_array(q, array),
     })
 }
-impl Default for MangaDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
 
 impl MangaDBService {
     pub fn new(db: DbSession) -> Self {

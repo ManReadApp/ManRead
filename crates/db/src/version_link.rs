@@ -30,12 +30,6 @@ pub struct ChapterVersionDBService {
     db: DbSession,
 }
 
-impl Default for ChapterVersionDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl ChapterVersionDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

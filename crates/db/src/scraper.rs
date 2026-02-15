@@ -36,12 +36,6 @@ pub struct ScraperDbService {
     db: DbSession,
 }
 
-impl Default for ScraperDbService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl ScraperDbService {
     pub async fn next_chapter(&self) -> DbResult<Option<RecordData<ScraperEntry>>> {
         let v: Vec<RecordData<ScraperEntry>> = self

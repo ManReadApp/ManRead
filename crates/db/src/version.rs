@@ -23,12 +23,6 @@ pub struct VersionDBService {
     db: DbSession,
 }
 
-impl Default for VersionDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl VersionDBService {
     pub async fn info(&self, id: RecordIdType<Version>) -> DbResult<RecordData<Version>> {
         id.get(self.db.as_ref()).await?.ok_or(DbError::NotFound)
@@ -62,6 +56,10 @@ impl VersionDBService {
         )
         .await?;
         Ok(search)
+    }
+
+    pub async fn get_(&self, id: RecordIdType<Version>) -> DbResult<RecordData<Version>> {
+        id.get(self.db.as_ref()).await?.ok_or(DbError::NotFound)
     }
 
     pub async fn get(&self, version: &str) -> DbResult<RecordIdType<Version>> {

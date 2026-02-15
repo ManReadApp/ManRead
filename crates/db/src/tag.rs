@@ -26,12 +26,6 @@ pub struct Tag {
 #[derive(SurrealSelect, Deserialize)]
 pub struct Empty {}
 
-impl Default for TagDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl TagDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

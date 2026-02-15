@@ -151,12 +151,6 @@ pub struct UserRolePassword {
     pub password: String,
 }
 
-impl Default for UserDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl UserDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

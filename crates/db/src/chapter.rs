@@ -67,12 +67,6 @@ pub struct ChapterPart2 {
     versions: Vec<String>,
 }
 
-impl Default for ChapterDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl ChapterDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

@@ -55,13 +55,14 @@ pub fn is_token_valid(token: &RecordData<AuthUser>, user_id: &str) -> DbResult<(
     Ok(())
 }
 
-impl Default for AuthTokenDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl AuthTokenDBService {
+    pub async fn delete_(&self, token: RecordData<AuthUser>) -> DbResult<()> {
+        token
+            .delete_s(self.db.as_ref())
+            .await
+            .map_err(DbError::from)?;
+        Ok(())
+    }
     pub fn new(db: DbSession) -> Self {
         Self { db }
     }

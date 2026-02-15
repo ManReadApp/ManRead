@@ -12,7 +12,7 @@ pub mod tag;
 pub mod user;
 pub mod version;
 pub mod version_link;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 pub use surrealdb::RecordId;
 pub use surrealdb_extras::SurrealTableInfo;
 
@@ -27,7 +27,6 @@ use crate::user::UserDBService;
 
 pub type DbClient = Surreal<Any>;
 pub type DbSession = Arc<DbClient>;
-static GLOBAL_DB: OnceLock<DbSession> = OnceLock::new();
 
 #[derive(Clone)]
 pub struct RemoteDbConfig {
@@ -89,17 +88,9 @@ pub async fn init_db(config: DbConfig) -> Result<DbHandle, surrealdb::Error> {
         }
     }
 
-    let _ = GLOBAL_DB.set(db.clone());
     Ok(DbHandle {
         session: db.clone(),
         users: Arc::new(UserDBService::new(db.clone())),
         tokens: Arc::new(AuthTokenDBService::new(db)),
     })
-}
-
-pub(crate) fn global_db() -> DbSession {
-    GLOBAL_DB
-        .get()
-        .cloned()
-        .expect("Database not initialized. Call init_db() before using Default services.")
 }

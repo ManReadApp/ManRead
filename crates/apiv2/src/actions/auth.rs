@@ -15,7 +15,6 @@ use db::{
     auth::{is_token_valid, AuthTokenDBService, RecordData},
     error::{DbError, DbResult},
     user::{UserDBService, UserRolePassword},
-    DB,
 };
 use storage::{FileBuilderExt as _, FileId, StorageSystem};
 
@@ -149,7 +148,7 @@ impl AuthAction {
             .set_password(&user.id.id().to_string(), hash)
             .await?;
         if token.data.get_kind().single {
-            token.delete_s(&*DB).await.map_err(DbError::from)?;
+            self.token.delete_(token).await?;
         }
         let role = Role::try_from(user.data.role).unwrap();
         self.new_jwt(&user.id.id().to_string(), role)
@@ -165,7 +164,7 @@ impl AuthAction {
         self.users.set_role(claim.id.as_str(), kind.kind).await?;
 
         if kind.single {
-            find.delete_s(&*DB).await.map_err(DbError::from)?;
+            self.token.delete_(find).await?;
         }
         self.new_jwt(&claim.id, kind.kind)
     }

@@ -51,11 +51,6 @@ async fn get_list(db: &DbSession, name: &str, user: &str) -> DbResult<RecordData
     }
     Ok(v.remove(0))
 }
-impl Default for ListDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
 
 impl ListDBService {
     pub fn new(db: DbSession) -> Self {

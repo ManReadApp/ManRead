@@ -33,12 +33,6 @@ pub struct PageDBService {
     db: DbSession,
 }
 
-impl Default for PageDBService {
-    fn default() -> Self {
-        Self::new(crate::global_db())
-    }
-}
-
 impl PageDBService {
     pub fn new(db: DbSession) -> Self {
         Self { db }

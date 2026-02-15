@@ -19,7 +19,7 @@ use db::{
     tag::{Tag, TagDBService},
     user::{User, UserDBService},
     version::VersionDBService,
-    RecordId, RecordIdFunc, RecordIdType, SurrealTableInfo, DB,
+    RecordId, RecordIdFunc, RecordIdType, SurrealTableInfo,
 };
 use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
 use std::{cmp::Ordering, sync::Arc};
@@ -273,12 +273,7 @@ impl MangaActions {
                 let mut scrapers = Vec::new();
 
                 for v in manga.scraper {
-                    let target = v
-                        .target
-                        .get(&*DB)
-                        .await
-                        .unwrap()
-                        .ok_or(ApiError::db_error(DbError::NotFound))?;
+                    let target = self.versions.get_(v.target).await?;
 
                     scrapers.push(api_structure::v1::Scraper {
                         channel: target.data.name,
