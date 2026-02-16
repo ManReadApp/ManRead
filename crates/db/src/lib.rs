@@ -22,7 +22,17 @@ use surrealdb::opt::auth::Root;
 pub use surrealdb_extras::{RecordIdFunc, RecordIdType};
 
 use crate::auth::AuthTokenDBService;
+use crate::chapter::ChapterDBService;
+use crate::kind::KindDBService;
+use crate::lists::ListDBService;
+use crate::manga::MangaDBService;
+use crate::page::PageDBService;
+use crate::progress::UserProgressDBService;
+use crate::scraper::ScraperDbService;
+use crate::tag::TagDBService;
 use crate::user::UserDBService;
+use crate::version::VersionDBService;
+use crate::version_link::ChapterVersionDBService;
 
 pub type DbClient = Surreal<Any>;
 pub type DbSession = Arc<DbClient>;
@@ -67,6 +77,16 @@ pub struct DbHandle {
     pub session: DbSession,
     pub tokens: Arc<AuthTokenDBService>,
     pub users: Arc<UserDBService>,
+    pub chapters: Arc<ChapterDBService>,
+    pub kinds: Arc<KindDBService>,
+    pub lists: Arc<ListDBService>,
+    pub mangas: Arc<MangaDBService>,
+    pub pages: Arc<PageDBService>,
+    pub progress: Arc<UserProgressDBService>,
+    pub scraper: Arc<ScraperDbService>,
+    pub tags: Arc<TagDBService>,
+    pub versions: Arc<VersionDBService>,
+    pub chapter_versions: Arc<ChapterVersionDBService>,
 }
 
 pub async fn init_db(config: DbConfig) -> Result<DbHandle, surrealdb::Error> {
@@ -90,6 +110,16 @@ pub async fn init_db(config: DbConfig) -> Result<DbHandle, surrealdb::Error> {
     Ok(DbHandle {
         session: db.clone(),
         users: Arc::new(UserDBService::new(db.clone())),
-        tokens: Arc::new(AuthTokenDBService::new(db)),
+        tokens: Arc::new(AuthTokenDBService::new(db.clone())),
+        chapters: Arc::new(ChapterDBService::new(db.clone())),
+        kinds: Arc::new(KindDBService::new(db.clone())),
+        lists: Arc::new(ListDBService::new(db.clone())),
+        mangas: Arc::new(MangaDBService::new(db.clone())),
+        pages: Arc::new(PageDBService::new(db.clone())),
+        progress: Arc::new(UserProgressDBService::new(db.clone())),
+        scraper: Arc::new(ScraperDbService::new(db.clone())),
+        tags: Arc::new(TagDBService::new(db.clone())),
+        versions: Arc::new(VersionDBService::new(db.clone())),
+        chapter_versions: Arc::new(ChapterVersionDBService::new(db)),
     })
 }

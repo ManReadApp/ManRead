@@ -25,14 +25,14 @@ use std::{cmp::Ordering, sync::Arc};
 use storage::{ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
 
 pub struct MangaActions {
-    mangas: Arc<MangaDBService>,
-    chapters: Arc<ChapterDBService>,
-    tags: Arc<TagDBService>,
-    kinds: Arc<KindDBService>,
-    users: Arc<UserDBService>,
-    lists: Arc<ListDBService>,
-    versions: Arc<VersionDBService>,
-    fs: Arc<StorageSystem>,
+    pub mangas: Arc<MangaDBService>,
+    pub chapters: Arc<ChapterDBService>,
+    pub tags: Arc<TagDBService>,
+    pub kinds: Arc<KindDBService>,
+    pub users: Arc<UserDBService>,
+    pub lists: Arc<ListDBService>,
+    pub versions: Arc<VersionDBService>,
+    pub fs: Arc<StorageSystem>,
 }
 
 impl MangaActions {

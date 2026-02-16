@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use actix_web::{
     error::ErrorInternalServerError,
@@ -7,7 +7,6 @@ use actix_web::{
     },
     web, HttpRequest, HttpResponse,
 };
-use chrono::{DateTime, Utc};
 use storage::{Object, StorageSystem};
 
 fn normalize_etag(s: &str) -> String {
@@ -79,7 +78,7 @@ pub async fn download(
     Ok(stream(req, obj, true))
 }
 
-fn stream(req: &HttpRequest, obj: Object, cache: bool) -> HttpResponse {
+pub fn stream(req: &HttpRequest, obj: Object, cache: bool) -> HttpResponse {
     if let Some(resp) = maybe_not_modified(req, obj.etag.as_deref(), obj.last_modified) {
         return resp;
     }

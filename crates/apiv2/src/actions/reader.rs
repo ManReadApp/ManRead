@@ -9,13 +9,13 @@ use db::{
 use crate::error::{ApiError, ApiResult};
 
 pub struct ReaderActions {
-    progresses: Arc<UserProgressDBService>,
-    chapters: Arc<ChapterDBService>,
-    pages: Arc<PageDBService>,
-    chapter_versions: Arc<ChapterVersionDBService>,
-    mangas: Arc<MangaDBService>,
-    lists: Arc<ListDBService>,
-    kinds: Arc<KindDBService>,
+    pub progresses: Arc<UserProgressDBService>,
+    pub chapters: Arc<ChapterDBService>,
+    pub pages: Arc<PageDBService>,
+    pub chapter_versions: Arc<ChapterVersionDBService>,
+    pub mangas: Arc<MangaDBService>,
+    pub lists: Arc<ListDBService>,
+    pub kinds: Arc<KindDBService>,
 }
 impl ReaderActions {
     pub async fn save_progress(

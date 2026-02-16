@@ -92,18 +92,6 @@ fn get_field_name(field: &Field) -> ApiResult<Option<String>> {
     )
 }
 
-/// Only the first bytes of the file are put into the buffer
-/// For reading magic header
-fn extend_buffer(buffer: &mut Vec<u8>, data: &[u8]) {
-    const MAX_SIZE: usize = 32;
-
-    let available_space = MAX_SIZE.saturating_sub(buffer.len());
-    if available_space > 0 {
-        let to_add = data.len().min(available_space);
-        buffer.extend_from_slice(&data[..to_add]);
-    }
-}
-
 pub fn register() -> apistos::web::Resource {
     apistos::web::resource("/upload").route(
         apistos::web::post()

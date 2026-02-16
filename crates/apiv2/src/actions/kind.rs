@@ -5,7 +5,7 @@ use db::kind::KindDBService;
 use crate::error::ApiResult;
 
 pub struct KindActions {
-    kinds: Arc<KindDBService>,
+    pub kinds: Arc<KindDBService>,
 }
 
 impl KindActions {

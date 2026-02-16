@@ -7,7 +7,7 @@ use crate::actions::crytpo::validator;
 mod auth;
 mod chapter;
 mod chapter_versions;
-mod img;
+mod image;
 mod kind;
 mod lists;
 mod manga;
@@ -19,16 +19,16 @@ mod user;
 pub fn register() -> Scope {
     apistos::web::scope("/v1")
         .service(auth::register())
-        // .service(scope("/image-no-auth").service(image::cover_img::register()))
+        .service(scope("/image-no-auth").service(image::cover_img::register()))
         .service(
             scope("")
                 .wrap(HttpAuthentication::bearer(validator))
+                // .service(external::register())
                 .service(chapter::register())
                 .service(chapter_versions::register())
-                // .service(image::register())
+                .service(image::register())
                 .service(token::register())
                 .service(kind::register())
-                // .service(external::register())
                 .service(reader::register())
                 .service(manga::register())
                 .service(user::register())

@@ -1,18 +1,13 @@
 use std::sync::Arc;
 
-use api_structure::v1::{ChapterVersion, Page, PaginationRequest, VersionInfoResponse};
-use db::{
-    chapter::ChapterDBService, page::PageDBService, version::VersionDBService,
-    version_link::ChapterVersionDBService,
-};
+use api_structure::v1::{PaginationRequest, VersionInfoResponse};
+use db::{chapter::ChapterDBService, version::VersionDBService};
 
 use crate::error::ApiResult;
 
 pub struct ChapterVersionActions {
-    chapter_versions: Arc<ChapterVersionDBService>,
-    versions: Arc<VersionDBService>,
-    chapters: Arc<ChapterDBService>,
-    pages: Arc<PageDBService>,
+    pub versions: Arc<VersionDBService>,
+    pub chapters: Arc<ChapterDBService>,
 }
 
 impl ChapterVersionActions {

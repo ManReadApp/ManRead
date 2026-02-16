@@ -13,10 +13,10 @@ use crate::{
 };
 
 pub struct UserActions {
-    users: Arc<UserDBService>,
-    crypto: Arc<CryptoService>,
-    fs: Arc<StorageSystem>,
-    tags: Arc<TagDBService>,
+    pub users: Arc<UserDBService>,
+    pub crypto: Arc<CryptoService>,
+    pub fs: Arc<StorageSystem>,
+    pub tags: Arc<TagDBService>,
 }
 
 fn reorder(names: &mut Vec<String>, query: &str) {

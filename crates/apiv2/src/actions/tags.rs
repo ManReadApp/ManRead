@@ -6,7 +6,7 @@ use db::tag::TagDBService;
 use crate::error::ApiResult;
 
 pub struct TagActions {
-    tags: Arc<TagDBService>,
+    pub tags: Arc<TagDBService>,
 }
 
 impl TagActions {

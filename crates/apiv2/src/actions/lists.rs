@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use api_structure::v1::{Claim, PaginationRequest};
+use api_structure::v1::Claim;
 use db::{lists::ListDBService, manga::MangaDBService};
 
 use crate::error::ApiResult;
 
 pub struct ListActions {
-    mangas: Arc<MangaDBService>,
-    lists: Arc<ListDBService>,
+    pub mangas: Arc<MangaDBService>,
+    pub lists: Arc<ListDBService>,
 }
 
 impl ListActions {

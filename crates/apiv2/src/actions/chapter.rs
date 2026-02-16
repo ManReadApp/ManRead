@@ -11,12 +11,12 @@ use storage::{FileId, StorageSystem};
 use crate::error::{ApiError, ApiResult};
 
 pub struct ChapterActions {
-    chapters: Arc<ChapterDBService>,
-    tags: Arc<TagDBService>,
-    versions: Arc<VersionDBService>,
-    mangas: Arc<MangaDBService>,
-    pages: Arc<PageDBService>,
-    fs: StorageSystem,
+    pub chapters: Arc<ChapterDBService>,
+    pub tags: Arc<TagDBService>,
+    pub versions: Arc<VersionDBService>,
+    pub mangas: Arc<MangaDBService>,
+    pub pages: Arc<PageDBService>,
+    pub fs: Arc<StorageSystem>,
 }
 
 impl ChapterActions {

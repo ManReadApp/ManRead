@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    io,
+};
 
 use actix_web::{http::StatusCode, rt::task::JoinError, ResponseError};
 use apistos::ApiErrorComponent;
@@ -11,6 +14,7 @@ use storage::StorageError;
 pub enum ApiError {
     PasswordIncorrect,
     NameExists,
+    InvalidImageId,
     EmailExists,
     NoContentDisposition,
     ChapterVersionAlreadyExists,
@@ -23,6 +27,12 @@ pub enum ApiError {
     InvalidActivationToken,
     Bcrypt(String),
     FailedToEncodeToken(String),
+}
+
+impl From<io::Error> for ApiError {
+    fn from(value: io::Error) -> Self {
+        ApiError::WriteError(value.to_string())
+    }
 }
 
 pub type ApiResult<T> = Result<T, ApiError>;
