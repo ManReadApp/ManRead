@@ -4,9 +4,17 @@ use apistos::web::{scope, Scope};
 
 use crate::actions::crytpo::validator;
 
-mod admin;
 mod auth;
+mod chapter;
+mod chapter_versions;
 mod img;
+mod kind;
+mod lists;
+mod manga;
+mod reader;
+mod tags;
+mod token;
+mod user;
 
 pub fn register() -> Scope {
     apistos::web::scope("/v1")
@@ -15,17 +23,17 @@ pub fn register() -> Scope {
         .service(
             scope("")
                 .wrap(HttpAuthentication::bearer(validator))
-                // .service(chapter::register())
-                // .service(chapter_versions::register())
+                .service(chapter::register())
+                .service(chapter_versions::register())
                 // .service(image::register())
-                // .service(manga::register())
-                // .service(user::register())
-                // .service(admin::register())
+                .service(token::register())
+                .service(kind::register())
                 // .service(external::register())
-                // .service(lists::register())
-                // .service(kind::register())
-                // .service(errors::register())
-                // .service(tags::register())
+                .service(reader::register())
+                .service(manga::register())
+                .service(user::register())
+                .service(lists::register())
+                .service(tags::register())
                 .default_service(web::route().to(not_found)),
         )
 }

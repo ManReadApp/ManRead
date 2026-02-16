@@ -12,7 +12,6 @@ use api_structure::{
 use db::{
     auth::RecordData,
     chapter::ChapterDBService,
-    error::DbError,
     kind::KindDBService,
     lists::ListDBService,
     manga::{Manga, MangaDBService, Scraper},
@@ -25,7 +24,7 @@ use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
 use std::{cmp::Ordering, sync::Arc};
 use storage::{ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
 
-struct MangaActions {
+pub struct MangaActions {
     mangas: Arc<MangaDBService>,
     chapters: Arc<ChapterDBService>,
     tags: Arc<TagDBService>,

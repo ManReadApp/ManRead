@@ -3,7 +3,6 @@ pub mod chapter;
 pub mod error;
 pub mod kind;
 pub mod lists;
-pub mod logs;
 pub mod manga;
 pub mod page;
 pub mod progress;

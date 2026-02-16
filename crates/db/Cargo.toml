@@ -4,7 +4,7 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-surrealdb.workspace = true
+surrealdb = { workspace = true, features = ["kv-mem"] }
 api_structure.workspace = true
 surrealdb-extras.workspace = true
 serde = { workspace = true, features = ["derive"] }
@@ -12,3 +12,6 @@ chrono.workspace = true
 helper.workspace = true
 scraper-module = { workspace = true, features = ["json"] }
 storage.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

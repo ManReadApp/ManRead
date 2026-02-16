@@ -55,10 +55,8 @@ pub(crate) async fn create(
 }
 
 pub fn register() -> apistos::web::Scope {
-    apistos::web::scope("/admin").service(
-        apistos::web::scope("/verify")
-            .service(apistos::web::resource("/create").route(apistos::web::put().to(create)))
-            .service(apistos::web::resource("/delete").route(apistos::web::delete().to(delete)))
-            .service(apistos::web::resource("/list").route(apistos::web::post().to(list))),
-    )
+    apistos::web::scope("/verify")
+        .service(apistos::web::resource("/create").route(apistos::web::put().to(create)))
+        .service(apistos::web::resource("/delete").route(apistos::web::delete().to(delete)))
+        .service(apistos::web::resource("/list").route(apistos::web::post().to(list)))
 }

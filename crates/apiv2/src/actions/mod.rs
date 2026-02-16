@@ -1,10 +1,11 @@
 pub mod auth;
-mod chapter;
-mod chapter_version;
+pub mod chapter;
+pub mod chapter_version;
 pub mod crytpo;
-mod lists;
-mod manga;
-mod reader;
-mod tags;
+pub mod kind;
+pub mod lists;
+pub mod manga;
+pub mod reader;
+pub mod tags;
 pub mod token;
 pub mod user;

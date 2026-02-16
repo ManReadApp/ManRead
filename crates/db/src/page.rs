@@ -59,7 +59,7 @@ impl PageDBService {
             .await?;
             let p = p.ok_or(DbError::NotFound)?;
 
-            let enc = page.build(index + 1).await?;
+            page.build(index + 1).await?;
             out.push(p);
         }
         Ok(out.into_iter().map(Into::into).collect())

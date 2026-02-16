@@ -97,11 +97,15 @@ impl UserProgressDBService {
         manga_id: &str,
         chapter_id: &str,
     ) -> DbResult<()> {
-        let chapter_id = ChapterDBService::new(self.db.clone())
+        if let Some(chapter_id) = ChapterDBService::new(self.db.clone())
             .get_next_chapter(manga_id, chapter_id)
-            .await?;
-        self.update(user_id, manga_id, &chapter_id.id().to_string(), 0.0)
-            .await?;
+            .await
+            .ok()
+        {
+            self.update(user_id, manga_id, &chapter_id.id().to_string(), 0.0)
+                .await?;
+        }
+
         Ok(())
     }
 }

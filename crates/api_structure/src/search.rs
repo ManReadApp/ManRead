@@ -585,6 +585,12 @@ pub struct SearchResponse {
     pub number: u32,
 }
 
+#[derive(Deserialize, Serialize, ApiComponent, JsonSchema)]
+pub struct SearchResponse_ {
+    pub items: Vec<SearchResponse>,
+    pub max: u64,
+}
+
 impl DisplaySearch for SearchResponse {
     fn image_number(&self) -> u32 {
         self.number

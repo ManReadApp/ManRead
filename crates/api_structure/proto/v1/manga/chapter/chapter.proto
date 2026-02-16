@@ -24,3 +24,18 @@ message ChapterInfoResponse {
   optional string release_date = 5;
   map<string, string> versions = 6;
 }
+
+message NewChapterRequest {
+  string manga_id = 1;
+  repeated Tag tags = 2;
+
+  repeated string titles = 3;
+  repeated string sources = 4;
+
+  string version = 5;
+  double episode = 6;
+
+  repeated string images = 7;
+
+  optional uint64 release_date = 8;
+}
