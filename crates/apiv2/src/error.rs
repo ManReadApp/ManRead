@@ -16,7 +16,6 @@ pub enum ApiError {
     ChapterVersionAlreadyExists,
     ExpiredToken,
     NotFoundInDB,
-    DbError(String),
     WrongResetToken,
     WriteError(String),
     MultiPart(String),
@@ -29,7 +28,16 @@ pub enum ApiError {
 pub type ApiResult<T> = Result<T, ApiError>;
 impl From<DbError> for ApiError {
     fn from(value: DbError) -> Self {
-        ApiError::DbError(value.to_string())
+        match value {
+            DbError::NotFound => ApiError::NotFoundInDB,
+            DbError::InvalidActivationToken => ApiError::InvalidActivationToken,
+            DbError::ExpiredToken => ApiError::ExpiredToken,
+            DbError::NoImage => ApiError::invalid_input("No image available"),
+            DbError::NoExtension => ApiError::invalid_input("could not extract file extension"),
+            DbError::SearchParseError(error) => ApiError::invalid_input(&error),
+            DbError::SurrealDbError(error) => ApiError::write_error(error.to_string()),
+            DbError::DbError(storage_error) => storage_error.into(),
+        }
     }
 }
 
@@ -41,7 +49,7 @@ impl From<jsonwebtoken::errors::Error> for ApiError {
 
 impl ApiError {
     pub fn db_error(msg: impl ToString) -> Self {
-        Self::DbError(msg.to_string())
+        Self::WriteError(msg.to_string())
     }
 
     pub fn generate_jwt(msg: jsonwebtoken::errors::Error) -> Self {
@@ -63,12 +71,16 @@ impl ApiError {
 impl From<StorageError> for ApiError {
     fn from(value: StorageError) -> Self {
         match value {
-            StorageError::HandleNotFound => todo!(),
-            StorageError::NoDefaultImageAvailable => todo!(),
-            StorageError::MissingExtension => todo!(),
-            StorageError::Processing(processing_error) => todo!(),
-            StorageError::Io(error) => todo!(),
-            StorageError::TempFile(error) => todo!(),
+            StorageError::HandleNotFound => ApiError::NotFoundInDB,
+            StorageError::NoDefaultImageAvailable => {
+                ApiError::invalid_input("No default image available")
+            }
+            StorageError::MissingExtension => ApiError::invalid_input("Missing file extension"),
+            StorageError::Processing(processing_error) => {
+                ApiError::write_error(processing_error.to_string())
+            }
+            StorageError::Io(error) => ApiError::write_error(error.to_string()),
+            StorageError::TempFile(error) => ApiError::write_error(error.to_string()),
         }
     }
 }
