@@ -139,10 +139,64 @@ impl ChapterDBService {
     }
 
     pub async fn delete(&self, chapter_id: &str) -> DbResult<()> {
-        todo!()
+        let chapter = self.get_by_id(chapter_id).await?;
+        let manga_id = self.get_manga_id(chapter_id).await?;
+        let manga_id = RecordIdFunc::from((Manga::name(), manga_id.as_str()));
+
+        let mut manga: Manga = manga_id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
+
+        manga
+            .chapters
+            .retain(|v| v.id().to_string().as_str() != chapter_id);
+
+        let _: Option<RecordData<Empty>> = manga_id
+            .patch(
+                self.db.as_ref(),
+                PatchOp::replace("/chapters", manga.chapters),
+            )
+            .await?;
+
+        let chapter_id = RecordIdFunc::from((Chapter::name(), chapter_id));
+        chapter_id.delete_s(self.db.as_ref()).await?;
+
+        for version in chapter.versions.into_values() {
+            RecordIdFunc::from(version)
+                .delete_s(self.db.as_ref())
+                .await?;
+        }
+
+        Ok(())
     }
     pub async fn delete_version(&self, chapter_id: &str, version_id: &str) -> DbResult<String> {
-        todo!()
+        let chapter_id_ref = RecordIdFunc::from((Chapter::name(), chapter_id));
+        let mut chapter: Chapter = chapter_id_ref
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
+
+        let version_key = RecordIdFunc::from((Version::name(), version_id)).to_string();
+        let removed = chapter
+            .versions
+            .remove(&version_key)
+            .ok_or(DbError::NotFound)?;
+
+        let _: Option<RecordData<Empty>> = chapter_id_ref
+            .patch(
+                self.db.as_ref(),
+                PatchOp::replace("/versions", chapter.versions),
+            )
+            .await?;
+
+        RecordIdFunc::from(removed.clone())
+            .delete_s(self.db.as_ref())
+            .await?;
+
+        Ok(removed.id().to_string())
     }
 
     pub async fn get_by_id(&self, chapter_id: &str) -> DbResult<Chapter> {
@@ -150,6 +204,63 @@ impl ChapterDBService {
             .get(self.db.as_ref())
             .await?
             .ok_or(DbError::NotFound)
+    }
+
+    pub async fn edit(
+        &self,
+        chapter_id: &str,
+        titles: Option<Vec<String>>,
+        chapter: Option<f64>,
+        tags: Option<Vec<RecordIdType<Tag>>>,
+        sources: Option<Vec<String>>,
+        release_date: Option<Option<Datetime>>,
+    ) -> DbResult<()> {
+        //TODO: delete the files and pages
+        let id = RecordIdFunc::from((Chapter::name(), chapter_id));
+        let _: Option<RecordData<Empty>> = id
+            .clone()
+            .get(self.db.as_ref())
+            .await?
+            .ok_or(DbError::NotFound)?;
+
+        if let Some(titles) = titles {
+            let _: Option<RecordData<Empty>> = id
+                .clone()
+                .patch(self.db.as_ref(), PatchOp::replace("/titles", titles))
+                .await?;
+        }
+
+        if let Some(chapter) = chapter {
+            let _: Option<RecordData<Empty>> = id
+                .clone()
+                .patch(self.db.as_ref(), PatchOp::replace("/chapter", chapter))
+                .await?;
+        }
+
+        if let Some(tags) = tags {
+            let _: Option<RecordData<Empty>> = id
+                .clone()
+                .patch(self.db.as_ref(), PatchOp::replace("/tags", tags))
+                .await?;
+        }
+
+        if let Some(sources) = sources {
+            let _: Option<RecordData<Empty>> = id
+                .clone()
+                .patch(self.db.as_ref(), PatchOp::replace("/sources", sources))
+                .await?;
+        }
+
+        if let Some(release_date) = release_date {
+            let _: Option<RecordData<Empty>> = id
+                .patch(
+                    self.db.as_ref(),
+                    PatchOp::replace("/release_date", release_date),
+                )
+                .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn create(
