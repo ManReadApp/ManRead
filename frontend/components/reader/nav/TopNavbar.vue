@@ -13,7 +13,7 @@ const props = defineProps({
     required: true
   },
   titles: {
-    type: Object as () => { [key: string]: string[] },
+    type: Object as () => { [key: string]: {items: string[]} },
     required: true
   },
   chapter: Object as () => Chapter,

@@ -11,13 +11,13 @@ const {data: value, error} = await useAsyncData(`info-data-${mangaId}`, async ()
     body: {id: mangaId},
     headers: {Authorization: `Bearer ${await getAccessToken()}`}
   });
-  let map: Record<string, string[]> = {};
+  let map: Record<string, { items: string[] }> = {};
   for (const tag of data.tags) {
-    (map[tag.sex] ??= []).push(tag.tag);
+    (map[tag.sex] ??= { items: [] }).items.push(tag.tag);
   }
-  let map2: Record<string, string[]> = {};
+  let map2: Record<string, { items: string[] }> = {};
   for (const scraper of data.scrapers) {
-    (map2[scraper.channel] ??= []).push(scraper.url);
+    (map2[scraper.channel] ??= { items: [] }).items.push(scraper.url);
   }
   return {
     manga_id: data.manga_id,
@@ -29,9 +29,9 @@ const {data: value, error} = await useAsyncData(`info-data-${mangaId}`, async ()
     tags: map,
     scrapers: map2,
     ppls: {
-      "Artist": data.artists,
-      "Author": data.authors,
-      "Publisher": data.publishers,
+      "Artist": { items: data.artists },
+      "Author": { items: data.authors },
+      "Publisher": { items: data.publishers },
     }
   }
 })

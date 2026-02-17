@@ -57,32 +57,32 @@ const props = defineProps<{
     initialStatus?: "Dropped" | "Ongoing" | "Completed" | "Hiatus" | "Upcoming";
     initialKind?: string;
     initialDescription?: string;
-    initialTitles?: Record<string, string[]>;
-    initialPpls?: Record<string, string[]>;
-    initialTags?: Record<string, string[]>;
-    initialScrapers?: Record<string, string[]>;
+    initialTitles?: Record<string, { items: string[] }>;
+    initialPpls?: Record<string, { items: string[] }>;
+    initialTags?: Record<ValidKey, { items: string[] }>;
+    initialScrapers?: Record<string, { items: string[] }>;
     initialSources?: string[];
 }>();
 
 const hasScrapers =
     props.initialScrapers &&
-    Object.values(props.initialScrapers).flat().length > 0;
+    Object.values(props.initialScrapers).flatMap(({ items }) => items).length > 0;
 type ValidKey = "♂" | "♀" | "⚤ | ⚥" | "♂ → ♀" | "♀ → ♂" | "⊗" | "?⃝";
 const values = reactive<{
     file: string | null;
     lang: string;
     ppl: string;
     kind: string;
-    ppls: Record<string, string[]>;
+    ppls: Record<string, { items: string[] }>;
     tag: ValidKey;
     status: "Dropped" | "Ongoing" | "Completed" | "Hiatus" | "Upcoming" | "";
     chapter_version_select: string;
     titles_text: string;
     description: string;
-    titles: Record<string, string[]>;
+    titles: Record<string, { items: string[] }>;
     tags_text: string;
-    tags: Record<ValidKey, string[]>;
-    scrapers: Record<string, string[]>;
+    tags: Record<ValidKey, { items: string[] }>;
+    scrapers: Record<string, { items: string[] }>;
 
     ppl_text: string;
     scraper: boolean;
@@ -119,8 +119,10 @@ const validator = computed(() => {
         file,
         values.status,
         values.kind,
-        !!Object.values(values.titles).flat().length,
-        !values.scraper || Object.values(values.scrapers).flat().length > 0,
+        !!Object.values(values.titles).flatMap(({ items }) => items).length,
+        !values.scraper ||
+            Object.values(values.scrapers).flatMap(({ items }) => items).length >
+                0,
         // check empty text fields
         !values.tags_text,
         !values.titles_text,
@@ -133,8 +135,10 @@ const validator = computed(() => {
         file &&
         values.status &&
         values.kind &&
-        !!Object.values(values.titles).flat().length &&
-        (!values.scraper || Object.values(values.scrapers).flat().length > 0) &&
+        !!Object.values(values.titles).flatMap(({ items }) => items).length &&
+        (!values.scraper ||
+            Object.values(values.scrapers).flatMap(({ items }) => items)
+                .length > 0) &&
         // check empty text fields
         !values.tags_text &&
         !values.titles_text &&
@@ -157,7 +161,7 @@ const kinds = computed(() => {
 
 const display_tags = computed(() => {
     return Array.from(Object.entries(values.tags)).flatMap(([key, values]) => {
-        return values.map((value) => `${key} ${value}`);
+        return values.items.map((value) => `${key} ${value}`);
     });
 });
 
@@ -169,7 +173,7 @@ const remove_tag = (index: number, set = false) => {
 
     if (!validKeys.includes(key_)) return;
     const key = key_ as ValidKey;
-    const arr = values.tags[key];
+    const arr = values.tags[key]?.items ?? [];
 
     let count = 0;
     for (let i = 0; i < index; i++) {
@@ -230,18 +234,19 @@ const create = async () => {
         method: "PUT",
         body: {
             image_temp_name: values.file,
-            artists: values.ppls["Artist"] ?? [],
-            authors: values.ppls["Author"] ?? [],
+            artists: values.ppls["Artist"]?.items ?? [],
+            authors: values.ppls["Author"]?.items ?? [],
             description: values.description || undefined,
             kind: values.kind,
             names: values.titles,
-            publishers: values.ppls["Publisher"] ?? [],
+            publishers: values.ppls["Publisher"]?.items ?? [],
             scrapers: Object.entries(values.scrapers).flatMap(
-                ([channel, urls]) => urls.map((url) => ({ channel, url })),
+                ([channel, { items }]) =>
+                    items.map((url) => ({ channel, url })),
             ),
             sources: values.sources,
             status: values.status,
-            tags: Object.entries(values.tags).flatMap(([kind, tags]) => {
+            tags: Object.entries(values.tags).flatMap(([kind, { items }]) => {
                 let sex:
                     | "Male"
                     | "Female"
@@ -273,7 +278,7 @@ const create = async () => {
                         sex = "Unknown";
                         break;
                 }
-                return tags.map((tag) => ({ tag, sex, description: null }));
+                return items.map((tag) => ({ tag, sex, description: null }));
             }),
         },
         headers: { Authorization: `Bearer ${await getAccessToken()}` },
@@ -295,19 +300,20 @@ const update = async () => {
     await $manRead("/api/v1/manga/detail/edit", {
         method: "PUT",
         body: {
-            artists: values.ppls["Artist"] ?? [],
-            authors: values.ppls["Author"] ?? [],
+            artists: values.ppls["Artist"]?.items ?? [],
+            authors: values.ppls["Author"]?.items ?? [],
             description: values.description || undefined,
             kind: values.kind,
             manga_id: props.mangaId,
             names: values.titles,
-            publishers: values.ppls["Publisher"] ?? [],
+            publishers: values.ppls["Publisher"]?.items ?? [],
             scrapers: Object.entries(values.scrapers).flatMap(
-                ([channel, urls]) => urls.map((url) => ({ channel, url })),
+                ([channel, { items }]) =>
+                    items.map((url) => ({ channel, url })),
             ),
             sources: values.sources,
             status: values.status,
-            tags: Object.entries(values.tags).flatMap(([kind, tags]) => {
+            tags: Object.entries(values.tags).flatMap(([kind, { items }]) => {
                 let sex:
                     | "Male"
                     | "Female"
@@ -339,7 +345,7 @@ const update = async () => {
                         sex = "Unknown";
                         break;
                 }
-                return tags.map((tag) => ({ tag, sex, description: null }));
+                return items.map((tag) => ({ tag, sex, description: null }));
             }),
         },
         headers: { Authorization: `Bearer ${await getAccessToken()}` },
@@ -460,7 +466,7 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                 v-model="values.titles_text"
                 @pressed:enter="
                     () => {
-                        (values.titles[values.lang] ??= []).push(
+                        (values.titles[values.lang] ??= { items: [] }).items.push(
                             values.titles_text,
                         );
                         values.titles_text = '';
@@ -475,8 +481,8 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                             (v) => {
                                 const key = v.key;
                                 const index = v.value;
-                                const value = values.titles[key][index];
-                                values.titles[key].splice(index, 1);
+                                const value = values.titles[key].items[index];
+                                values.titles[key].items.splice(index, 1);
                                 values.lang = key;
                                 values.titles_text = value;
                             }
@@ -485,7 +491,7 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                             (v) => {
                                 const key = v.key;
                                 const index = v.value;
-                                values.titles[key].splice(index, 1);
+                                values.titles[key].items.splice(index, 1);
                             }
                         "
                     />
@@ -517,7 +523,9 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                 :completions="tag_completion"
                 @pressed:enter="
                     () => {
-                        (values.tags[values.tag] ??= []).push(values.tags_text);
+                        (values.tags[values.tag] ??= { items: [] }).items.push(
+                            values.tags_text,
+                        );
                         values.tags_text = '';
                     }
                 "
@@ -556,7 +564,9 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                 :completions="user_completion"
                 @pressed:enter="
                     () => {
-                        (values.ppls[values.ppl] ??= []).push(values.ppl_text);
+                        (values.ppls[values.ppl] ??= { items: [] }).items.push(
+                            values.ppl_text,
+                        );
                         values.ppl_text = '';
                     }
                 "
@@ -564,14 +574,17 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                 <template #no-flex>
                     <MapDisplay
                         :data="values.ppls"
-                        v-if="!!Object.values(values.ppls).flat().length"
+                        v-if="
+                            !!Object.values(values.ppls).flatMap(({ items }) => items)
+                                .length
+                        "
                         class="w-full mb-1"
                         @tag:dblclick="
                             (v) => {
                                 const key = v.key;
                                 const index = v.value;
-                                const value = values.ppls[key][index];
-                                values.ppls[key].splice(index, 1);
+                                const value = values.ppls[key].items[index];
+                                values.ppls[key].items.splice(index, 1);
                                 values.ppl = key;
                                 values.ppl_text = value;
                             }
@@ -580,7 +593,7 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                             (v) => {
                                 const key = v.key;
                                 const index = v.value;
-                                values.ppls[key].splice(index, 1);
+                                values.ppls[key].items.splice(index, 1);
                             }
                         "
                     />
@@ -663,7 +676,7 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                     () => {
                         if (values.chapter_version_select.length > 0) {
                             (values.scrapers[values.chapter_version_select] ??=
-                                []).push(values.scrapers_text);
+                                { items: [] }).items.push(values.scrapers_text);
                             values.scrapers_text = '';
                         }
                     }
@@ -677,8 +690,8 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                             (v) => {
                                 const key = v.key;
                                 const index = v.value;
-                                const value = values.scrapers[key][index];
-                                values.scrapers[key].splice(index, 1);
+                                const value = values.scrapers[key].items[index];
+                                values.scrapers[key].items.splice(index, 1);
                                 values.chapter_version_select = key;
                                 values.scrapers_text = value;
                             }
@@ -687,7 +700,7 @@ const search_users_online = async (store: Ref<string[][]>, name: string) => {
                             (v) => {
                                 const key = v.key;
                                 const index = v.value;
-                                values.scrapers[key].splice(index, 1);
+                                values.scrapers[key].items.splice(index, 1);
                             }
                         "
                     />

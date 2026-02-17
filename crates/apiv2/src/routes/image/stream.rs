@@ -3,7 +3,8 @@ use std::time::SystemTime;
 use actix_web::{
     error::ErrorInternalServerError,
     http::header::{
-        self, ETag, EntityTag, Header, HttpDate, IfModifiedSince, IfNoneMatch, LastModified,
+        self, CacheControl, ETag, EntityTag, Header, HttpDate, IfModifiedSince, IfNoneMatch,
+        LastModified,
     },
     web, HttpRequest, HttpResponse,
 };
@@ -97,6 +98,7 @@ pub fn stream(req: &HttpRequest, obj: Object, cache: bool) -> HttpResponse {
         if let Some(lm) = obj.last_modified {
             resp.insert_header(("Last-Modified", LastModified(lm.into())));
         }
+        resp.insert_header(("Cache-Control", "public, max-age=3600, must-revalidate"));
     } else {
         resp.insert_header((
             header::CACHE_CONTROL,

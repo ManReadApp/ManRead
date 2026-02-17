@@ -15,6 +15,20 @@ use crate::{
     routes,
 };
 
+#[cfg(feature = "cors")]
+pub fn init_cors() -> actix_cors::Cors {
+    #[cfg(all(feature = "cors", not(feature = "cors-permissive")))]
+    return actix_cors::Cors::default()
+        .allow_any_header()
+        .allowed_methods(vec!["GET", "POST"])
+        .supports_credentials()
+        .max_age(3600);
+    #[cfg(all(feature = "cors", feature = "cors-permissive"))]
+    return actix_cors::Cors::permissive();
+    #[cfg(not(any(feature = "cors", feature = "cors-permissive")))]
+    unreachable!("this function should only be called when cors is activated")
+}
+
 pub fn init_server(
     port: u16,
     https_port: u16,

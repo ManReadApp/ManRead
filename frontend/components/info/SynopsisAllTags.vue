@@ -2,7 +2,7 @@
 import SynopsisSegment from "~/components/info/synopsis-segment.vue";
 import Flag from "~/components/img/Flag.vue";
 
-defineProps<{ authors: string[], artists: string[], publishers: string[], tags: any[], sources: any[], titles: Record<string, string[]> }>();
+defineProps<{ authors: string[], artists: string[], publishers: string[], tags: any[], sources: any[], titles: Record<string, {items: string[]}> }>();
 const extract_hostname = (url: string) => {
   const hostname = new URL(url).hostname;
   const parts = hostname.split('.');
@@ -39,7 +39,7 @@ const extract_hostname = (url: string) => {
     <div class="w-full">
       <div class="font-bold mb-1">Alternative Titles</div>
       <div v-for="(titles, lang) in titles">
-        <div class="mb-1 flex gap-x-2 alt-title" v-for="title in titles">
+        <div class="mb-1 flex gap-x-2 alt-title" v-for="title in titles.items">
           <Flag :lang="lang as string" :title="title"/>
           <span>{{ title }}</span>
         </div>

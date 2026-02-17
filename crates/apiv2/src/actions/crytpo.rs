@@ -46,7 +46,7 @@ pub async fn validator(
         Ok(v) => {
             {
                 if matches!(v.r#type, JwtType::AccessToken) {
-                    req.attach(vec![v.role]);
+                    req.attach(v.role.get_permissions());
                 }
                 let mut ext = req.extensions_mut();
                 ext.insert(v);

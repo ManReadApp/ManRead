@@ -116,6 +116,7 @@ impl StorageReader for DiskStorage {
     async fn get(&self, key: &str, _: &Options) -> Result<Object, std::io::Error> {
         let path = self.key_path(key)?;
         let file = File::open(&path).await?;
+        let mime = mime_guess::from_path(path).first();
         let meta = file.metadata().await.ok();
         let lm = meta.as_ref().map(|v| v.modified().ok()).flatten();
 
@@ -123,11 +124,10 @@ impl StorageReader for DiskStorage {
 
         let stream = ReaderStream::new(file).map(|r| r.map(Bytes::from));
         let stream: ByteStream = Box::pin(stream);
-
         Ok(Object {
             stream,
             content_length: len,
-            content_type: None,
+            content_type: mime,
             etag: None,
             last_modified: lm,
         })

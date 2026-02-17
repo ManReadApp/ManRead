@@ -39,7 +39,8 @@ actix-cors = { workspace = true, optional = true }
 local-ip-address = { workspace = true, optional = true }
 
 [features]
-default = ["log-ip"]
+default = ["log-ip", "cors", "cors-permissive"]
 log-ip = ["dep:local-ip-address"]
 https = ["dep:openssl"]
 cors = ["dep:actix-cors"]
+cors-permissive = ["cors"]

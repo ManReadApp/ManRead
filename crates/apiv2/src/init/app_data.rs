@@ -71,11 +71,13 @@ pub fn init_app_data(config: Arc<Config>, fs: Arc<StorageSystem>, dbs: DbHandle)
     };
     let user = UserActions {
         users: dbs.users,
-        crypto,
-        fs,
+        crypto: crypto.clone(),
+        fs: fs.clone(),
         tags: dbs.tags,
     };
     scope("/api")
+        .app_data(Data::from(crypto))
+        .app_data(Data::from(fs))
         .app_data(Data::new(auth))
         .app_data(Data::new(chapter))
         .app_data(Data::new(cversion))

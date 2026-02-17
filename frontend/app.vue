@@ -1,8 +1,8 @@
 <template>
-  <div class="w-screen h-screen overflow-hidden">
-    <NuxtRouteAnnouncer/>
-    <NuxtPage />
-  </div>
+    <div class="w-screen h-screen overflow-hidden">
+        <NuxtRouteAnnouncer />
+        <NuxtPage />
+    </div>
 </template>
 <script lang="ts" setup>
 //const data2 = await $manRead('/api/v1/manga/home');

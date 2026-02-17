@@ -29,6 +29,12 @@ pub enum ApiError {
     FailedToEncodeToken(String),
 }
 
+impl Drop for ApiError {
+    fn drop(&mut self) {
+        log::error!("Dropping ApiError: {:?}", self);
+    }
+}
+
 impl From<io::Error> for ApiError {
     fn from(value: io::Error) -> Self {
         ApiError::WriteError(value.to_string())

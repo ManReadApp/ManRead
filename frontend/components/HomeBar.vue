@@ -14,7 +14,7 @@ interface Item {
     sex: "Female" | "Male" | "Both" | "None" | "FemaleMale" | "MaleFemale" | "Unknown",
     tag: string
   }[],
-  titles: { [key: string]: string[] }
+  titles: { [key: string]: string[] | {items: string[]} }
 }
 
 defineProps({
