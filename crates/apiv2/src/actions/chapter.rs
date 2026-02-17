@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use api_structure::v1::{ChapterInfoResponse, Tag};
+use api_structure::v1::{ChapterInfoResponse, EditChapterRequest, Tag};
 use chrono::{DateTime, Utc};
 use db::{
     chapter::ChapterDBService, manga::MangaDBService, page::PageDBService, tag::TagDBService,
@@ -105,8 +105,38 @@ impl ChapterActions {
         Ok(())
     }
 
-    pub async fn edit() {
-        todo!()
+    pub async fn edit(&self, data: EditChapterRequest) -> ApiResult<()> {
+        let tags = if let Some(tags) = data.tags {
+            Some(self.tags.get_ids(tags.items.into_iter()).await?)
+        } else {
+            None
+        };
+
+        let release_date = if data.clear_release_date {
+            Some(None)
+        } else {
+            data.release_date
+                .map(|v| {
+                    DateTime::from_timestamp_millis(v as i64)
+                        .ok_or(ApiError::invalid_input("Invalid release_date timestamp"))
+                        .map(|v| Some(v.into()))
+                })
+                .transpose()?
+        };
+
+        let manga_id = self.chapters.get_manga_id(&data.chapter_id).await?;
+        self.chapters
+            .edit(
+                &data.chapter_id,
+                data.titles.map(|v| v.items),
+                data.chapter,
+                tags,
+                data.sources.map(|v| v.items),
+                release_date,
+            )
+            .await?;
+        self.mangas.regenerate_tags(&manga_id).await?;
+        Ok(())
     }
 
     pub async fn info(&self, chapter_id: &str) -> ApiResult<ChapterInfoResponse> {

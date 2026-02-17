@@ -1,11 +1,13 @@
 use actix_web::web::{Data, Json, ReqData};
+use actix_web_grants::AuthorityGuard;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use api_structure::{
     req::LoginRequest,
     v1::{
-        ActivateRequest, Claim, JwTsResponse, RegisterRequest, RequestResetPasswordRequest,
+        ActivateRequest, Claim, JwtType, JwTsResponse, RegisterRequest, RequestResetPasswordRequest,
         ResetPasswordRequest, TokenRefreshRequest,
     },
+    Permission,
 };
 use apistos::{
     actix::CreatedJson,
@@ -56,6 +58,11 @@ pub(crate) async fn logout(
     service: Data<AuthAction>,
     claim: ReqData<Claim>,
 ) -> ApiResult<Json<u8>> {
+    if !matches!(claim.r#type, JwtType::AccessToken) {
+        return Err(crate::error::ApiError::invalid_input(
+            "Access token required",
+        ));
+    }
     service.logout(&claim).await?;
     Ok(Json(200))
 }
@@ -124,7 +131,11 @@ pub fn register() -> Scope {
                     apistos::web::resource("/sign-out").route(apistos::web::delete().to(logout)),
                 )
                 .service(
-                    apistos::web::resource("/verify-account").route(apistos::web::put().to(verify)),
+                    apistos::web::resource("/verify-account").route(
+                        apistos::web::put()
+                            .to(verify)
+                            .guard(AuthorityGuard::new(Permission::Verify)),
+                    ),
                 ),
         )
 }

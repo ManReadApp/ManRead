@@ -83,11 +83,11 @@ pub(crate) async fn remove_from_list(
     Json(payload): Json<RemoveMangaToListRequest>,
     list_service: Data<ListActions>,
     user: ReqData<Claim>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     list_service
         .remove_from_list(&list, &payload.manga_id, &user)
         .await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(tag = "list", summary = "creates a list", description = r###""###)]
@@ -105,9 +105,9 @@ pub(crate) async fn delete(
     Json(payload): Json<DeleteListRequest>,
     list_service: Data<ListActions>,
     user: ReqData<Claim>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     list_service.remove(&payload.name, &user).await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 #[api_operation(
     tag = "list",

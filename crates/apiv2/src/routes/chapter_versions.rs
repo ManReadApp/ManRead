@@ -7,7 +7,7 @@ use api_structure::{
     },
     Permission,
 };
-use apistos::{actix::CreatedJson, api_operation};
+use apistos::api_operation;
 
 use crate::{actions::chapter_version::ChapterVersionActions, error::ApiResult};
 
@@ -24,14 +24,14 @@ pub fn register() -> apistos::web::Scope {
             apistos::web::resource("/delete").route(
                 apistos::web::delete()
                     .to(delete)
-                    .guard(AuthorityGuard::new(Permission::Read)),
+                    .guard(AuthorityGuard::new(Permission::RequestDelete)),
             ),
         )
         .service(
             apistos::web::resource("/edit").route(
                 apistos::web::put()
                     .to(edit)
-                    .guard(AuthorityGuard::new(Permission::Read)),
+                    .guard(AuthorityGuard::new(Permission::Create)),
             ),
         )
 }
@@ -44,11 +44,11 @@ pub fn register() -> apistos::web::Scope {
 pub(crate) async fn edit(
     Json(data): Json<ChapterVersionEditRequest>,
     version_service: Data<ChapterVersionActions>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     version_service
         .edit(&data.id, data.rename, data.update_translate_opts)
         .await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(
@@ -59,11 +59,11 @@ pub(crate) async fn edit(
 pub(crate) async fn delete(
     Json(data): Json<ChapterVersionDeleteRequest>,
     chapter_service: Data<ChapterVersionActions>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     chapter_service
         .delete(&data.chapter_id, &data.version_id)
         .await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(

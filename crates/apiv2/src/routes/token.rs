@@ -1,6 +1,10 @@
 use actix_web::web::{Data, Json};
+use actix_web_grants::AuthorityGuard;
 
-use api_structure::v1::{CreateTokenRequest, IdRequest, PaginationRequest, TokenInfo};
+use api_structure::{
+    v1::{CreateTokenRequest, IdRequest, PaginationRequest, TokenInfo},
+    Permission,
+};
 use apistos::{actix::CreatedJson, api_operation};
 
 use crate::{actions::token::TokenAction, error::ApiResult};
@@ -13,8 +17,8 @@ use crate::{actions::token::TokenAction, error::ApiResult};
 async fn list(
     Json(data): Json<PaginationRequest>,
     token_service: Data<TokenAction>,
-) -> ApiResult<CreatedJson<Vec<TokenInfo>>> {
-    Ok(CreatedJson(
+) -> ApiResult<Json<Vec<TokenInfo>>> {
+    Ok(Json(
         token_service
             .list_tokens(data.page, data.limit)
             .await?
@@ -36,9 +40,9 @@ async fn list(
 pub(crate) async fn delete(
     Json(data): Json<IdRequest>,
     token_service: Data<TokenAction>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     token_service.delete_token(&data.id).await?;
-    Ok(CreatedJson(200))
+    Ok(Json(200))
 }
 
 #[api_operation(
@@ -56,7 +60,25 @@ pub(crate) async fn create(
 
 pub fn register() -> apistos::web::Scope {
     apistos::web::scope("/verify")
-        .service(apistos::web::resource("/create").route(apistos::web::put().to(create)))
-        .service(apistos::web::resource("/delete").route(apistos::web::delete().to(delete)))
-        .service(apistos::web::resource("/list").route(apistos::web::post().to(list)))
+        .service(
+            apistos::web::resource("/create").route(
+                apistos::web::put()
+                    .to(create)
+                    .guard(AuthorityGuard::new(Permission::Review)),
+            ),
+        )
+        .service(
+            apistos::web::resource("/delete").route(
+                apistos::web::delete()
+                    .to(delete)
+                    .guard(AuthorityGuard::new(Permission::Review)),
+            ),
+        )
+        .service(
+            apistos::web::resource("/list").route(
+                apistos::web::post()
+                    .to(list)
+                    .guard(AuthorityGuard::new(Permission::Review)),
+            ),
+        )
 }

@@ -96,6 +96,6 @@ pub fn register() -> apistos::web::Resource {
     apistos::web::resource("/upload").route(
         apistos::web::post()
             .to(exec)
-            .guard(AuthorityGuard::new(Permission::None)),
+            .guard(AuthorityGuard::new(Permission::Read)),
     )
 }

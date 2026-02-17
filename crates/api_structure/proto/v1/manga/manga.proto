@@ -66,6 +66,51 @@ message AddMangaRequest {
   repeated Scraper scrapers = 11;
 }
 
+message AddMangaCoverRequest {
+  string manga_id = 1;
+  string file_id = 2;
+}
+
+message RemoveMangaCoverRequest {
+  string manga_id = 1;
+  uint32 cover_index = 2;
+}
+
+message AddMangaArtRequest {
+  string manga_id = 1;
+  string file_id = 2;
+}
+
+message RemoveMangaArtRequest {
+  string manga_id = 1;
+  uint32 art_index = 2;
+}
+
+message ConfirmMangaDeleteRequest {
+  string manga_id = 1;
+}
+
+message MangaVolumeRange {
+  double start = 1;
+  optional double end = 2;
+  optional string title = 3;
+}
+
+message SetMangaVolumeRangeRequest {
+  string manga_id = 1;
+  repeated MangaVolumeRange ranges = 2;
+}
+
+message AddMangaRelationRequest {
+  string manga_id = 1;
+  string relation_id = 2;
+}
+
+message RemoveMangaRelationRequest {
+  string manga_id = 1;
+  string relation_id = 2;
+}
+
 message UpdateMangaRequest {
   string id = 1;
 

@@ -1,7 +1,7 @@
 use actix_web::web::{Data, Json};
 use actix_web_grants::AuthorityGuard;
 use api_structure::{
-    v1::{ChapterInfoResponse, IdRequest, NewChapterRequest},
+    v1::{ChapterInfoResponse, EditChapterRequest, IdRequest, NewChapterRequest},
     Permission,
 };
 use apistos::{actix::CreatedJson, api_operation};
@@ -86,9 +86,9 @@ pub(crate) async fn add(
 pub(crate) async fn delete(
     Json(data): Json<IdRequest>,
     chapter_service: Data<ChapterActions>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     chapter_service.delete(&data.id).await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(
@@ -96,7 +96,10 @@ pub(crate) async fn delete(
     summary = "Modifies a chapter",
     description = r###""###
 )]
-pub(crate) async fn edit() -> CreatedJson<String> {
-    //TODO: impl
-    CreatedJson("Hello World".to_owned())
+pub(crate) async fn edit(
+    Json(data): Json<EditChapterRequest>,
+    chapter_service: Data<ChapterActions>,
+) -> ApiResult<Json<u8>> {
+    chapter_service.edit(data).await?;
+    Ok(Json(200))
 }

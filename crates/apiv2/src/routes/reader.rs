@@ -7,11 +7,7 @@ use api_structure::{
     },
     Permission,
 };
-use apistos::{
-    actix::CreatedJson,
-    api_operation,
-    web::{scope, Scope},
-};
+use apistos::{api_operation, web::{scope, Scope}};
 
 use crate::{actions::reader::ReaderActions, error::ApiResult};
 
@@ -49,11 +45,11 @@ pub(crate) async fn save_progress(
     Json(payload): Json<ReadProgressRequest>,
     reader_service: Data<ReaderActions>,
     user: ReqData<Claim>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     reader_service
         .save_progress(payload.progress, &payload.chapter_id, &user)
         .await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(

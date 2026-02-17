@@ -3,6 +3,7 @@ syntax = "proto3";
 package v1;
 
 import "v1/tag.proto";
+import "v1/util.proto";
 
 message Chapter {
   string id = 1;
@@ -38,4 +39,18 @@ message NewChapterRequest {
   repeated string images = 7;
 
   optional uint64 release_date = 8;
+}
+
+message TagList {
+  repeated Tag items = 1;
+}
+
+message EditChapterRequest {
+  string chapter_id = 1;
+  optional StringList titles = 2;
+  optional double chapter = 3;
+  optional TagList tags = 4;
+  optional StringList sources = 5;
+  optional uint64 release_date = 6;
+  bool clear_release_date = 7;
 }

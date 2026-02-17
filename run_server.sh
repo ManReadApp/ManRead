@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cargo r --release -p api
+cargo r --release -p apiv2

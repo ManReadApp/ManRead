@@ -4,7 +4,7 @@ use api_structure::{
     v1::{Claim, IdRequest, PaginationRequest, SearchRequest, SimpleUser, UpdateUserRequest, User},
     Permission,
 };
-use apistos::{actix::CreatedJson, api_operation};
+use apistos::api_operation;
 
 use crate::{actions::user::UserActions, error::ApiResult};
 
@@ -14,7 +14,7 @@ pub fn register() -> apistos::web::Scope {
             apistos::web::resource("/delete").route(
                 apistos::web::delete()
                     .to(delete)
-                    .guard(AuthorityGuard::new(Permission::Read)),
+                    .guard(AuthorityGuard::new(Permission::Review)),
             ),
         )
         .service(
@@ -51,9 +51,9 @@ pub fn register() -> apistos::web::Scope {
 pub(crate) async fn delete(
     Json(data): Json<IdRequest>,
     user_service: Data<UserActions>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     user_service.delete(&data.id).await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(
@@ -65,9 +65,9 @@ pub(crate) async fn edit(
     Json(data): Json<UpdateUserRequest>,
     claim: ReqData<Claim>,
     user_service: Data<UserActions>,
-) -> ApiResult<CreatedJson<u8>> {
+) -> ApiResult<Json<u8>> {
     user_service.edit(data, &claim).await?;
-    Ok(CreatedJson(0))
+    Ok(Json(200))
 }
 
 #[api_operation(
