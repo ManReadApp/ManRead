@@ -35,11 +35,11 @@ impl Display for DbError {
                 write!(f, "failed to parse search query: {}", error)
             }
             DbError::SurrealDbError(error) => write!(f, "SurrealDB Error: {}", error),
-            DbError::InvalidActivationToken => todo!(),
-            DbError::ExpiredToken => todo!(),
-            DbError::NoImage => todo!(),
-            DbError::NoExtension => todo!(),
-            DbError::DbError(storage_error) => todo!(),
+            DbError::InvalidActivationToken => write!(f, "Invalid activation token"),
+            DbError::ExpiredToken => write!(f, "Token expired"),
+            DbError::NoImage => write!(f, "No image metadata available"),
+            DbError::NoExtension => write!(f, "No file extension available"),
+            DbError::DbError(storage_error) => write!(f, "Storage error: {}", storage_error),
         }
     }
 }

@@ -9,6 +9,7 @@ pub struct DelayStorage<S> {
     read_delay: Duration,
     write_delay: Duration,
     rename_delay: Duration,
+    delete_delay: Duration,
 }
 
 impl<S> DelayStorage<S> {
@@ -18,6 +19,7 @@ impl<S> DelayStorage<S> {
             read_delay: delay,
             write_delay: delay,
             rename_delay: delay,
+            delete_delay: delay,
         }
     }
 
@@ -26,12 +28,14 @@ impl<S> DelayStorage<S> {
         read_delay: Duration,
         write_delay: Duration,
         rename_delay: Duration,
+        delete_delay: Duration,
     ) -> Self {
         Self {
             inner,
             read_delay,
             write_delay,
             rename_delay,
+            delete_delay,
         }
     }
 }
@@ -60,5 +64,10 @@ where
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), io::Error> {
         sleep(self.rename_delay).await;
         self.inner.rename(orig_key, target_key).await
+    }
+
+    async fn delete(&self, key: &str) -> Result<(), io::Error> {
+        sleep(self.delete_delay).await;
+        self.inner.delete(key).await
     }
 }

@@ -67,14 +67,14 @@ pub fn get_env() -> std::io::Result<Config> {
         let mut file = File::open(path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        Ok(toml::from_str(&contents).expect("Unable to deserialize YAML"))
+        toml::from_str(&contents).map_err(|err| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, err.to_string())
+        })
     } else {
         let config = Config::default();
-        File::create(path)?.write_all(
-            toml::to_string(&config)
-                .expect("Unable to serialize")
-                .as_bytes(),
-        )?;
+        let serialized = toml::to_string(&config)
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
+        File::create(path)?.write_all(serialized.as_bytes())?;
         Ok(config)
     }
 }

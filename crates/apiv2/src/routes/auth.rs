@@ -19,7 +19,7 @@ use storage::FileId;
 
 use crate::{
     actions::{auth::AuthAction, crytpo::validator},
-    error::ApiResult,
+    error::{ApiError, ApiResult},
 };
 
 #[api_operation(tag = "auth", summary = "Registers a user", description = r###""###)]
@@ -27,13 +27,17 @@ async fn signup(
     Json(data): Json<RegisterRequest>,
     service: Data<AuthAction>,
 ) -> ApiResult<CreatedJson<JwTsResponse>> {
+    let birthdate = i64::try_from(data.birthdate)
+        .ok()
+        .and_then(DateTime::<Utc>::from_timestamp_millis)
+        .ok_or(ApiError::invalid_input("invalid birthdate timestamp"))?;
     service
         .register(
             &data.email,
             data.name,
             &data.password,
             data.gender,
-            DateTime::<Utc>::from_timestamp_millis(data.birthdate as i64).unwrap(),
+            birthdate,
             data.icon_temp_name.map(|v| FileId::new(v)),
         )
         .await
@@ -138,4 +142,63 @@ pub fn register() -> Scope {
                     ),
                 ),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::PathBuf, sync::Arc};
+
+    use actix_web::web::{Data, Json};
+    use api_structure::v1::{Gender, RegisterRequest};
+    use db::{init_db, DbConfig, MemoryDbConfig};
+    use storage::{MemStorage, StorageSystem};
+
+    use crate::actions::{auth::AuthAction, crytpo::CryptoService};
+
+    use super::*;
+
+    async fn test_auth_action() -> AuthAction {
+        let db = init_db(DbConfig::Memory(MemoryDbConfig {
+            namespace: format!("ns_route_auth_{}", helper::random_string(8)),
+            database: format!("db_route_auth_{}", helper::random_string(8)),
+        }))
+        .await
+        .expect("memory db should initialize");
+
+        let root = std::env::temp_dir().join(format!("apiv2-route-auth-{}", helper::random_string(8)));
+        tokio::fs::create_dir_all(&root)
+            .await
+            .expect("route auth temp root should be created");
+        let storage = Arc::new(
+            StorageSystem::new(PathBuf::as_path(&root), Arc::new(MemStorage::new()))
+                .await
+                .expect("memory storage should initialize"),
+        );
+
+        AuthAction {
+            users: db.users,
+            crypto: Arc::new(CryptoService::new(b"route-test-secret".to_vec())),
+            token: db.tokens,
+            fs: storage,
+        }
+    }
+
+    #[actix_web::test]
+    async fn signup_rejects_invalid_birthdate_timestamp() {
+        let service = Data::new(test_auth_action().await);
+        let response = signup(
+            Json(RegisterRequest {
+                email: "route@example.com".to_owned(),
+                name: "route-user".to_owned(),
+                password: "password".to_owned(),
+                gender: Gender::Unknown,
+                birthdate: u64::MAX,
+                icon_temp_name: None,
+            }),
+            service,
+        )
+        .await;
+
+        assert!(matches!(response, Err(ApiError::InvalidInput(_))));
+    }
 }

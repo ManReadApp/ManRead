@@ -9,3 +9,6 @@ pub mod reader;
 pub mod tags;
 pub mod token;
 pub mod user;
+
+#[cfg(test)]
+mod tests;

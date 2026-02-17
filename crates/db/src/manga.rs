@@ -92,8 +92,8 @@ pub struct Manga {
 }
 
 impl PartialEq for Manga {
-    fn eq(&self, _: &Self) -> bool {
-        unreachable!("manga equality not implemented")
+    fn eq(&self, other: &Self) -> bool {
+        format!("{:?}", self) == format!("{:?}", other)
     }
 }
 
@@ -341,7 +341,7 @@ fn generate_item(
             }
             format!("array::len(chapters) {}{} {number}", if bigger { ">" } else { "<" }, if eq { "=" } else { "" })
         }
-        (false,"list") |(false, "l" )=> format!("id {not2} IN (SELECT mangas FROM {} WHERE name = '{}' AND user = {} LIMIT 1)", MangaList::name(),item.data
+        (false,"list") |(false, "l" )=> format!("id {not2} IN (SELECT mangas FROM {} WHERE name = '{}' AND user = {} LIMIT 1)[0].mangas", MangaList::name(),item.data
             .value
             .get_string()
             .ok_or("publishers needs to be a string".to_owned())?, user_id.to_string()),
@@ -423,7 +423,7 @@ impl MangaDBService {
                 PatchOp::add("/covers/-", Some(ext.to_owned())),
             )
             .await?;
-        Ok(v.unwrap().covers.len() - 1)
+        Ok(v.ok_or(DbError::NotFound)?.covers.len() - 1)
     }
 
     pub async fn remove_cover(&self, mid: &str, index: usize) -> DbResult<()> {
@@ -455,7 +455,7 @@ impl MangaDBService {
                 PatchOp::add("/art_ext/-", Some(ext.to_owned())),
             )
             .await?;
-        Ok(v.unwrap().art_ext.len() - 1)
+        Ok(v.ok_or(DbError::NotFound)?.art_ext.len() - 1)
     }
 
     pub async fn remove_art(&self, mid: &str, index: usize) -> DbResult<()> {
@@ -517,10 +517,14 @@ impl MangaDBService {
         count: bool,
     ) -> DbResult<(u64, Vec<RecordData<Manga>>)> {
         let mut what = vec!["*"];
-        let mut tb = Manga::name();
-        let order = Order::try_from(data.order).unwrap();
+        let mut tb = Manga::name().to_owned();
+        let order =
+            Order::try_from(data.order).map_err(|v| DbError::SearchParseError(v.message()))?;
+        let user_id = user.to_string();
         if search_array("next-available", &data.query) {
-            tb = "(SELECT *, (select updated, progress from user_progress where user = users:1cstbe4i4bnvgoq7rue9 AND manga = $parent.id LIMIT 1)[0] as reading FROM mangas)";
+            tb = format!(
+                "(SELECT *, (select updated, progress from user_progress where user = {user_id} AND manga = $parent.id LIMIT 1)[0] as reading FROM mangas)"
+            );
         }
 
         match order {
@@ -528,7 +532,9 @@ impl MangaDBService {
                 what.push("array::len(chapters) as chapter_count");
             }
             Order::LastRead => {
-                tb = "(SELECT *, (select updated, progress from user_progress where user = users:1cstbe4i4bnvgoq7rue9 AND manga = $parent.id LIMIT 1)[0] as reading FROM mangas)";
+                tb = format!(
+                    "(SELECT *, (select updated, progress from user_progress where user = {user_id} AND manga = $parent.id LIMIT 1)[0] as reading FROM mangas)"
+                );
                 what.push("reading");
             }
             Order::Alphabetical => {
@@ -547,7 +553,7 @@ impl MangaDBService {
                 Order::Created => "created",
                 Order::Updated => "updated",
                 Order::LastRead => "reading.updated",
-                Order::Popularity => todo!(),
+                Order::Popularity => "updated",
                 Order::Random => "rand()",
                 Order::Status => "status",
                 Order::ChapterCount => "chapter_count",
@@ -564,7 +570,7 @@ impl MangaDBService {
         let limit = format!(
             "LIMIT {} START {}",
             data.limit,
-            (data.page - 1) * data.limit,
+            data.page.saturating_sub(1) * data.limit,
         );
         let what = what.join(", ");
         let query_ = match filter_array(data.query) {

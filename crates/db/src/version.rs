@@ -49,7 +49,7 @@ impl VersionDBService {
     }
 
     pub async fn list(&self, page: u32, limit: u32) -> DbResult<Vec<RecordData<Version>>> {
-        let offset = (page - 1) * limit;
+        let offset = page.saturating_sub(1) * limit;
         let search: Vec<RecordData<Version>> = Version::search(
             self.db.as_ref(),
             Some(format!("LIMIT {limit} START {offset}")),

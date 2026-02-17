@@ -32,7 +32,13 @@ fn try_parse_frames(
             return Ok(());
         }
 
-        let len = u32::from_be_bytes(buf[0..4].try_into().unwrap()) as usize;
+        let len_bytes: [u8; LEN_LEN] = buf[0..LEN_LEN].try_into().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid encrypted frame length header",
+            )
+        })?;
+        let len = u32::from_be_bytes(len_bytes) as usize;
         let needed = LEN_LEN + len + TAG_LEN;
 
         if buf.len() < needed {
@@ -97,7 +103,11 @@ where
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
         let mut obj = self.inner.get(key, options).await?;
-        let aes = self.mapper.get(key).await.unwrap();
+        let aes = self
+            .mapper
+            .get(key)
+            .await
+            .map_err(|err| io::Error::other(err.to_string()))?;
 
         match &aes {
             Some(options) => {
@@ -327,8 +337,11 @@ where
     S: StorageWriter,
 {
     async fn write(&self, key: &str, stream: ByteStream) -> Result<(), std::io::Error> {
-        let aes_options = AesOptions::new();
-        self.mapper.set(key, aes_options.clone()).await.unwrap();
+        let aes_options = AesOptions::new()?;
+        self.mapper
+            .set(key, aes_options.clone())
+            .await
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
         let aad = aes_options.aad.clone();
         let encrypting = Aes256GcmChunkedEncrypt::new(
             stream,
@@ -343,7 +356,18 @@ where
     }
 
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), std::io::Error> {
-        self.mapper.rename(orig_key, target_key).await.unwrap();
+        self.mapper
+            .rename(orig_key, target_key)
+            .await
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
         self.inner.rename(orig_key, target_key).await
+    }
+
+    async fn delete(&self, key: &str) -> Result<(), std::io::Error> {
+        self.mapper
+            .remove(key)
+            .await
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
+        self.inner.delete(key).await
     }
 }

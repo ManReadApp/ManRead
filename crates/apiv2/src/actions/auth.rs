@@ -7,13 +7,15 @@ use crate::{
 
 use api_structure::{
     req::LoginRequest,
-    v1::{ActivationTokenKind, Claim, Gender, JwTsResponse, ResetPasswordRequest, Role},
+    v1::{
+        ActivationTokenKind, Claim, Gender, JwtType, JwTsResponse, ResetPasswordRequest, Role,
+    },
     REFRESH_SECS,
 };
 use chrono::{DateTime, Utc};
 use db::{
     auth::{is_token_valid, AuthTokenDBService, RecordData},
-    error::{DbError, DbResult},
+    error::DbResult,
     user::{UserDBService, UserRolePassword},
 };
 use storage::{FileBuilderExt as _, FileId, StorageSystem};
@@ -26,6 +28,17 @@ pub struct AuthAction {
 }
 
 impl AuthAction {
+    fn validate_non_empty(field: &str, value: &str) -> ApiResult<()> {
+        if value.trim().is_empty() {
+            return Err(ApiError::invalid_input(&format!("{field} cannot be empty")));
+        }
+        Ok(())
+    }
+
+    fn role_from_db(value: u32) -> ApiResult<Role> {
+        Role::try_from(value).map_err(|_| ApiError::write_error("invalid role value in database"))
+    }
+
     /// creates a user if possible
     pub async fn register(
         &self,
@@ -36,6 +49,9 @@ impl AuthAction {
         birthdate: DateTime<Utc>,
         icon: Option<FileId>,
     ) -> ApiResult<JwTsResponse> {
+        Self::validate_non_empty("email", email)?;
+        Self::validate_non_empty("name", &name)?;
+        Self::validate_non_empty("password", password)?;
         if self.users.email_exists(email).await {
             return Err(ApiError::EmailExists);
         }
@@ -75,21 +91,26 @@ impl AuthAction {
 
     /// login action if credentials are valid
     pub async fn login(&self, data: LoginRequest) -> ApiResult<JwTsResponse> {
+        let password = data.password();
+        Self::validate_non_empty("password", &password)?;
         let user = match &data {
-            LoginRequest::Username(l) => self.users.get_by_name(&l.username).await,
-            LoginRequest::Email(l) => self.users.get_by_mail(&l.email).await,
+            LoginRequest::Username(l) => {
+                Self::validate_non_empty("username", &l.username)?;
+                self.users.get_by_name(&l.username).await
+            }
+            LoginRequest::Email(l) => {
+                Self::validate_non_empty("email", &l.email)?;
+                self.users.get_by_mail(&l.email).await
+            }
         }?;
         let valid = self
             .crypto
-            .verify_hash(data.password(), user.data.password)
+            .verify_hash(password, user.data.password)
             .await;
         if !valid {
             return Err(ApiError::PasswordIncorrect);
         }
-        self.new_jwt(
-            &user.id.id().to_string(),
-            Role::try_from(user.data.role).unwrap(),
-        )
+        self.new_jwt(&user.id.id().to_string(), Self::role_from_db(user.data.role)?)
     }
 
     pub async fn logout(&self, claim: &Claim) -> DbResult<()> {
@@ -98,7 +119,11 @@ impl AuthAction {
 
     /// generates refresh token if possible
     pub async fn refresh(&self, refresh_token: &str) -> ApiResult<JwTsResponse> {
+        Self::validate_non_empty("refresh_token", refresh_token)?;
         let claim = self.crypto.get_claim(&refresh_token)?;
+        if !matches!(claim.r#type, JwtType::RefreshToken) {
+            return Err(ApiError::invalid_input("refresh token required"));
+        }
         let (role, generated) = self.users.get_role_and_generated(claim.id.as_str()).await?;
         if generated > claim.exp as u128 - Duration::from_secs(REFRESH_SECS).as_millis() {
             return Err(ApiError::ExpiredToken);
@@ -132,6 +157,9 @@ impl AuthAction {
 
     /// resets password with Role::NotVerified token
     pub async fn reset_password(&self, data: ResetPasswordRequest) -> ApiResult<JwTsResponse> {
+        Self::validate_non_empty("ident", &data.ident)?;
+        Self::validate_non_empty("key", &data.key)?;
+        Self::validate_non_empty("password", &data.password)?;
         let user = self.get_user_id(data.email, &data.ident).await?;
         let token = self.token.find(&data.key).await?;
         is_token_valid(&token, &user.id.id().to_string())?;
@@ -150,12 +178,13 @@ impl AuthAction {
         if token.data.get_kind().single {
             self.token.delete_(token).await?;
         }
-        let role = Role::try_from(user.data.role).unwrap();
+        let role = Self::role_from_db(user.data.role)?;
         self.new_jwt(&user.id.id().to_string(), role)
     }
 
     /// uses a token and set user role
     pub async fn verify(&self, key: &str, claim: &Claim) -> ApiResult<JwTsResponse> {
+        Self::validate_non_empty("key", key)?;
         let find = self.token.find(&key).await?;
         is_token_valid(&find, &claim.id.to_string())?;
 

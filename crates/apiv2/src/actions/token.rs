@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use api_structure::v1::ActivationTokenKind;
-use db::{
-    auth::{AuthTokenDBService, AuthUser, RecordData},
-    error::DbResult,
-};
+use db::auth::{AuthTokenDBService, AuthUser, RecordData};
+
+use crate::error::{ApiError, ApiResult};
 
 pub struct TokenAction {
     pub(crate) token: Arc<AuthTokenDBService>,
@@ -16,17 +15,33 @@ impl TokenAction {
         &self,
         user_id: Option<String>,
         kind: ActivationTokenKind,
-    ) -> DbResult<()> {
-        self.token.create(user_id, kind).await
+    ) -> ApiResult<()> {
+        if let Some(user_id) = &user_id {
+            if user_id.trim().is_empty() {
+                return Err(ApiError::invalid_input("user_id cannot be empty"));
+            }
+        }
+        self.token.create(user_id, kind).await?;
+        Ok(())
     }
 
     /// admin tool to list all tokens
-    pub async fn list_tokens(&self, page: u32, limit: u32) -> DbResult<Vec<RecordData<AuthUser>>> {
-        self.token.list(page, limit).await
+    pub async fn list_tokens(&self, page: u32, limit: u32) -> ApiResult<Vec<RecordData<AuthUser>>> {
+        if page == 0 {
+            return Err(ApiError::invalid_input("page must be >= 1"));
+        }
+        if limit == 0 {
+            return Err(ApiError::invalid_input("limit must be >= 1"));
+        }
+        Ok(self.token.list(page, limit).await?)
     }
 
     /// admin tool to delete a token
-    pub async fn delete_token(&self, id: &str) -> DbResult<()> {
-        self.token.delete(id).await
+    pub async fn delete_token(&self, id: &str) -> ApiResult<()> {
+        if id.trim().is_empty() {
+            return Err(ApiError::invalid_input("id cannot be empty"));
+        }
+        self.token.delete(id).await?;
+        Ok(())
     }
 }

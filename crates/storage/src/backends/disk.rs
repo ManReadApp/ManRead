@@ -109,6 +109,11 @@ impl StorageWriter for DiskStorage {
         Self::rename_replace(&src, &dst).await?;
         Ok(())
     }
+
+    async fn delete(&self, key: &str) -> Result<(), io::Error> {
+        let path = self.key_path(key)?;
+        tokio::fs::remove_file(path).await
+    }
 }
 
 #[async_trait::async_trait]

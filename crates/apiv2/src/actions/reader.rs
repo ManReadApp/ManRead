@@ -24,6 +24,12 @@ impl ReaderActions {
         chapter_id: &str,
         claim: &Claim,
     ) -> ApiResult<()> {
+        if chapter_id.trim().is_empty() {
+            return Err(ApiError::invalid_input("chapter_id cannot be empty"));
+        }
+        if !progress.is_finite() {
+            return Err(ApiError::invalid_input("progress must be finite"));
+        }
         let progress = progress.clamp(0.0, 1.0);
         let manga_id = self.chapters.get_manga_id(chapter_id).await?;
         self.progresses
@@ -44,9 +50,20 @@ impl ReaderActions {
         chapter_id: Option<String>,
         claim: &Claim,
     ) -> ApiResult<MangaReaderResponse> {
+        if manga_id.trim().is_empty() {
+            return Err(ApiError::invalid_input("manga_id cannot be empty"));
+        }
         let manga = self.mangas.get(&manga_id).await?;
         let (chapter, progress) = match chapter_id {
-            Some(v) => (v, 0.0_f64),
+            Some(v) => {
+                if v.trim().is_empty() {
+                    return Err(ApiError::invalid_input("chapter_id cannot be empty"));
+                }
+                if !manga.chapters.iter().any(|chapter| chapter.id().to_string() == v) {
+                    return Err(ApiError::NotFoundInDB);
+                }
+                (v, 0.0_f64)
+            }
             None => match self
                 .progresses
                 .get_progress(&claim.id, manga_id)
@@ -106,6 +123,11 @@ impl ReaderActions {
     }
 
     pub async fn pages(&self, chapter_version_id: &str) -> ApiResult<ChapterVersion> {
+        if chapter_version_id.trim().is_empty() {
+            return Err(ApiError::invalid_input(
+                "chapter_version_id cannot be empty",
+            ));
+        }
         let info = self.chapter_versions.get(chapter_version_id).await?;
         let pages = self.pages.get(info.pages).await?;
         Ok(ChapterVersion {

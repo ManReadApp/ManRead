@@ -1,4 +1,4 @@
-use api_structure::v1::ActivationTokenKind;
+use api_structure::v1::{ActivationTokenKind, Role};
 use helper::random_string;
 use serde::{Deserialize, Serialize};
 pub use surrealdb_extras::RecordData;
@@ -37,7 +37,10 @@ pub struct AuthUser {
 
 impl AuthUser {
     pub fn get_kind(&self) -> ActivationTokenKind {
-        ActivationTokenKind::try_from(self.kind).unwrap()
+        ActivationTokenKind::try_from(self.kind).unwrap_or(ActivationTokenKind {
+            single: true,
+            kind: Role::NotVerified,
+        })
     }
 }
 
@@ -68,7 +71,7 @@ impl AuthTokenDBService {
     }
 
     pub async fn list(&self, page: u32, limit: u32) -> DbResult<Vec<RecordData<AuthUser>>> {
-        let offset = (page - 1) * limit;
+        let offset = page.saturating_sub(1) * limit;
         let search: Vec<RecordData<AuthUser>> = AuthUser::search(
             self.db.as_ref(),
             Some(format!("LIMIT {limit} START {offset}")),
@@ -97,7 +100,7 @@ impl AuthTokenDBService {
         AuthUser {
             user,
             token: random_string(6),
-            kind: u32::try_from(kind).unwrap(),
+            kind: u32::from(kind),
             active_until_timestamp: None,
         }
         .add_i(self.db.as_ref())

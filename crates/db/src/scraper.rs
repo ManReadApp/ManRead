@@ -156,21 +156,18 @@ impl ScraperDbService {
 
         Ok(data
             .into_iter()
-            .map(|v| {
+            .filter_map(|v| {
                 v.key()
                     .to_string()
                     .strip_prefix("⟨")
-                    .unwrap()
-                    .strip_suffix("⟩")
-                    .unwrap()
-                    .split_once("###")
-                    .map(|v| {
+                    .and_then(|value| value.strip_suffix("⟩"))
+                    .and_then(|value| value.split_once("###"))
+                    .map(|parts| {
                         (
-                            RecordIdType::from((Manga::name(), v.0)),
-                            RecordIdType::from((Version::name(), v.1)),
+                            RecordIdType::from((Manga::name(), parts.0)),
+                            RecordIdType::from((Version::name(), parts.1)),
                         )
                     })
-                    .unwrap()
             })
             .collect())
     }

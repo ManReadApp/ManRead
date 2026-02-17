@@ -44,3 +44,6 @@ log-ip = ["dep:local-ip-address"]
 https = ["dep:openssl"]
 cors = ["dep:actix-cors"]
 cors-permissive = ["cors"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "io-util"] }

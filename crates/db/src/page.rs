@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use storage::{FileBuilderExt as _, MangaPageFileBuilder};
 use surrealdb::Datetime;
-use surrealdb_extras::{RecordData, RecordIdType, SurrealTable, ThingArray};
+use surrealdb_extras::{RecordData, RecordIdFunc, RecordIdType, SurrealTable, ThingArray};
 
 use crate::{
     error::{DbError, DbResult},
@@ -63,5 +63,12 @@ impl PageDBService {
             out.push(p);
         }
         Ok(out.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn delete(&self, pages: Vec<RecordIdType<Page>>) -> DbResult<()> {
+        for page in pages {
+            RecordIdFunc::from(page).delete_s(self.db.as_ref()).await?;
+        }
+        Ok(())
     }
 }

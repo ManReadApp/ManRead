@@ -310,7 +310,9 @@ impl StorageSystem {
                 match &entry.state {
                     EntryState::Uploaded { handle } => {
                         let handle = handle.clone();
-                        let entry = map.remove(id.inner_ref()).unwrap();
+                        let Some(entry) = map.remove(id.inner_ref()) else {
+                            return Err(StorageError::HandleNotFound);
+                        };
                         return Ok(FileBuilder {
                             dims: entry.dims,
                             ext: entry.ext,
@@ -342,6 +344,11 @@ impl StorageSystem {
                 let _ = rx.changed().await;
             }
         }
+    }
+
+    pub async fn delete_key(&self, key: &str) -> StorageResult<()> {
+        self.writer.delete(key).await?;
+        Ok(())
     }
 
     pub async fn get_user_cover(&self, id: Option<FileId>) -> StorageResult<UserCoverFileBuilder> {

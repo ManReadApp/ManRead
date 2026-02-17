@@ -35,6 +35,63 @@ pub struct MangaActions {
     pub fs: Arc<StorageSystem>,
 }
 
+fn validate_non_empty(field: &str, value: &str) -> ApiResult<()> {
+    if value.trim().is_empty() {
+        return Err(ApiError::invalid_input(&format!("{field} cannot be empty")));
+    }
+    Ok(())
+}
+
+fn validate_non_empty_items(field: &str, items: &[String]) -> ApiResult<()> {
+    if items.iter().any(|v| v.trim().is_empty()) {
+        return Err(ApiError::invalid_input(&format!(
+            "{field} cannot contain empty values"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_titles(names: &std::collections::HashMap<String, v1::StringList>) -> ApiResult<()> {
+    if names.is_empty() {
+        return Err(ApiError::invalid_input("names cannot be empty"));
+    }
+    for (lang, titles) in names {
+        validate_non_empty("language", lang)?;
+        if titles.items.is_empty() {
+            return Err(ApiError::invalid_input("name list cannot be empty"));
+        }
+        validate_non_empty_items("names", &titles.items)?;
+    }
+    Ok(())
+}
+
+fn validate_scrapers(scrapers: &[v1::Scraper]) -> ApiResult<()> {
+    for scraper in scrapers {
+        validate_non_empty("scraper.channel", &scraper.channel)?;
+        validate_non_empty("scraper.url", &scraper.url)?;
+    }
+    Ok(())
+}
+
+fn validate_pagination(page: u32, limit: u32) -> ApiResult<()> {
+    if page == 0 {
+        return Err(ApiError::invalid_input("page must be >= 1"));
+    }
+    if limit == 0 {
+        return Err(ApiError::invalid_input("limit must be >= 1"));
+    }
+    Ok(())
+}
+
+fn status_from_db(value: u64) -> ApiResult<Status> {
+    Status::try_from(value).map_err(|_| ApiError::write_error("invalid status value in database"))
+}
+
+fn visibility_from_db(value: u64) -> ApiResult<Visibility> {
+    Visibility::try_from(value)
+        .map_err(|_| ApiError::write_error("invalid visibility value in database"))
+}
+
 impl MangaActions {
     async fn prepare_create(
         &self,
@@ -88,7 +145,7 @@ pub async fn convert_to_search_response(
         .enumerate()
         .filter_map(|(i, v)| v.map(|v| (i, v)))
         .choose(rng)
-        .unwrap();
+        .ok_or(ApiError::invalid_input("No cover available"))?;
     let tags = tag_service
         .get_tags(v.data.tags.into_iter().map(|v| v.thing.id().to_string()))
         .await?;
@@ -96,7 +153,7 @@ pub async fn convert_to_search_response(
         manga_id: v.id.id().to_string(),
         titles: v.data.titles,
         tags,
-        status: Status::try_from(v.data.status).unwrap(),
+        status: status_from_db(v.data.status)?,
         ext,
         number: number as u32,
     })
@@ -104,6 +161,7 @@ pub async fn convert_to_search_response(
 
 impl MangaActions {
     pub async fn home(&self, uid: &str) -> ApiResult<HomeResponse> {
+        validate_non_empty("uid", uid)?;
         let generate = |order: Order, desc, query| {
             let items = match query {
                 None => vec![],
@@ -136,9 +194,15 @@ impl MangaActions {
             }
             Ok::<_, ApiError>(resp)
         };
-        let trending = generate(Order::Popularity, true, None);
+        let _trending = generate(Order::Popularity, true, None);
         let newest = generate(Order::Created, true, None);
-        let reading = generate(Order::LastRead, true, None);
+        let reading = generate(
+            Order::LastRead,
+            true,
+            Some(ItemOrArray::Item(Item::new(ItemData::enum_(
+                "next-available",
+            )))),
+        );
         let favorites = generate(
             Order::Alphabetical,
             false,
@@ -169,6 +233,10 @@ impl MangaActions {
         data: SearchRequest,
         uid: &str,
     ) -> ApiResult<(Vec<SearchResponse>, u64)> {
+        validate_non_empty("uid", uid)?;
+        validate_pagination(data.page, data.limit)?;
+        Order::try_from(data.order.clone())
+            .map_err(|v| ApiError::invalid_input(v.message().as_str()))?;
         let (max, search) = self
             .mangas
             .search(data, RecordIdType::from((User::name(), uid)), true)
@@ -183,6 +251,8 @@ impl MangaActions {
     }
 
     pub async fn info(&self, id: String, uid: &str) -> ApiResult<MangaInfoResponse> {
+        validate_non_empty("manga_id", &id)?;
+        validate_non_empty("uid", uid)?;
         let manga = self.mangas.get(&id).await?;
         let chapters_ = self.chapters.get_simple(manga.chapters.into_iter()).await?;
         let mut chapters = vec![];
@@ -212,8 +282,8 @@ impl MangaActions {
                 .tags
                 .get_tags(manga.tags.into_iter().map(|v| v.thing.id().to_string()))
                 .await?,
-            status: Status::try_from(manga.status).unwrap(),
-            visibility: Visibility::try_from(manga.visibility).unwrap(),
+            status: status_from_db(manga.status)?,
+            visibility: visibility_from_db(manga.visibility)?,
             uploader: self
                 .users
                 .get_name_by_id(manga.uploader.clone())
@@ -289,6 +359,7 @@ impl MangaActions {
     }
 
     pub async fn delete(&self, id: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", id)?;
         self.mangas
             .set_visibility(id, Visibility::AdminReview)
             .await?;
@@ -296,6 +367,14 @@ impl MangaActions {
     }
 
     pub async fn edit(&self, data: EditMangaRequest) -> ApiResult<()> {
+        validate_non_empty("manga_id", &data.manga_id)?;
+        validate_non_empty("kind", &data.kind)?;
+        validate_titles(&data.names)?;
+        validate_non_empty_items("authors", &data.authors)?;
+        validate_non_empty_items("artists", &data.artists)?;
+        validate_non_empty_items("publishers", &data.publishers)?;
+        validate_non_empty_items("sources", &data.sources)?;
+        validate_scrapers(&data.scrapers)?;
         let (tags, scrapers, artists, authors, publishers) = self
             .prepare_create(
                 data.tags,
@@ -326,6 +405,15 @@ impl MangaActions {
     }
 
     pub async fn create(&self, data: AddMangaRequest, uid: &str) -> ApiResult<()> {
+        validate_non_empty("uid", uid)?;
+        validate_non_empty("kind", &data.kind)?;
+        validate_non_empty("image_temp_name", &data.image_temp_name)?;
+        validate_titles(&data.names)?;
+        validate_non_empty_items("authors", &data.authors)?;
+        validate_non_empty_items("artists", &data.artists)?;
+        validate_non_empty_items("publishers", &data.publishers)?;
+        validate_non_empty_items("sources", &data.sources)?;
+        validate_scrapers(&data.scrapers)?;
         let file = CoverFileBuilder::from(self.fs.take(FileId::new(data.image_temp_name)).await?);
         let (tags, scrapers, artists, authors, publishers) = self
             .prepare_create(
@@ -373,6 +461,8 @@ impl MangaActions {
     }
 
     pub async fn add_cover(&self, mid: &str, file_id: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        validate_non_empty("file_id", file_id)?;
         let file = CoverFileBuilder::from(self.fs.take(FileId::new(file_id.to_owned())).await?);
         let index = self.mangas.add_cover(mid, file.ext()?).await?;
         file.build(mid, index).await?;
@@ -381,11 +471,36 @@ impl MangaActions {
     }
 
     pub async fn remove_cover(&self, mid: &str, cover_index: usize) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        let manga = self.mangas.get(mid).await?;
+        if cover_index >= manga.covers.len() {
+            return Err(ApiError::invalid_input("cover_index out of bounds"));
+        }
+        if manga
+            .covers
+            .get(cover_index)
+            .and_then(|value| value.as_ref())
+            .is_none()
+        {
+            return Err(ApiError::invalid_input("cover does not exist"));
+        }
+        if manga
+            .covers
+            .iter()
+            .enumerate()
+            .filter(|(idx, value)| *idx != cover_index && value.is_some())
+            .count()
+            == 0
+        {
+            return Err(ApiError::invalid_input("at least one cover is required"));
+        }
         self.mangas.remove_cover(mid, cover_index).await?;
         Ok(())
     }
 
     pub async fn add_art(&self, mid: &str, file_id: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        validate_non_empty("file_id", file_id)?;
         let file = ArtFileBuilder::from(self.fs.take(FileId::new(file_id.to_owned())).await?);
         let index = self.mangas.add_art(mid, file.ext()?).await?;
         file.build(mid, index).await?;
@@ -394,16 +509,45 @@ impl MangaActions {
     }
 
     pub async fn remove_art(&self, mid: &str, file_index: usize) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        let manga = self.mangas.get(mid).await?;
+        if file_index >= manga.art_ext.len() {
+            return Err(ApiError::invalid_input("art_index out of bounds"));
+        }
+        if manga
+            .art_ext
+            .get(file_index)
+            .and_then(|value| value.as_ref())
+            .is_none()
+        {
+            return Err(ApiError::invalid_input("art does not exist"));
+        }
         self.mangas.remove_art(mid, file_index).await?;
         Ok(())
     }
 
     pub async fn confirm_delete(&self, id: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", id)?;
         self.mangas.set_visibility(id, Visibility::Hidden).await?;
         Ok(())
     }
 
     pub async fn set_volume_range(&self, id: &str, vols: Vec<VolumeRange>) -> ApiResult<()> {
+        validate_non_empty("manga_id", id)?;
+        for vol in &vols {
+            if !vol.start.is_finite() || vol.start < 0.0 {
+                return Err(ApiError::invalid_input(
+                    "volume start must be finite and >= 0",
+                ));
+            }
+            if let Some(end) = vol.end {
+                if !end.is_finite() || end < vol.start {
+                    return Err(ApiError::invalid_input(
+                        "volume end must be finite and >= start",
+                    ));
+                }
+            }
+        }
         self.mangas
             .set_volumes(
                 id,
@@ -416,23 +560,38 @@ impl MangaActions {
     }
 
     pub async fn add_relation(&self, mid: &str, relation_id: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        validate_non_empty("relation_id", relation_id)?;
+        if mid == relation_id {
+            return Err(ApiError::invalid_input(
+                "manga_id and relation_id cannot be the same",
+            ));
+        }
+        self.mangas.exists(mid).await?;
+        self.mangas.exists(relation_id).await?;
         self.mangas.add_relation(relation_id, mid).await?;
         self.mangas.add_relation(mid, relation_id).await?;
         Ok(())
     }
 
     pub async fn remove_relation(&self, mid: &str, relation_id: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        validate_non_empty("relation_id", relation_id)?;
         self.mangas.remove_relation(mid, relation_id).await?;
         self.mangas.remove_relation(relation_id, mid).await?;
         Ok(())
     }
 
     pub async fn disable_scraper(&self, mid: &str, url: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        validate_non_empty("url", url)?;
         self.mangas.set_scraper(mid, url, false).await?;
         Ok(())
     }
 
     pub async fn enable_scraper(&self, mid: &str, url: &str) -> ApiResult<()> {
+        validate_non_empty("manga_id", mid)?;
+        validate_non_empty("url", url)?;
         self.mangas.set_scraper(mid, url, true).await?;
         Ok(())
     }

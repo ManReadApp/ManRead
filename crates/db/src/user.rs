@@ -75,7 +75,7 @@ impl From<u64> for Achievement {
             TAG_FAVORITED => Achievement::Favorited(payload),
             TAG_COMMENTED => Achievement::Commented(payload),
             TAG_REVIEWED => Achievement::Reviewed(payload),
-            other => todo!("Unknown tag: {}", other),
+            _ => Achievement::Joined,
         }
     }
 }
@@ -136,6 +136,9 @@ pub struct User {
     pub gender: u32,
     /// When the last valid jwt was generated
     pub generated: Option<Datetime>,
+    /// Soft-delete flag.
+    #[serde(default)]
+    pub disabled: bool,
     #[opt(exclude = true)]
     /// When the user was updated in the database
     pub updated: Datetime,
@@ -183,10 +186,10 @@ impl UserDBService {
         let user: Vec<RecordData<SimpleUser>> = User::search(
             self.db.as_ref(),
             Some(format!(
-                "WHERE names.any(|$s| string::contains(string::lowercase($s), \"{}\")) LIMIT {} START {}",
+                "WHERE disabled = false AND names.any(|$s| string::contains(string::lowercase($s), \"{}\")) LIMIT {} START {}",
                 query.to_lowercase(),
                 limit,
-                (page - 1) * limit
+                page.saturating_sub(1) * limit
             )),
         )
         .await?;
@@ -218,6 +221,7 @@ impl UserDBService {
             birthdate: birthdate.into(),
             gender,
             generated: None,
+            disabled: false,
             updated: Default::default(),
             created: Default::default(),
         }
@@ -251,7 +255,11 @@ impl UserDBService {
     pub async fn list(&self, page: u32, limit: u32) -> DbResult<Vec<RecordData<SimpleUser>>> {
         Ok(User::search(
             self.db.as_ref(),
-            Some(format!("LIMIT {} START {}", limit, (page - 1) * limit)),
+            Some(format!(
+                "WHERE disabled = false LIMIT {} START {}",
+                limit,
+                page.saturating_sub(1) * limit
+            )),
         )
         .await?)
     }
@@ -264,7 +272,10 @@ impl UserDBService {
     }
 
     pub async fn delete(&self, id: &str) -> DbResult<()> {
-        todo!("mark only")
+        let _: Option<RecordData<Empty>> = RecordIdFunc::from((User::name(), id))
+            .patch(self.db.as_ref(), PatchOp::replace("/disabled", true))
+            .await?;
+        Ok(())
     }
 
     pub async fn add_achievement(&self, id: &str, achievement: Achievement) -> DbResult<()> {
@@ -302,10 +313,8 @@ impl UserDBService {
         Ok(())
     }
 
-    pub async fn all_joined_without_achievement(&self) -> Vec<RecordData<UserRolePassword>> {
-        todo!()
-    }
     pub async fn email_exists(&self, email: &String) -> bool {
+        let email = email.to_lowercase();
         User::search(
             self.db.as_ref(),
             Some(format!("WHERE email == \"{}\" LIMIT 1", email)),
@@ -326,6 +335,7 @@ impl UserDBService {
             .collect())
     }
     pub async fn name_exists(&self, name: &String) -> bool {
+        let name = name.to_lowercase();
         let v: Vec<RecordData<Empty>> = User::search(
             self.db.as_ref(),
             Some(format!(
@@ -347,7 +357,7 @@ impl UserDBService {
         let mut v: Vec<RecordData<UserRolePassword>> = User::search(
             self.db.as_ref(),
             Some(format!(
-                "WHERE array::some(names, |$n: string| string::lowercase($n) = '{name}') LIMIT 1"
+                "WHERE disabled = false AND array::some(names, |$n: string| string::lowercase($n) = '{name}') LIMIT 1"
             )),
         )
         .await?;
@@ -360,7 +370,9 @@ impl UserDBService {
         let mail = mail.to_lowercase();
         let mut v: Vec<RecordData<UserRolePassword>> = User::search(
             self.db.as_ref(),
-            Some(format!("WHERE email == '{mail}' LIMIT 1")),
+            Some(format!(
+                "WHERE disabled = false AND email == '{mail}' LIMIT 1"
+            )),
         )
         .await?;
         if v.is_empty() {
@@ -384,7 +396,7 @@ impl UserDBService {
             .ok_or(DbError::NotFound)?;
         Ok(RecordData {
             id: data.id,
-            data: data.data.names.first().unwrap().clone(),
+            data: data.data.names.first().cloned().unwrap_or_default(),
         })
     }
 
@@ -394,7 +406,9 @@ impl UserDBService {
             .await?
             .ok_or(DbError::NotFound)?;
         Ok((
-            Role::try_from(data.data.role).unwrap(),
+            Role::try_from(data.data.role).map_err(|_| {
+                DbError::SearchParseError("invalid role value in users.role".to_owned())
+            })?,
             data.data
                 .generated
                 .map(|v| v.into_inner().to_u64())

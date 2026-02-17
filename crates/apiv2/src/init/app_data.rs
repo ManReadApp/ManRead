@@ -26,6 +26,7 @@ pub fn init_app_data(config: Arc<Config>, fs: Arc<StorageSystem>, dbs: DbHandle)
         chapters: dbs.chapters.clone(),
         tags: dbs.tags.clone(),
         versions: dbs.versions.clone(),
+        chapter_versions: dbs.chapter_versions.clone(),
         mangas: dbs.mangas.clone(),
         pages: dbs.pages.clone(),
         fs: fs.clone(),
@@ -33,6 +34,9 @@ pub fn init_app_data(config: Arc<Config>, fs: Arc<StorageSystem>, dbs: DbHandle)
     let cversion = ChapterVersionActions {
         versions: dbs.versions.clone(),
         chapters: dbs.chapters.clone(),
+        chapter_versions: dbs.chapter_versions.clone(),
+        pages: dbs.pages.clone(),
+        fs: fs.clone(),
     };
 
     let kind = KindActions {

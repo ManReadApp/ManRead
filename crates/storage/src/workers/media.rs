@@ -118,7 +118,10 @@ impl MediaWorker for DefaultMediaWorker {
         } else {
             if is_image {
                 let s = source.clone();
-                let s = s.open().await.unwrap();
+                let s = s
+                    .open()
+                    .await
+                    .map_err(ProcessingError::OpenTempFileForUpload)?;
                 dims = Some(
                     tokio::task::spawn_blocking(move || {
                         let v: ImageReader<BufReader<_>> = ImageReader::new(BufReader::new(s));

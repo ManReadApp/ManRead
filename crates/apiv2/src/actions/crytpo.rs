@@ -39,9 +39,9 @@ pub async fn validator(
     req: ServiceRequest,
     cred: BearerAuth,
 ) -> Result<ServiceRequest, (Error, ServiceRequest)> {
-    let secret = req
-        .app_data::<Data<CryptoService>>()
-        .expect("CryptoService is missing");
+    let Some(secret) = req.app_data::<Data<CryptoService>>() else {
+        return Err((ApiError::write_error("CryptoService is missing").into(), req));
+    };
     match secret.get_claim(cred.token()) {
         Ok(v) => {
             {
@@ -60,7 +60,9 @@ pub async fn validator(
 impl CryptoService {
     /// Visibility guard
     pub fn can_access(&self, user: ReqData<Claim>, manga: Manga) -> bool {
-        let visibility = Visibility::try_from(manga.visibility).unwrap();
+        let Ok(visibility) = Visibility::try_from(manga.visibility) else {
+            return false;
+        };
         match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => {
@@ -90,19 +92,26 @@ impl CryptoService {
 
     /// Gets the claims from the token
     pub fn get_claim(&self, token: &str) -> ApiResult<Claim> {
-        if let Some(v) = self.claims.lock().unwrap().get(token) {
-            if v.exp < now().as_millis() as u64 {
-                self.claims.lock().unwrap().remove(token);
+        let mut cache = self
+            .claims
+            .lock()
+            .map_err(|_| ApiError::write_error("claim cache lock poisoned"))?;
+        if let Some(claim) = cache.get(token).cloned() {
+            if claim.exp < now().as_millis() as u64 {
+                cache.remove(token);
                 return Err(ApiError::ExpiredToken);
             }
-            return Ok(v.clone());
+            return Ok(claim);
         }
+        drop(cache);
+
         let claim = self.decode_claim(token);
         if let Ok(claim) = &claim {
-            self.claims
+            let mut cache = self
+                .claims
                 .lock()
-                .unwrap()
-                .insert(token.to_string(), claim.clone());
+                .map_err(|_| ApiError::write_error("claim cache lock poisoned"))?;
+            cache.insert(token.to_string(), claim.clone());
         }
         claim
     }

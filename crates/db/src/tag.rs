@@ -41,7 +41,7 @@ impl TagDBService {
             .map(|v| GlobalTag {
                 tag: v.data.tag,
                 description: v.data.description,
-                sex: TagSex::try_from(v.data.sex).unwrap(),
+                sex: TagSex::try_from(v.data.sex).unwrap_or(TagSex::Unknown),
             })
             .collect())
     }
@@ -62,7 +62,7 @@ impl TagDBService {
             .map(|item| GlobalTag {
                 tag: item.tag,
                 description: item.description,
-                sex: TagSex::try_from(item.sex).unwrap(),
+                sex: TagSex::try_from(item.sex).unwrap_or(TagSex::Unknown),
             })
             .collect())
     }
@@ -72,14 +72,13 @@ impl TagDBService {
     ) -> DbResult<Vec<RecordIdType<Tag>>> {
         let mut out = vec![];
         for tag in tags {
-            let search: Vec<RecordData<Empty>> = Tag::search(
-                self.db.as_ref(),
-                Some(format!(
-                    "WHERE tag = \"{}\" AND sex = {} LIMIT 1",
-                    tag.tag, tag.sex
-                )),
-            )
-            .await?;
+            let mut result = self
+                .db
+                .query("SELECT id FROM tags WHERE tag = $tag AND sex = $sex LIMIT 1")
+                .bind(("tag", tag.tag.clone()))
+                .bind(("sex", tag.sex as u64))
+                .await?;
+            let search: Vec<RecordData<Empty>> = result.take(0)?;
             if let Some(v) = search.get(0) {
                 out.push(v.id.clone());
             } else {

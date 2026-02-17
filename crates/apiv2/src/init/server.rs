@@ -39,7 +39,7 @@ pub fn init_server(
     log_url(&config);
     let app_data = move || init_app_data(config.clone(), fs.clone(), dbs.clone());
     #[cfg(feature = "https")]
-    let https_builder = https::init_https(&config.root_folder);
+    let ssl_builder = https::init_https(&config.root_folder)?;
     #[cfg(not(feature = "https"))]
     let _ = https_port;
     let hs = HttpServer::new(move || {

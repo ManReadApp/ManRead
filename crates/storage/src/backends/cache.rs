@@ -33,6 +33,15 @@ impl<S: StorageWriter> StorageWriter for CacheBackend<S> {
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), io::Error> {
         self.inner.rename(orig_key, target_key).await
     }
+
+    async fn delete(&self, key: &str) -> Result<(), io::Error> {
+        self.inner.delete(key).await?;
+        match self.sr.delete(key).await {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(err),
+        }
+    }
 }
 
 pub struct KeyedLock<K> {

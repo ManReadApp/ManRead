@@ -39,13 +39,13 @@ pub struct ListDBService {
 }
 
 async fn get_list(db: &DbSession, name: &str, user: &str) -> DbResult<RecordData<MangaList>> {
-    let user = RecordIdFunc::from((User::name(), user)).to_string();
-    //TODO: name shouldnt contain escape characters, sql injection
-    let mut v = MangaList::search(
-        db.as_ref(),
-        Some(format!("WHERE name = '{name}' AND user = {user} LIMIT 1")),
-    )
-    .await?;
+    let user = RecordIdType::<User>::from((User::name(), user));
+    let mut query = db
+        .query("SELECT * FROM manga_lists WHERE name = $name AND user = $user LIMIT 1")
+        .bind(("name", name.to_owned()))
+        .bind(("user", user))
+        .await?;
+    let mut v: Vec<RecordData<MangaList>> = query.take(0)?;
     if v.is_empty() {
         return Err(crate::error::DbError::NotFound);
     }

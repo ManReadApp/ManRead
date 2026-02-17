@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use surrealdb::{opt::PatchOp, Datetime};
-use surrealdb_extras::{RecordData, RecordIdFunc, RecordIdType, SurrealTable, SurrealTableInfo};
+use surrealdb_extras::{
+    RecordData, RecordIdFunc, RecordIdType, SurrealSelect, SurrealTable, SurrealTableInfo,
+};
 
 use crate::{chapter::ChapterDBService, error::DbResult, tag::Empty, DbSession};
 
@@ -20,6 +22,11 @@ pub struct UserProgress {
     pub progress: f64,
     #[opt(exclude = true)]
     pub updated: Datetime,
+}
+
+#[derive(Deserialize, SurrealSelect)]
+struct ProgressUser {
+    user: RecordIdType<User>,
 }
 
 #[derive(Clone)]
@@ -106,6 +113,63 @@ impl UserProgressDBService {
                 .await?;
         }
 
+        Ok(())
+    }
+
+    pub async fn recompute_for_new_chapter(
+        &self,
+        manga_id: &str,
+        new_chapter_id: &str,
+        new_chapter_number: f64,
+    ) -> DbResult<()> {
+        let manga_ref = RecordIdFunc::from((Manga::name(), manga_id));
+        let query = format!(
+            "SELECT id, chapter FROM {} WHERE id IN (SELECT chapters FROM {})[0].chapters AND chapter < $chapter ORDER BY chapter DESC LIMIT 1",
+            Chapter::name(),
+            manga_ref
+        );
+        let mut previous: Vec<RecordData<Empty>> = self
+            .db
+            .query(query)
+            .bind(("chapter", new_chapter_number))
+            .await?
+            .take(0)?;
+        if previous.is_empty() {
+            return Ok(());
+        }
+        let previous_chapter = previous.remove(0).id;
+        let new_chapter_ref = RecordIdFunc::from((Chapter::name(), new_chapter_id)).to_string();
+        let manga_ref = RecordIdFunc::from((Manga::name(), manga_id)).to_string();
+        let completed: Vec<RecordData<ProgressUser>> = UserProgress::search(
+            self.db.as_ref(),
+            Some(format!(
+                "WHERE manga = {manga_ref} AND chapter = {} AND progress >= 0.95",
+                previous_chapter
+            )),
+        )
+        .await?;
+
+        for progress in completed {
+            let user_ref = RecordIdFunc::from(progress.data.user.clone()).to_string();
+            let existing: Vec<RecordData<Empty>> = UserProgress::search(
+                self.db.as_ref(),
+                Some(format!(
+                    "WHERE user = {user_ref} AND manga = {manga_ref} AND chapter = {new_chapter_ref} LIMIT 1"
+                )),
+            )
+            .await?;
+            if existing.is_empty() {
+                UserProgress {
+                    user: progress.data.user,
+                    manga: RecordIdType::from((Manga::name(), manga_id)),
+                    chapter: RecordIdType::from((Chapter::name(), new_chapter_id)),
+                    progress: 0.0,
+                    updated: Default::default(),
+                }
+                .add(self.db.as_ref())
+                .await?;
+            }
+        }
         Ok(())
     }
 }

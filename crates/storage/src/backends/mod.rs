@@ -45,23 +45,25 @@ pub struct AesOptions {
 }
 
 impl AesOptions {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, std::io::Error> {
         let mut key = [0u8; 32];
         let mut nonce = [0u8; 12];
 
         OsRng
             .try_fill_bytes(&mut key)
-            .expect("os rng should be available for aes key generation");
+            .map_err(|err| std::io::Error::other(format!("aes key generation failed: {err}")))?;
         OsRng
             .try_fill_bytes(&mut nonce)
-            .expect("os rng should be available for aes nonce generation");
+            .map_err(|err| {
+                std::io::Error::other(format!("aes nonce generation failed: {err}"))
+            })?;
 
-        Self {
+        Ok(Self {
             key,
             nonce,
             aad: Vec::new(),
             counter: 0,
-        }
+        })
     }
 }
 
@@ -91,6 +93,9 @@ pub trait StorageWriter: Send + Sync + 'static {
 
     /// already uploaded under a different key(old key gets removed and added under new key)
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), std::io::Error>;
+
+    /// removes an object by key
+    async fn delete(&self, key: &str) -> Result<(), std::io::Error>;
 }
 
 #[cfg(test)]
@@ -276,6 +281,14 @@ mod tests {
                 std::io::Error::new(std::io::ErrorKind::NotFound, "source key not found")
             })?;
             map.insert(target_key.to_string(), value);
+            Ok(())
+        }
+
+        async fn delete(&self, key: &str) -> Result<(), std::io::Error> {
+            let mut map = self.inner.lock().await;
+            map.remove(key).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::NotFound, "source key not found")
+            })?;
             Ok(())
         }
     }

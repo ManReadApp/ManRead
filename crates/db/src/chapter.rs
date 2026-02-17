@@ -15,6 +15,7 @@ use crate::{
 use super::{
     manga::Manga,
     page::Page,
+    progress::UserProgressDBService,
     tag::{Empty, Tag},
     version::Version,
     version_link::ChapterVersion,
@@ -290,7 +291,9 @@ impl ChapterDBService {
             .patch(self.db.as_ref(), PatchOp::add("/chapters", id.id.clone()))
             .await?;
 
-        //TODO: also reload chapter progress
+        UserProgressDBService::new(self.db.clone())
+            .recompute_for_new_chapter(manga_id, &id.id.id().to_string(), chapter)
+            .await?;
         Ok(id.id.into())
     }
     pub async fn add(
@@ -344,11 +347,16 @@ impl ChapterDBService {
     pub async fn get(&self, manga_id: &str, chapter: f64) -> DbResult<RecordData<Chapter>> {
         let manga_id = RecordIdFunc::from((Manga::name(), manga_id)).to_string();
         let query = format!(
-            "SELECT * FROM {} WHERE id IN (SELECT foreign_ids FROM {}) AND chapter = {chapter} LIMIT 1;",
+            "SELECT * FROM {} WHERE id IN (SELECT chapters FROM {})[0].chapters AND chapter = $chapter LIMIT 1;",
             Chapter::name(),
             manga_id,
         );
-        let mut res: Vec<RecordData<Chapter>> = self.db.query(query).await?.take(0)?;
+        let mut res: Vec<RecordData<Chapter>> = self
+            .db
+            .query(query)
+            .bind(("chapter", chapter))
+            .await?
+            .take(0)?;
         if res.is_empty() {
             return Err(DbError::NotFound);
         }

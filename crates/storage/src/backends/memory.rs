@@ -47,6 +47,18 @@ impl StorageWriter for MemStorage {
         map.insert(target_key.to_string(), data);
         Ok(())
     }
+
+    async fn delete(&self, key: &str) -> Result<(), io::Error> {
+        let removed = self.inner.write().await.remove(key);
+        if removed.is_some() {
+            Ok(())
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("key not found: {key}"),
+            ))
+        }
+    }
 }
 #[async_trait::async_trait]
 impl StorageReader for MemStorage {
