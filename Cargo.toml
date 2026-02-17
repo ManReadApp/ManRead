@@ -91,7 +91,7 @@ pin-project-lite = "0.2.16"
 prost = "0.14.3"
 prost-build = { version = "0.14" }
 prost-types = { version = "0.14" }
-
+mime_guess = "2.0.5"
 
 [profile.dev.package.image]
 opt-level = 3
