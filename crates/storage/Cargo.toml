@@ -21,10 +21,13 @@ tokio-util = { workspace = true, features = ["io"] }
 dashmap = "6"
 mime_guess.workspace = true
 export.workspace = true
+urlencoding = { workspace = true, optional = true }
 
 tokio = { workspace = true, features = ["io-util", "time", "fs"] }
 aes-gcm = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
+aws-config = { version = "1", optional = true }
+aws-sdk-s3 = { version = "1", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = [
@@ -39,3 +42,4 @@ tokio = { workspace = true, features = [
 default = ["disk", "encode"]
 encode = ["dep:aes-gcm", "dep:pin-project-lite"]
 disk = ["tokio/fs"]
+s3 = ["dep:aws-config", "dep:aws-sdk-s3", "dep:urlencoding"]

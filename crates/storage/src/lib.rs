@@ -15,6 +15,8 @@ pub use backends::KeyValueStore;
 pub use backends::MemStorage;
 pub use backends::Object;
 pub use backends::Options;
+#[cfg(feature = "s3")]
+pub use backends::{S3Storage, S3StorageOptions, S3UploadAcl};
 
 use std::{
     collections::HashMap,

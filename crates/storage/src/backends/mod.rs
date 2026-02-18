@@ -5,18 +5,23 @@ mod content_length;
 mod delay;
 #[cfg(feature = "disk")]
 mod disk;
+mod key_value;
 mod memory;
+#[cfg(feature = "s3")]
 mod s3;
 
 #[cfg(feature = "encode")]
 pub use aes_gcm::EncryptedStorage;
 pub use cache::CacheBackend;
-pub use content_length::{ContentLengthStorage, KeyValueStore};
+pub use content_length::ContentLengthStorage;
 pub use delay::DelayStorage;
 #[cfg(feature = "disk")]
 pub use disk::DiskStorage;
+pub use key_value::KeyValueStore;
 pub use memory::MemStorage;
 use rand::{rngs::OsRng, TryRngCore};
+#[cfg(feature = "s3")]
+pub use s3::{S3Storage, S3StorageOptions, S3UploadAcl};
 
 use std::{pin::Pin, time::SystemTime};
 
@@ -103,7 +108,7 @@ mod tests {
     use std::time::{Duration, Instant};
 
     #[cfg(feature = "encode")]
-    use crate::{backends::s3::KeyMapper, StorageError};
+    use crate::{backends::KeyValueStore, StorageError};
 
     #[cfg(feature = "encode")]
     #[derive(Default)]
@@ -113,7 +118,9 @@ mod tests {
 
     #[cfg(feature = "encode")]
     #[async_trait::async_trait]
-    impl KeyMapper<AesOptions> for TestAesMapper {
+    impl KeyValueStore<AesOptions> for TestAesMapper {
+        type Error = StorageError;
+
         async fn get(&self, key: &str) -> Result<Option<AesOptions>, StorageError> {
             Ok(self.inner.lock().await.get(key).cloned())
         }

@@ -8,23 +8,7 @@ use std::{
 
 use futures_util::TryStreamExt as _;
 
-use crate::backends::{ByteStream, Object, Options, StorageReader, StorageWriter};
-
-#[async_trait::async_trait]
-pub trait KeyValueStore<V: Send + Sync + 'static>: Send + Sync + 'static {
-    async fn get(&self, key: &str) -> Result<Option<V>, io::Error>;
-    async fn set(&self, key: &str, value: V) -> Result<(), io::Error>;
-    async fn remove(&self, key: &str) -> Result<Option<V>, io::Error>;
-
-    async fn rename(&self, old_key: &str, new_key: &str) -> Result<(), io::Error> {
-        let value = self.remove(old_key).await?;
-        if let Some(v) = value {
-            self.set(new_key, v).await?;
-        }
-
-        Ok(())
-    }
-}
+use crate::backends::{ByteStream, KeyValueStore, Object, Options, StorageReader, StorageWriter};
 
 pub struct ContentLengthStorage<S, K> {
     inner: S,
@@ -44,7 +28,7 @@ impl<S, K> ContentLengthStorage<S, K> {
 impl<S, K> StorageReader for ContentLengthStorage<S, K>
 where
     S: StorageReader,
-    K: KeyValueStore<u64>,
+    K: KeyValueStore<u64, Error = io::Error>,
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
         let mut obj = self.inner.get(key, options).await?;
@@ -61,7 +45,7 @@ where
 impl<S, K> StorageWriter for ContentLengthStorage<S, K>
 where
     S: StorageWriter,
-    K: KeyValueStore<u64>,
+    K: KeyValueStore<u64, Error = io::Error>,
 {
     async fn write(&self, key: &str, stream: ByteStream) -> Result<(), io::Error> {
         let observed_len = Arc::new(AtomicU64::new(0));
@@ -120,6 +104,8 @@ mod tests {
 
     #[async_trait::async_trait]
     impl KeyValueStore<u64> for TestKeyValueStore {
+        type Error = io::Error;
+
         async fn get(&self, key: &str) -> Result<Option<u64>, io::Error> {
             Ok(self.map.read().await.get(key).copied())
         }

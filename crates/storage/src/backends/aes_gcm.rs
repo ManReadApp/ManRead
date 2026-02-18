@@ -13,8 +13,9 @@ use std::{
 };
 
 use crate::backends::{
-    s3::KeyMapper, AesOptions, ByteStream, Object, Options, StorageReader, StorageWriter,
+    AesOptions, ByteStream, KeyValueStore, Object, Options, StorageReader, StorageWriter,
 };
+use crate::StorageError;
 
 const TAG_LEN: usize = 16;
 const LEN_LEN: usize = 4;
@@ -84,11 +85,11 @@ pin_project! {
 
 pub struct EncryptedStorage<S> {
     inner: S,
-    mapper: Box<dyn KeyMapper<AesOptions>>,
+    mapper: Box<dyn KeyValueStore<AesOptions, Error = StorageError>>,
 }
 
 impl<S> EncryptedStorage<S> {
-    pub fn new<T: KeyMapper<AesOptions>>(inner: S, mapper: T) -> Self {
+    pub fn new<T: KeyValueStore<AesOptions, Error = StorageError>>(inner: S, mapper: T) -> Self {
         Self {
             inner,
             mapper: Box::new(mapper),
