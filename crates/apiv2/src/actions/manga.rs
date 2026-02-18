@@ -9,19 +9,23 @@ use api_structure::{
         Relation, Status, Tag as GlobalTag, Visibility,
     },
 };
+use bytes::Bytes;
 use db::{
     auth::RecordData,
     chapter::ChapterDBService,
     kind::KindDBService,
     lists::ListDBService,
     manga::{Manga, MangaDBService, Scraper},
+    page::PageDBService,
     tag::{Tag, TagDBService},
     user::{User, UserDBService},
     version::VersionDBService,
+    version_link::ChapterVersionDBService,
     RecordId, RecordIdFunc, RecordIdType, SurrealTableInfo,
 };
+use futures_util::{stream, Stream, StreamExt as _};
 use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
-use std::{cmp::Ordering, sync::Arc};
+use std::{cmp::Ordering, pin::Pin, sync::Arc};
 use storage::{ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
 
 pub struct MangaActions {
@@ -32,6 +36,8 @@ pub struct MangaActions {
     pub users: Arc<UserDBService>,
     pub lists: Arc<ListDBService>,
     pub versions: Arc<VersionDBService>,
+    pub chapter_versions: Arc<ChapterVersionDBService>,
+    pub pages: Arc<PageDBService>,
     pub fs: Arc<StorageSystem>,
 }
 
@@ -90,6 +96,18 @@ fn status_from_db(value: u64) -> ApiResult<Status> {
 fn visibility_from_db(value: u64) -> ApiResult<Visibility> {
     Visibility::try_from(value)
         .map_err(|_| ApiError::write_error("invalid visibility value in database"))
+}
+
+const MANGA_CONTAINER_MAGIC: &[u8; 8] = b"MRMANG01";
+
+pub type ExportStream = Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>;
+
+fn len_to_u32(len: usize, what: &str) -> ApiResult<u32> {
+    u32::try_from(len).map_err(|_| ApiError::invalid_input(&format!("{what} exceeds limit")))
+}
+
+fn chunk_stream(chunk: Bytes) -> ExportStream {
+    Box::pin(stream::once(async move { Ok(chunk) }))
 }
 
 impl MangaActions {
@@ -356,6 +374,97 @@ impl MangaActions {
             chapters,
             manga_id: id,
         })
+    }
+
+    pub async fn export(&self, manga_id: &str) -> ApiResult<ExportStream> {
+        validate_non_empty("manga_id", manga_id)?;
+        let manga = self.mangas.get(manga_id).await?;
+        let mut chapters = self.chapters.get_detail(manga.chapters.into_iter()).await?;
+        chapters.sort_by(|a, b| {
+            a.data
+                .chapter
+                .partial_cmp(&b.data.chapter)
+                .unwrap_or(Ordering::Equal)
+        });
+
+        let mut metadata_chapters = Vec::with_capacity(chapters.len());
+        let mut image_keys = Vec::new();
+
+        for chapter in chapters {
+            let chapter_id = chapter.id.id().to_string();
+            let mut versions: Vec<_> = chapter.data.versions.into_iter().collect();
+            versions.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let Some((version_key, chapter_version)) = versions.into_iter().next() else {
+                return Err(ApiError::invalid_input(&format!(
+                    "chapter {chapter_id} has no versions"
+                )));
+            };
+
+            let version_id = version_key
+                .split_once(':')
+                .map(|(_, id)| id.to_owned())
+                .unwrap_or(version_key);
+
+            let chapter_version = self
+                .chapter_versions
+                .get(&chapter_version.id().to_string())
+                .await?;
+            let mut pages = self.pages.get(chapter_version.pages).await?;
+            pages.sort_by_key(|page| page.data.page);
+
+            let mut image_indexes = Vec::with_capacity(pages.len());
+            for page in pages {
+                image_indexes.push(len_to_u32(image_keys.len(), "image index")?);
+                let ext = page.data.ext.trim_start_matches('.');
+                let key = format!(
+                    "mangas/{}/{}/{}/{}.{}",
+                    manga_id, chapter_id, version_id, page.data.page, ext
+                );
+                image_keys.push(key);
+            }
+
+            metadata_chapters.push(export::manga::Chapter {
+                chapter_id,
+                version_id,
+                image_indexes,
+            });
+        }
+
+        let metadata = export::manga::MangaBundleMetadata {
+            manga_id: manga_id.to_owned(),
+            chapters: metadata_chapters,
+        };
+        let metadata_bytes = export::to_bytes(&metadata);
+        let metadata_len = len_to_u32(metadata_bytes.len(), "metadata size")?;
+        let image_count = len_to_u32(image_keys.len(), "image count")?;
+
+        let mut streams: Vec<ExportStream> = Vec::with_capacity(4 + image_keys.len() * 2);
+        streams.push(chunk_stream(Bytes::from_static(MANGA_CONTAINER_MAGIC)));
+        streams.push(chunk_stream(Bytes::copy_from_slice(
+            &metadata_len.to_le_bytes(),
+        )));
+        streams.push(chunk_stream(metadata_bytes));
+        streams.push(chunk_stream(Bytes::copy_from_slice(
+            &image_count.to_le_bytes(),
+        )));
+
+        for key in image_keys {
+            let object = self.fs.reader.get(&key, &Default::default()).await?;
+            let image_len = object.content_length.ok_or_else(|| {
+                ApiError::write_error(format!("missing content length for {key}"))
+            })?;
+            let image_len_u32 = u32::try_from(image_len).map_err(|_| {
+                ApiError::invalid_input(&format!("image size exceeds limit for {key}"))
+            })?;
+
+            streams.push(chunk_stream(Bytes::copy_from_slice(
+                &image_len_u32.to_le_bytes(),
+            )));
+            streams.push(object.stream);
+        }
+
+        Ok(Box::pin(stream::iter(streams).flatten()))
     }
 
     pub async fn delete(&self, id: &str) -> ApiResult<()> {

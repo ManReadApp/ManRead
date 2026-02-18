@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{error::StorageResult, temp::TempData, MangaBundleMetadata, StorageError};
+use crate::{error::StorageResult, temp::TempData, StorageError};
 
 pub(crate) const CHAPTER_MAGIC: &[u8; 8] = b"MRCHAP01";
 pub(crate) const MANGA_MAGIC: &[u8; 8] = b"MRMANG01";
@@ -103,19 +103,24 @@ impl MagicContainerWorker {
         cursor += metadata_len;
 
         let metadata_bytes = metadata.read_all().await.map_err(StorageError::Io)?;
-        let metadata_struct: MangaBundleMetadata =
-            bincode::deserialize(&metadata_bytes).map_err(|e| {
+        let metadata_struct: export::manga::MangaBundleMetadata =
+            export::try_from_bytes(&metadata_bytes).map_err(|e| {
                 StorageError::Io(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     format!("invalid metadata: {e}"),
                 ))
             })?;
+        let chapter_image_indexes: Vec<Vec<u32>> = metadata_struct
+            .chapters
+            .into_iter()
+            .map(|chapter| chapter.image_indexes)
+            .collect();
 
         let image_count = Self::read_u32_at(source, cursor).await? as usize;
         cursor += 4;
         let (images, _) = Self::extract_blob_sequence(source, cursor, image_count).await?;
 
-        for chapter in &metadata_struct.chapter_image_indexes {
+        for chapter in &chapter_image_indexes {
             for idx in chapter {
                 if (*idx as usize) >= images.len() {
                     return Err(StorageError::Io(std::io::Error::new(
@@ -126,7 +131,7 @@ impl MagicContainerWorker {
             }
         }
 
-        Ok((metadata, metadata_struct.chapter_image_indexes, images))
+        Ok((metadata, chapter_image_indexes, images))
     }
 }
 

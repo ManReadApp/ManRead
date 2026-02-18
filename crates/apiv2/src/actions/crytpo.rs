@@ -40,7 +40,10 @@ pub async fn validator(
     cred: BearerAuth,
 ) -> Result<ServiceRequest, (Error, ServiceRequest)> {
     let Some(secret) = req.app_data::<Data<CryptoService>>() else {
-        return Err((ApiError::write_error("CryptoService is missing").into(), req));
+        return Err((
+            ApiError::write_error("CryptoService is missing").into(),
+            req,
+        ));
     };
     match secret.get_claim(cred.token()) {
         Ok(v) => {

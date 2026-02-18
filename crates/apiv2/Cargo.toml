@@ -33,6 +33,7 @@ apistos = { workspace = true, features = [
 ] }
 futures-util.workspace = true
 actix-multipart.workspace = true
+bytes.workspace = true
 openssl = { workspace = true, optional = true }
 actix-cors = { workspace = true, optional = true }
 

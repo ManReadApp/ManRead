@@ -1,6 +1,7 @@
 #[cfg(feature = "encode")]
 mod aes_gcm;
 mod cache;
+mod content_length;
 mod delay;
 #[cfg(feature = "disk")]
 mod disk;
@@ -10,16 +11,14 @@ mod s3;
 #[cfg(feature = "encode")]
 pub use aes_gcm::EncryptedStorage;
 pub use cache::CacheBackend;
+pub use content_length::{ContentLengthStorage, KeyValueStore};
 pub use delay::DelayStorage;
 #[cfg(feature = "disk")]
 pub use disk::DiskStorage;
 pub use memory::MemStorage;
 use rand::{rngs::OsRng, TryRngCore};
 
-use std::{
-    pin::Pin,
-    time::SystemTime,
-};
+use std::{pin::Pin, time::SystemTime};
 
 use bytes::Bytes;
 use futures_core::Stream;
@@ -54,9 +53,7 @@ impl AesOptions {
             .map_err(|err| std::io::Error::other(format!("aes key generation failed: {err}")))?;
         OsRng
             .try_fill_bytes(&mut nonce)
-            .map_err(|err| {
-                std::io::Error::other(format!("aes nonce generation failed: {err}"))
-            })?;
+            .map_err(|err| std::io::Error::other(format!("aes nonce generation failed: {err}")))?;
 
         Ok(Self {
             key,
@@ -205,10 +202,10 @@ mod tests {
     #[cfg(feature = "encode")]
     #[tokio::test]
     async fn roundtrip_mem_with_delay_and_aes_and_rename() -> Result<(), std::io::Error> {
-        let storage = EncryptedStorage::new(DelayStorage::new(
-            MemStorage::new(),
-            Duration::from_millis(10),
-        ), TestAesMapper::default());
+        let storage = EncryptedStorage::new(
+            DelayStorage::new(MemStorage::new(), Duration::from_millis(10)),
+            TestAesMapper::default(),
+        );
         let payload = b"encrypted-delayed-memory-roundtrip-with-multiple-chunks";
 
         storage

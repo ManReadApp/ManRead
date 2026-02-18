@@ -4,7 +4,7 @@ Encode custom storage containers.
 
 Formats:
 - Chapter: MRCHAP01 + image blobs
-- Manga:   MRMANG01 + bincode metadata blob + image blobs
+- Manga:   MRMANG01 + protobuf metadata blob + image blobs
 """
 
 from __future__ import annotations
@@ -38,9 +38,9 @@ def encode_chapter(images: list[pathlib.Path], out_path: pathlib.Path) -> None:
 
 
 def encode_manga(
-    metadata_bincode: pathlib.Path, images: list[pathlib.Path], out_path: pathlib.Path
+    metadata_proto: pathlib.Path, images: list[pathlib.Path], out_path: pathlib.Path
 ) -> None:
-    metadata = read_file(metadata_bincode)
+    metadata = read_file(metadata_proto)
     payload = bytearray()
     payload.extend(MANGA_MAGIC)
     write_blob(payload, metadata)

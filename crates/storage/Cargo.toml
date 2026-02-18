@@ -16,11 +16,11 @@ futures-core.workspace = true
 mime.workspace = true
 futures-util.workspace = true
 thiserror = "2"
-bincode = "1"
 serde = { workspace = true, features = ["derive"] }
 tokio-util = { workspace = true, features = ["io"] }
 dashmap = "6"
 mime_guess.workspace = true
+export.workspace = true
 
 tokio = { workspace = true, features = ["io-util", "time", "fs"] }
 aes-gcm = { workspace = true, optional = true }

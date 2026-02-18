@@ -7,9 +7,7 @@ use crate::{
 
 use api_structure::{
     req::LoginRequest,
-    v1::{
-        ActivationTokenKind, Claim, Gender, JwtType, JwTsResponse, ResetPasswordRequest, Role,
-    },
+    v1::{ActivationTokenKind, Claim, Gender, JwTsResponse, JwtType, ResetPasswordRequest, Role},
     REFRESH_SECS,
 };
 use chrono::{DateTime, Utc};
@@ -103,14 +101,14 @@ impl AuthAction {
                 self.users.get_by_mail(&l.email).await
             }
         }?;
-        let valid = self
-            .crypto
-            .verify_hash(password, user.data.password)
-            .await;
+        let valid = self.crypto.verify_hash(password, user.data.password).await;
         if !valid {
             return Err(ApiError::PasswordIncorrect);
         }
-        self.new_jwt(&user.id.id().to_string(), Self::role_from_db(user.data.role)?)
+        self.new_jwt(
+            &user.id.id().to_string(),
+            Self::role_from_db(user.data.role)?,
+        )
     }
 
     pub async fn logout(&self, claim: &Claim) -> DbResult<()> {

@@ -5,11 +5,13 @@ mod temp;
 mod workers;
 
 pub use backends::CacheBackend;
+pub use backends::ContentLengthStorage;
 pub use backends::DelayStorage;
 #[cfg(feature = "disk")]
 pub use backends::DiskStorage;
 #[cfg(feature = "encode")]
 pub use backends::EncryptedStorage;
+pub use backends::KeyValueStore;
 pub use backends::MemStorage;
 pub use backends::Object;
 pub use backends::Options;
@@ -159,11 +161,6 @@ pub enum RegisterTempResult {
 pub struct RegisteredMangaTemp {
     pub metadata: FileId,
     pub images: Vec<FileId>,
-    pub chapter_image_indexes: Vec<Vec<u32>>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct MangaBundleMetadata {
     pub chapter_image_indexes: Vec<Vec<u32>>,
 }
 
@@ -435,6 +432,8 @@ mod tests {
     use image::{DynamicImage, ImageFormat};
     use tokio::io::AsyncWriteExt as _;
 
+    use export::manga::{Chapter as BundleChapter, MangaBundleMetadata};
+
     use crate::{
         backends::StorageWriter,
         error::ProcessingError,
@@ -443,8 +442,8 @@ mod tests {
             containers::MagicContainerWorker,
             media::{MediaWorker, PreparedUpload},
         },
-        CoverFileBuilder, FileId, MangaBundleMetadata, MemStorage, RegisterTempResult,
-        StorageError, StorageSystem, CHAPTER_MAGIC, MANGA_MAGIC,
+        CoverFileBuilder, FileId, MemStorage, RegisterTempResult, StorageError, StorageSystem,
+        CHAPTER_MAGIC, MANGA_MAGIC,
     };
 
     async fn read_all_bytes(
@@ -509,11 +508,11 @@ mod tests {
     }
 
     fn make_manga_container(metadata: &MangaBundleMetadata, images: &[Vec<u8>]) -> Vec<u8> {
-        let metadata_bytes = bincode::serialize(metadata).expect("metadata serialize");
+        let metadata_bytes = export::to_bytes(metadata);
         let mut out = Vec::new();
         out.extend_from_slice(MANGA_MAGIC);
         out.extend_from_slice(&(metadata_bytes.len() as u32).to_le_bytes());
-        out.extend_from_slice(&metadata_bytes);
+        out.extend_from_slice(metadata_bytes.as_ref());
         out.extend_from_slice(&(images.len() as u32).to_le_bytes());
         for image in images {
             out.extend_from_slice(&(image.len() as u32).to_le_bytes());
@@ -675,7 +674,19 @@ mod tests {
         let img2 = png_bytes(12, 13);
         let img3 = png_bytes(14, 15);
         let metadata = MangaBundleMetadata {
-            chapter_image_indexes: vec![vec![0, 1], vec![2]],
+            manga_id: "manga-1".to_owned(),
+            chapters: vec![
+                BundleChapter {
+                    chapter_id: "chapter-1".to_owned(),
+                    version_id: "version-1".to_owned(),
+                    image_indexes: vec![0, 1],
+                },
+                BundleChapter {
+                    chapter_id: "chapter-2".to_owned(),
+                    version_id: "version-1".to_owned(),
+                    image_indexes: vec![2],
+                },
+            ],
         };
         let payload = make_manga_container(&metadata, &[img1.clone(), img2.clone(), img3.clone()]);
 
@@ -689,7 +700,14 @@ mod tests {
             _ => panic!("expected manga result"),
         };
         assert_eq!(manga.images.len(), 3);
-        assert_eq!(manga.chapter_image_indexes, metadata.chapter_image_indexes);
+        assert_eq!(
+            manga.chapter_image_indexes,
+            metadata
+                .chapters
+                .iter()
+                .map(|chapter| chapter.image_indexes.clone())
+                .collect::<Vec<_>>()
+        );
 
         let meta_fb = unwrap_storage(storage.take(manga.metadata.clone()).await, "take metadata");
         assert_eq!(meta_fb.ext, None);
