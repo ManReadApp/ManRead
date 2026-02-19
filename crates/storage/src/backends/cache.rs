@@ -72,6 +72,10 @@ where
 #[async_trait::async_trait]
 impl<S: StorageReader> StorageReader for CacheBackend<S> {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, std::io::Error> {
+        if options.content_length_only {
+            return self.inner.get(key, options).await;
+        }
+
         match self.sr.get(key, options).await {
             Ok(obj) => return Ok(obj),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}

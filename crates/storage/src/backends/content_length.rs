@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use futures_util::TryStreamExt as _;
+use futures_util::{stream, TryStreamExt as _};
 
 use crate::backends::{ByteStream, KeyValueStore, Object, Options, StorageReader, StorageWriter};
 
@@ -24,6 +24,14 @@ impl<S, K> ContentLengthStorage<S, K> {
     }
 }
 
+fn content_length_only_dummy_stream() -> ByteStream {
+    Box::pin(stream::once(async {
+        Err(io::Error::other(
+            "content_length_only object stream should never be consumed",
+        ))
+    }))
+}
+
 #[async_trait::async_trait]
 impl<S, K> StorageReader for ContentLengthStorage<S, K>
 where
@@ -31,6 +39,22 @@ where
     K: KeyValueStore<u64, Error = io::Error>,
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
+        if options.content_length_only {
+            let content_length = self
+                .content_lengths
+                .get(key)
+                .await?
+                .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "not found"))?;
+
+            return Ok(Object {
+                stream: content_length_only_dummy_stream(),
+                content_length: Some(content_length),
+                content_type: None,
+                etag: None,
+                last_modified: None,
+            });
+        }
+
         let mut obj = self.inner.get(key, options).await?;
 
         if let Some(content_length) = self.content_lengths.get(key).await? {
@@ -74,7 +98,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io, sync::Arc};
+    use std::{
+        collections::HashMap,
+        io,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
 
     use bytes::Bytes;
     use futures_util::{stream, StreamExt as _};
@@ -146,6 +177,20 @@ mod tests {
             let mut obj = self.inner.get(key, options).await?;
             obj.content_length = Some(self.reported_length);
             Ok(obj)
+        }
+    }
+
+    struct InnerReaderMustNotRun {
+        calls: Arc<AtomicUsize>,
+    }
+
+    #[async_trait::async_trait]
+    impl StorageReader for InnerReaderMustNotRun {
+        async fn get(&self, _key: &str, _options: &Options) -> Result<Object, io::Error> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            Err(io::Error::other(
+                "inner get should not run for content_length_only",
+            ))
         }
     }
 
@@ -230,5 +275,70 @@ mod tests {
 
         assert_eq!(map.read().await.get("items/to-delete"), None);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn content_length_only_returns_stored_length_without_inner_read() -> Result<(), io::Error>
+    {
+        let map = Arc::new(RwLock::new(HashMap::new()));
+        map.write().await.insert("items/a".to_owned(), 42);
+        let kv = TestKeyValueStore { map };
+        let calls = Arc::new(AtomicUsize::new(0));
+        let storage = ContentLengthStorage::new(
+            InnerReaderMustNotRun {
+                calls: calls.clone(),
+            },
+            kv,
+        );
+
+        let obj = storage
+            .get(
+                "items/a",
+                &Options {
+                    content_length_only: true,
+                    ..Options::default()
+                },
+            )
+            .await?;
+        assert_eq!(obj.content_length, Some(42));
+        assert_eq!(calls.load(Ordering::Relaxed), 0);
+
+        let mut stream = obj.stream;
+        let err = stream
+            .next()
+            .await
+            .expect("dummy stream should produce one value")
+            .expect_err("dummy stream value should be an error");
+        assert_eq!(err.kind(), io::ErrorKind::Other);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn content_length_only_missing_length_returns_not_found_without_inner_read() {
+        let map = Arc::new(RwLock::new(HashMap::new()));
+        let kv = TestKeyValueStore { map };
+        let calls = Arc::new(AtomicUsize::new(0));
+        let storage = ContentLengthStorage::new(
+            InnerReaderMustNotRun {
+                calls: calls.clone(),
+            },
+            kv,
+        );
+
+        let err = match storage
+            .get(
+                "items/missing",
+                &Options {
+                    content_length_only: true,
+                    ..Options::default()
+                },
+            )
+            .await
+        {
+            Ok(_) => panic!("missing content length should return not found"),
+            Err(err) => err,
+        };
+        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+        assert_eq!(calls.load(Ordering::Relaxed), 0);
     }
 }

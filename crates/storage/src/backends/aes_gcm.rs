@@ -103,6 +103,10 @@ where
     S: StorageReader,
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
+        if options.content_length_only {
+            return self.inner.get(key, options).await;
+        }
+
         let mut obj = self.inner.get(key, options).await?;
         let aes = self
             .mapper

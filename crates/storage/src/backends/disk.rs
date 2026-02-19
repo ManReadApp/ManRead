@@ -5,7 +5,7 @@ use std::{
 
 use async_tempfile::TempFile;
 use bytes::Bytes;
-use futures_util::StreamExt;
+use futures_util::{stream, StreamExt, TryStreamExt};
 use tokio::{fs::File, io::AsyncWriteExt as _};
 use tokio_util::io::ReaderStream;
 
@@ -120,14 +120,18 @@ impl StorageWriter for DiskStorage {
 impl StorageReader for DiskStorage {
     async fn get(&self, key: &str, _: &Options) -> Result<Object, std::io::Error> {
         let path = self.key_path(key)?;
-        let file = File::open(&path).await?;
-        let mime = mime_guess::from_path(path).first();
-        let meta = file.metadata().await.ok();
-        let lm = meta.as_ref().map(|v| v.modified().ok()).flatten();
+        let meta = tokio::fs::metadata(&path).await?;
+        let mime = mime_guess::from_path(&path).first();
+        let lm = meta.modified().ok();
 
-        let len = meta.map(|m| m.len());
+        let len = Some(meta.len());
 
-        let stream = ReaderStream::new(file).map(|r| r.map(Bytes::from));
+        let stream = stream::once(async move {
+            let file = File::open(path).await?;
+            let stream = ReaderStream::new(file).map(|r| r.map(Bytes::from));
+            Ok::<_, io::Error>(stream)
+        })
+        .try_flatten();
         let stream: ByteStream = Box::pin(stream);
         Ok(Object {
             stream,
@@ -136,5 +140,46 @@ impl StorageReader for DiskStorage {
             etag: None,
             last_modified: lm,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn test_root() -> PathBuf {
+        std::env::temp_dir().join(format!("storage-disk-{}", Uuid::new_v4()))
+    }
+
+    #[tokio::test]
+    async fn get_opens_file_on_first_read() -> Result<(), io::Error> {
+        let root = test_root();
+        tokio::fs::create_dir_all(&root).await?;
+
+        let storage = DiskStorage::new(&root);
+        let key = "lazy/open.bin";
+        let payload = Bytes::from_static(b"lazy-open-check");
+        let write_stream: ByteStream =
+            Box::pin(stream::once(async move { Ok::<Bytes, io::Error>(payload) }));
+
+        storage.write(key, write_stream).await?;
+
+        let mut object = storage.get(key, &Options::default()).await?;
+        let file_path = root.join(key);
+        tokio::fs::remove_file(&file_path).await?;
+
+        let chunk = object
+            .stream
+            .next()
+            .await
+            .expect("stream should yield one item");
+        assert_eq!(
+            chunk.expect_err("file should be opened lazily").kind(),
+            io::ErrorKind::NotFound
+        );
+
+        tokio::fs::remove_dir_all(root).await?;
+        Ok(())
     }
 }

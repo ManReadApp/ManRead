@@ -72,12 +72,14 @@ impl AesOptions {
 #[derive(Clone)]
 pub struct Options {
     pub cache_download: bool,
+    pub content_length_only: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Options {
             cache_download: false,
+            content_length_only: false,
         }
     }
 }
