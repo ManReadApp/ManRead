@@ -25,7 +25,7 @@ use db::{
 };
 use futures_util::{stream, Stream, StreamExt as _};
 use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
-use std::{cmp::Ordering, pin::Pin, sync::Arc};
+use std::{cmp::Ordering, pin::Pin, sync::Arc, task::Poll};
 use storage::{ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
 
 pub struct MangaActions {
@@ -102,12 +102,72 @@ const MANGA_CONTAINER_MAGIC: &[u8; 8] = b"MRMANG01";
 
 pub type ExportStream = Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>;
 
+enum ExportSegment {
+    Bytes(Bytes),
+    Object { key: String, len: u64 },
+}
+
+impl ExportSegment {
+    fn len(&self) -> u64 {
+        match self {
+            Self::Bytes(v) => v.len() as u64,
+            Self::Object { len, .. } => *len,
+        }
+    }
+}
+
+pub struct PreparedExport {
+    segments: Vec<ExportSegment>,
+    total_len: u64,
+}
+
+pub struct ExportOutput {
+    pub stream: ExportStream,
+    pub range: (u64, u64),
+}
+
 fn len_to_u32(len: usize, what: &str) -> ApiResult<u32> {
     u32::try_from(len).map_err(|_| ApiError::invalid_input(&format!("{what} exceeds limit")))
 }
 
 fn chunk_stream(chunk: Bytes) -> ExportStream {
     Box::pin(stream::once(async move { Ok(chunk) }))
+}
+
+fn slice_stream(mut source: ExportStream, mut skip: u64, mut remaining: u64) -> ExportStream {
+    Box::pin(stream::poll_fn(move |cx| loop {
+        if remaining == 0 {
+            return Poll::Ready(None);
+        }
+
+        match source.as_mut().poll_next(cx) {
+            Poll::Pending => return Poll::Pending,
+            Poll::Ready(None) => return Poll::Ready(None),
+            Poll::Ready(Some(Err(err))) => return Poll::Ready(Some(Err(err))),
+            Poll::Ready(Some(Ok(chunk))) => {
+                let chunk_len = chunk.len() as u64;
+                if skip >= chunk_len {
+                    skip -= chunk_len;
+                    continue;
+                }
+
+                let mut out = chunk;
+                if skip > 0 {
+                    out = out.slice(skip as usize..);
+                    skip = 0;
+                }
+
+                if remaining < out.len() as u64 {
+                    let take = remaining as usize;
+                    remaining = 0;
+                    return Poll::Ready(Some(Ok(out.slice(..take))));
+                }
+
+                remaining -= out.len() as u64;
+                return Poll::Ready(Some(Ok(out)));
+            }
+        }
+    }))
 }
 
 impl MangaActions {
@@ -376,7 +436,7 @@ impl MangaActions {
         })
     }
 
-    pub async fn export(&self, manga_id: &str) -> ApiResult<ExportStream> {
+    pub async fn prepare_export(&self, manga_id: &str) -> ApiResult<PreparedExport> {
         validate_non_empty("manga_id", manga_id)?;
         let manga = self.mangas.get(manga_id).await?;
         let mut chapters = self.chapters.get_detail(manga.chapters.into_iter()).await?;
@@ -436,18 +496,16 @@ impl MangaActions {
             chapters: metadata_chapters,
         };
         let metadata_bytes = export::to_bytes(&metadata);
-        let metadata_len = len_to_u32(metadata_bytes.len(), "metadata size")?;
-        let image_count = len_to_u32(image_keys.len(), "image count")?;
+        let metadata_len = len_to_u32(metadata_bytes.len(), "metadata size")?.to_le_bytes();
+        let image_count = len_to_u32(image_keys.len(), "image count")?.to_le_bytes();
 
-        let mut streams: Vec<ExportStream> = Vec::with_capacity(4 + image_keys.len() * 2);
-        streams.push(chunk_stream(Bytes::from_static(MANGA_CONTAINER_MAGIC)));
-        streams.push(chunk_stream(Bytes::copy_from_slice(
-            &metadata_len.to_le_bytes(),
+        let mut segments: Vec<ExportSegment> = Vec::with_capacity(4 + image_keys.len() * 2);
+        segments.push(ExportSegment::Bytes(Bytes::from_static(
+            MANGA_CONTAINER_MAGIC,
         )));
-        streams.push(chunk_stream(metadata_bytes));
-        streams.push(chunk_stream(Bytes::copy_from_slice(
-            &image_count.to_le_bytes(),
-        )));
+        segments.push(ExportSegment::Bytes(Bytes::copy_from_slice(&metadata_len)));
+        segments.push(ExportSegment::Bytes(metadata_bytes));
+        segments.push(ExportSegment::Bytes(Bytes::copy_from_slice(&image_count)));
 
         for key in image_keys {
             let object = self.fs.reader.get(&key, &Default::default()).await?;
@@ -458,15 +516,94 @@ impl MangaActions {
                 ApiError::invalid_input(&format!("image size exceeds limit for {key}"))
             })?;
 
-            streams.push(chunk_stream(Bytes::copy_from_slice(
+            segments.push(ExportSegment::Bytes(Bytes::copy_from_slice(
                 &image_len_u32.to_le_bytes(),
             )));
-            streams.push(object.stream);
+            segments.push(ExportSegment::Object {
+                key,
+                len: image_len,
+            });
         }
 
-        Ok(Box::pin(stream::iter(streams).flatten()))
+        let total_len = segments
+            .iter()
+            .try_fold(0u64, |acc, seg| acc.checked_add(seg.len()))
+            .ok_or_else(|| ApiError::write_error("export payload too large"))?;
+
+        Ok(PreparedExport {
+            segments,
+            total_len,
+        })
     }
 
+    pub async fn export(&self, manga_id: &str) -> ApiResult<ExportStream> {
+        let prepared = self.prepare_export(manga_id).await?;
+        let output = prepared.into_stream(&self.fs, None).await?;
+        Ok(output.stream)
+    }
+}
+
+impl PreparedExport {
+    pub fn total_len(&self) -> u64 {
+        self.total_len
+    }
+
+    pub async fn into_stream(
+        self,
+        fs: &StorageSystem,
+        range: Option<(u64, u64)>,
+    ) -> ApiResult<ExportOutput> {
+        let total = self.total_len;
+        if total == 0 {
+            return Err(ApiError::write_error("empty export payload"));
+        }
+        let (start, end) = range.unwrap_or((0, total - 1));
+        if start > end || end >= total {
+            return Err(ApiError::invalid_input("invalid byte range"));
+        }
+
+        let mut cursor = 0u64;
+        let mut streams: Vec<ExportStream> = Vec::new();
+
+        for seg in self.segments {
+            let seg_len = seg.len();
+            let seg_start = cursor;
+            let seg_end = cursor + seg_len - 1;
+            cursor += seg_len;
+
+            if end < seg_start || start > seg_end {
+                continue;
+            }
+
+            let local_start = start.saturating_sub(seg_start);
+            let local_end = if end < seg_end {
+                end - seg_start
+            } else {
+                seg_len - 1
+            };
+            let take = local_end - local_start + 1;
+
+            match seg {
+                ExportSegment::Bytes(bytes) => {
+                    let s = local_start as usize;
+                    let e = (local_start + take) as usize;
+                    streams.push(chunk_stream(bytes.slice(s..e)));
+                }
+                ExportSegment::Object { key, .. } => {
+                    let source = fs.reader.get(&key, &Default::default()).await?.stream;
+                    streams.push(slice_stream(source, local_start, take));
+                }
+            }
+        }
+
+        Ok(ExportOutput {
+            stream: Box::pin(stream::iter(streams).flatten()),
+            range: (start, end),
+        })
+    }
+}
+
+impl MangaActions {
     pub async fn delete(&self, id: &str) -> ApiResult<()> {
         validate_non_empty("manga_id", id)?;
         self.mangas

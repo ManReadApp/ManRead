@@ -84,9 +84,7 @@ impl UserActions {
                 .get_user_cover(Some(FileId::new(icon_temp_name)))
                 .await?;
 
-            self.users
-                .replace_icon_ext(&claim.id, temp.ext()?)
-                .await?;
+            self.users.replace_icon_ext(&claim.id, temp.ext()?).await?;
             temp.build(&claim.id).await?;
         }
 
@@ -105,9 +103,7 @@ impl UserActions {
 
         if let Some(thumbnail) = data.thumbnail {
             let temp = UserBannerBuilder::from(self.fs.take(FileId::new(thumbnail)).await?);
-            self.users
-                .replace_thumb_ext(&claim.id, temp.ext()?)
-                .await?;
+            self.users.replace_thumb_ext(&claim.id, temp.ext()?).await?;
             temp.build(&claim.id).await?;
         }
         Ok(())

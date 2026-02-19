@@ -53,7 +53,9 @@ pub fn init_app_data(config: Arc<Config>, fs: Arc<StorageSystem>, dbs: DbHandle)
         kinds: dbs.kinds.clone(),
         users: dbs.users.clone(),
         lists: dbs.lists.clone(),
-        versions: dbs.versions,
+        versions: dbs.versions.clone(),
+        chapter_versions: dbs.chapter_versions.clone(),
+        pages: dbs.pages.clone(),
         fs: fs.clone(),
     };
 

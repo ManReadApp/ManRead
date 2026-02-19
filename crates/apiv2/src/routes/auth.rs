@@ -4,8 +4,8 @@ use actix_web_httpauth::middleware::HttpAuthentication;
 use api_structure::{
     req::LoginRequest,
     v1::{
-        ActivateRequest, Claim, JwtType, JwTsResponse, RegisterRequest, RequestResetPasswordRequest,
-        ResetPasswordRequest, TokenRefreshRequest,
+        ActivateRequest, Claim, JwTsResponse, JwtType, RegisterRequest,
+        RequestResetPasswordRequest, ResetPasswordRequest, TokenRefreshRequest,
     },
     Permission,
 };
@@ -165,7 +165,8 @@ mod tests {
         .await
         .expect("memory db should initialize");
 
-        let root = std::env::temp_dir().join(format!("apiv2-route-auth-{}", helper::random_string(8)));
+        let root =
+            std::env::temp_dir().join(format!("apiv2-route-auth-{}", helper::random_string(8)));
         tokio::fs::create_dir_all(&root)
             .await
             .expect("route auth temp root should be created");

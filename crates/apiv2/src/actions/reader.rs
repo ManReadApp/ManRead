@@ -59,7 +59,11 @@ impl ReaderActions {
                 if v.trim().is_empty() {
                     return Err(ApiError::invalid_input("chapter_id cannot be empty"));
                 }
-                if !manga.chapters.iter().any(|chapter| chapter.id().to_string() == v) {
+                if !manga
+                    .chapters
+                    .iter()
+                    .any(|chapter| chapter.id().to_string() == v)
+                {
                     return Err(ApiError::NotFoundInDB);
                 }
                 (v, 0.0_f64)

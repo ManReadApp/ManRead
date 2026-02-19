@@ -1,10 +1,16 @@
-use actix_web::web::{Data, Json, ReqData};
+use actix_web::{
+    http::header::{
+        ACCEPT_RANGES, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE,
+    },
+    web::{Data, Json, ReqData},
+    HttpRequest, HttpResponse,
+};
 use actix_web_grants::AuthorityGuard;
 use api_structure::{
     search::{HomeResponse, SearchRequest, SearchResponse_},
     v1::{
-        AddMangaArtRequest, AddMangaCoverRequest, AddMangaRelationRequest, AddMangaRequest,
-        Claim, ConfirmMangaDeleteRequest, EditMangaRequest, IdRequest, MangaInfoResponse,
+        AddMangaArtRequest, AddMangaCoverRequest, AddMangaRelationRequest, AddMangaRequest, Claim,
+        ConfirmMangaDeleteRequest, EditMangaRequest, IdRequest, MangaInfoResponse,
         RemoveMangaArtRequest, RemoveMangaCoverRequest, RemoveMangaRelationRequest,
         SetMangaVolumeRangeRequest,
     },
@@ -46,6 +52,13 @@ pub fn register() -> apistos::web::Scope {
                     apistos::web::resource("/info").route(
                         apistos::web::post()
                             .to(info)
+                            .guard(AuthorityGuard::new(Permission::Read)),
+                    ),
+                )
+                .service(
+                    apistos::web::resource("/export").route(
+                        apistos::web::post()
+                            .to(export)
                             .guard(AuthorityGuard::new(Permission::Read)),
                     ),
                 )
@@ -171,6 +184,108 @@ pub(crate) async fn info(
     manga_service.info(data.id, &user.id).await.map(Json)
 }
 
+#[api_operation(skip = true)]
+pub(crate) async fn export(
+    Json(data): Json<IdRequest>,
+    manga_service: Data<MangaActions>,
+    req: HttpRequest,
+) -> ApiResult<HttpResponse> {
+    let manga_id = data.id;
+    let prepared = manga_service.prepare_export(&manga_id).await?;
+    let total_len = prepared.total_len();
+
+    let range = match req.headers().get(RANGE) {
+        None => None,
+        Some(raw) => {
+            let Some(range) = parse_single_range(raw.to_str().ok(), total_len) else {
+                return Ok(HttpResponse::RangeNotSatisfiable()
+                    .insert_header((ACCEPT_RANGES, "bytes"))
+                    .insert_header((CONTENT_RANGE, format!("bytes */{total_len}")))
+                    .finish());
+            };
+            Some(range)
+        }
+    };
+
+    let output = prepared.into_stream(&manga_service.fs, range).await?;
+    let (start, end) = output.range;
+    let content_len = end - start + 1;
+
+    let mut resp = if range.is_some() {
+        let mut v = HttpResponse::PartialContent();
+        v.insert_header((CONTENT_RANGE, format!("bytes {start}-{end}/{total_len}")));
+        v
+    } else {
+        HttpResponse::Ok()
+    };
+
+    Ok(resp
+        .insert_header((CONTENT_TYPE, "application/octet-stream"))
+        .insert_header((ACCEPT_RANGES, "bytes"))
+        .insert_header((CONTENT_LENGTH, content_len.to_string()))
+        .insert_header((
+            CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}.mrmang\"", manga_id),
+        ))
+        .streaming(output.stream))
+}
+
+fn parse_single_range(value: Option<&str>, total: u64) -> Option<(u64, u64)> {
+    let value = value?;
+    let spec = value.strip_prefix("bytes=")?;
+    if spec.contains(',') {
+        return None;
+    }
+    let (start, end) = spec.split_once('-')?;
+    if start.is_empty() {
+        let suffix: u64 = end.parse().ok()?;
+        if suffix == 0 {
+            return None;
+        }
+        let start = total.saturating_sub(suffix);
+        return Some((start, total.saturating_sub(1)));
+    }
+
+    let start: u64 = start.parse().ok()?;
+    if start >= total {
+        return None;
+    }
+    let end = if end.is_empty() {
+        total - 1
+    } else {
+        end.parse::<u64>().ok()?.min(total - 1)
+    };
+    if start > end {
+        return None;
+    }
+    Some((start, end))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_single_range;
+
+    #[test]
+    fn parses_valid_ranges() {
+        assert_eq!(parse_single_range(Some("bytes=0-9"), 100), Some((0, 9)));
+        assert_eq!(parse_single_range(Some("bytes=10-"), 100), Some((10, 99)));
+        assert_eq!(parse_single_range(Some("bytes=-10"), 100), Some((90, 99)));
+        assert_eq!(
+            parse_single_range(Some("bytes=95-200"), 100),
+            Some((95, 99))
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_ranges() {
+        assert_eq!(parse_single_range(Some("bytes=100-100"), 100), None);
+        assert_eq!(parse_single_range(Some("bytes=9-1"), 100), None);
+        assert_eq!(parse_single_range(Some("bytes=0-1,4-5"), 100), None);
+        assert_eq!(parse_single_range(Some("units=0-1"), 100), None);
+        assert_eq!(parse_single_range(Some("bytes=-0"), 100), None);
+    }
+}
+
 #[api_operation(
     tag = "manga",
     summary = "Adds a cover image to manga",
@@ -180,7 +295,9 @@ pub(crate) async fn add_cover(
     Json(data): Json<AddMangaCoverRequest>,
     manga_service: Data<MangaActions>,
 ) -> ApiResult<CreatedJson<u8>> {
-    manga_service.add_cover(&data.manga_id, &data.file_id).await?;
+    manga_service
+        .add_cover(&data.manga_id, &data.file_id)
+        .await?;
     Ok(CreatedJson(0))
 }
 
@@ -258,7 +375,9 @@ pub(crate) async fn set_volume_range(
             title: v.title,
         })
         .collect();
-    manga_service.set_volume_range(&data.manga_id, ranges).await?;
+    manga_service
+        .set_volume_range(&data.manga_id, ranges)
+        .await?;
     Ok(Json(200))
 }
 

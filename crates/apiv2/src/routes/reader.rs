@@ -7,7 +7,10 @@ use api_structure::{
     },
     Permission,
 };
-use apistos::{api_operation, web::{scope, Scope}};
+use apistos::{
+    api_operation,
+    web::{scope, Scope},
+};
 
 use crate::{actions::reader::ReaderActions, error::ApiResult};
 

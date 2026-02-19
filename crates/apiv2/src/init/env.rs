@@ -67,13 +67,12 @@ pub fn get_env() -> std::io::Result<Config> {
         let mut file = File::open(path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        toml::from_str(&contents).map_err(|err| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, err.to_string())
-        })
+        toml::from_str(&contents)
+            .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err.to_string()))
     } else {
         let config = Config::default();
-        let serialized = toml::to_string(&config)
-            .map_err(|err| std::io::Error::other(err.to_string()))?;
+        let serialized =
+            toml::to_string(&config).map_err(|err| std::io::Error::other(err.to_string()))?;
         File::create(path)?.write_all(serialized.as_bytes())?;
         Ok(config)
     }

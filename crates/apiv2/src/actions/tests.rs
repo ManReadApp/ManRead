@@ -13,6 +13,7 @@ use api_structure::{
 };
 use chrono::Utc;
 use db::{init_db, DbConfig, DbHandle, MemoryDbConfig};
+use futures_util::StreamExt as _;
 use serde::Deserialize;
 use std::time::Duration;
 use storage::{FileId, MemStorage, RegisterTempResult, StorageSystem};
@@ -183,6 +184,8 @@ impl TestCtx {
             users: db.users.clone(),
             lists: db.lists.clone(),
             versions: db.versions.clone(),
+            chapter_versions: db.chapter_versions.clone(),
+            pages: db.pages.clone(),
             fs: storage.clone(),
         };
         let reader = ReaderActions {
@@ -862,6 +865,70 @@ async fn manga_actions_cover_create_search_edit_and_state_transitions() {
 }
 
 #[actix_web::test]
+async fn manga_export_emits_protobuf_metadata_and_indexed_images() {
+    let ctx = TestCtx::new().await;
+    let user = ctx
+        .register_user("exporter", "exporter@example.com", "password")
+        .await;
+    let manga_id = ctx.create_manga(&user.id, "Export Manga", "manga").await;
+    let chapter = ctx.create_chapter(&manga_id, 1.0, "en", 2).await;
+
+    let mut payload = Vec::new();
+    let mut stream = ctx
+        .manga
+        .export(&manga_id)
+        .await
+        .expect("manga export should succeed");
+    while let Some(chunk) = stream.next().await {
+        payload.extend_from_slice(&chunk.expect("export stream chunk should read"));
+    }
+    assert_eq!(&payload[..8], b"MRMANG01");
+
+    let mut cursor = 8usize;
+    let metadata_len = u32::from_le_bytes(
+        payload[cursor..cursor + 4]
+            .try_into()
+            .expect("metadata length should exist"),
+    ) as usize;
+    cursor += 4;
+
+    let metadata: export::manga::MangaBundleMetadata =
+        export::try_from_bytes(&payload[cursor..cursor + metadata_len])
+            .expect("metadata should decode");
+    cursor += metadata_len;
+
+    assert_eq!(metadata.manga_id, manga_id);
+    assert_eq!(metadata.chapters.len(), 1);
+    assert_eq!(metadata.chapters[0].chapter_id, chapter.chapter_id);
+    assert_eq!(metadata.chapters[0].version_id, chapter.version_id);
+    assert_eq!(metadata.chapters[0].image_indexes, vec![0, 1]);
+
+    let image_count = u32::from_le_bytes(
+        payload[cursor..cursor + 4]
+            .try_into()
+            .expect("image count should exist"),
+    ) as usize;
+    cursor += 4;
+    assert_eq!(image_count, 2);
+
+    for _ in 0..image_count {
+        let image_len = u32::from_le_bytes(
+            payload[cursor..cursor + 4]
+                .try_into()
+                .expect("image length should exist"),
+        ) as usize;
+        cursor += 4;
+        let image_bytes = &payload[cursor..cursor + image_len];
+        cursor += image_len;
+        assert_eq!(
+            infer::get(image_bytes).map(|kind| kind.mime_type()),
+            Some("image/png")
+        );
+    }
+    assert_eq!(cursor, payload.len());
+}
+
+#[actix_web::test]
 async fn manga_relation_actions_are_symmetric() {
     let ctx = TestCtx::new().await;
     let user = ctx
@@ -1177,7 +1244,11 @@ async fn chapter_version_actions_cover_edit_list_and_delete() {
     for page in &pages {
         let key = format!(
             "mangas/{}/{}/{}/{}.{}",
-            manga_id, second_version.chapter_id, second_version.version_id, page.data.page, page.data.ext
+            manga_id,
+            second_version.chapter_id,
+            second_version.version_id,
+            page.data.page,
+            page.data.ext
         );
         ctx.storage
             .reader
@@ -1214,7 +1285,11 @@ async fn chapter_version_actions_cover_edit_list_and_delete() {
     for page in pages {
         let key = format!(
             "mangas/{}/{}/{}/{}.{}",
-            manga_id, second_version.chapter_id, second_version.version_id, page.data.page, page.data.ext
+            manga_id,
+            second_version.chapter_id,
+            second_version.version_id,
+            page.data.page,
+            page.data.ext
         );
         let err = match ctx.storage.reader.get(&key, &Default::default()).await {
             Ok(_) => panic!("chapter page should be deleted from storage"),
@@ -1680,9 +1755,7 @@ async fn manga_add_relation_requires_existing_relation_target() {
     let user = ctx
         .register_user("relation-guard", "relation-guard@example.com", "password")
         .await;
-    let manga_id = ctx
-        .create_manga(&user.id, "Relation Guard", "manga")
-        .await;
+    let manga_id = ctx.create_manga(&user.id, "Relation Guard", "manga").await;
 
     assert!(matches!(
         ctx.manga.add_relation(&manga_id, "missing-manga").await,
@@ -1740,7 +1813,11 @@ async fn manga_create_rejects_blank_nested_values() {
 async fn chapter_add_rejects_empty_titles_and_sources() {
     let ctx = TestCtx::new().await;
     let user = ctx
-        .register_user("chapter-validate", "chapter-validate@example.com", "password")
+        .register_user(
+            "chapter-validate",
+            "chapter-validate@example.com",
+            "password",
+        )
         .await;
     let manga_id = ctx
         .create_manga(&user.id, "Chapter Validate Manga", "manga")
