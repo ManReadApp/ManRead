@@ -8,8 +8,9 @@ use storage::StorageSystem;
 use crate::{
     actions::{
         auth::AuthAction, chapter::ChapterActions, chapter_version::ChapterVersionActions,
-        crytpo::CryptoService, kind::KindActions, lists::ListActions, manga::MangaActions,
-        reader::ReaderActions, tags::TagActions, token::TokenAction, user::UserActions,
+        character::CharacterActions, crytpo::CryptoService, kind::KindActions, lists::ListActions,
+        manga::MangaActions, reader::ReaderActions, tags::TagActions, token::TokenAction,
+        user::UserActions,
     },
     init::env::Config,
 };
@@ -37,6 +38,9 @@ pub fn init_app_data(config: Arc<Config>, fs: Arc<StorageSystem>, dbs: DbHandle)
         chapter_versions: dbs.chapter_versions.clone(),
         pages: dbs.pages.clone(),
         fs: fs.clone(),
+    };
+    let character = CharacterActions {
+        characters: dbs.characters.clone(),
     };
 
     let kind = KindActions {
@@ -86,6 +90,7 @@ pub fn init_app_data(config: Arc<Config>, fs: Arc<StorageSystem>, dbs: DbHandle)
         .app_data(Data::from(fs))
         .app_data(Data::new(auth))
         .app_data(Data::new(chapter))
+        .app_data(Data::new(character))
         .app_data(Data::new(cversion))
         .app_data(Data::new(kind))
         .app_data(Data::new(lists))

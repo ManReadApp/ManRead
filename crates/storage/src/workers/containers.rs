@@ -110,24 +110,27 @@ impl MagicContainerWorker {
                     format!("invalid metadata: {e}"),
                 ))
             })?;
-        let chapter_image_indexes: Vec<Vec<u32>> = metadata_struct
-            .chapters
-            .into_iter()
-            .map(|chapter| chapter.image_indexes)
-            .collect();
+        let mut chapter_image_indexes: Vec<Vec<u32>> = Vec::new();
+        let mut referenced_indexes: Vec<u32> = Vec::new();
+        referenced_indexes.extend(metadata_struct.cover_image_indexes.iter().copied());
+        referenced_indexes.extend(metadata_struct.art_image_indexes.iter().copied());
+        for chapter in &metadata_struct.chapters {
+            for version in &chapter.versions {
+                chapter_image_indexes.push(version.image_indexes.clone());
+                referenced_indexes.extend(version.image_indexes.iter().copied());
+            }
+        }
 
         let image_count = Self::read_u32_at(source, cursor).await? as usize;
         cursor += 4;
         let (images, _) = Self::extract_blob_sequence(source, cursor, image_count).await?;
 
-        for chapter in &chapter_image_indexes {
-            for idx in chapter {
-                if (*idx as usize) >= images.len() {
-                    return Err(StorageError::Io(std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        "metadata references out-of-range image index",
-                    )));
-                }
+        for idx in referenced_indexes {
+            if (idx as usize) >= images.len() {
+                return Err(StorageError::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "metadata references out-of-range image index",
+                )));
             }
         }
 

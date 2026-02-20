@@ -298,6 +298,24 @@ impl StorageSystem {
         }
     }
 
+    pub async fn take_bytes(&self, id: FileId) -> StorageResult<Vec<u8>> {
+        let mut file = self.take(id).await?;
+        file.allowed_drop = true;
+        let key = file.temp_id.clone();
+        drop(file);
+
+        let object = self.reader.get(&key, &Default::default()).await?;
+        let bytes = object
+            .stream
+            .try_fold(Vec::new(), |mut acc, chunk| async move {
+                acc.extend_from_slice(&chunk);
+                Ok(acc)
+            })
+            .await?;
+        self.writer.delete(&key).await?;
+        Ok(bytes)
+    }
+
     pub async fn take(&self, id: FileId) -> StorageResult<FileBuilder> {
         loop {
             let wait_on = {
@@ -434,7 +452,9 @@ mod tests {
     use image::{DynamicImage, ImageFormat};
     use tokio::io::AsyncWriteExt as _;
 
-    use export::manga::{Chapter as BundleChapter, MangaBundleMetadata};
+    use export::manga::{
+        Chapter as BundleChapter, ChapterVersion as BundleChapterVersion, MangaBundleMetadata,
+    };
 
     use crate::{
         backends::StorageWriter,
@@ -676,17 +696,45 @@ mod tests {
         let img2 = png_bytes(12, 13);
         let img3 = png_bytes(14, 15);
         let metadata = MangaBundleMetadata {
-            manga_id: "manga-1".to_owned(),
+            titles: Default::default(),
+            kind: "manga".to_owned(),
+            description: None,
+            tags: vec![],
+            status: 0,
+            visibility: 0,
+            uploader: "uploader".to_owned(),
+            artists: vec![],
+            authors: vec![],
+            publishers: vec![],
+            sources: vec![],
+            scraper: vec![],
+            volumes: vec![],
+            cover_image_indexes: vec![],
+            art_image_indexes: vec![],
             chapters: vec![
                 BundleChapter {
-                    chapter_id: "chapter-1".to_owned(),
-                    version_id: "version-1".to_owned(),
-                    image_indexes: vec![0, 1],
+                    titles: vec!["chapter-1".to_owned()],
+                    chapter: 1.0,
+                    tags: vec![],
+                    sources: vec![],
+                    release_date: None,
+                    versions: vec![BundleChapterVersion {
+                        version: "version-1".to_owned(),
+                        image_indexes: vec![0, 1],
+                        link: None,
+                    }],
                 },
                 BundleChapter {
-                    chapter_id: "chapter-2".to_owned(),
-                    version_id: "version-1".to_owned(),
-                    image_indexes: vec![2],
+                    titles: vec!["chapter-2".to_owned()],
+                    chapter: 2.0,
+                    tags: vec![],
+                    sources: vec![],
+                    release_date: None,
+                    versions: vec![BundleChapterVersion {
+                        version: "version-1".to_owned(),
+                        image_indexes: vec![2],
+                        link: None,
+                    }],
                 },
             ],
         };
@@ -707,7 +755,7 @@ mod tests {
             metadata
                 .chapters
                 .iter()
-                .map(|chapter| chapter.image_indexes.clone())
+                .flat_map(|chapter| chapter.versions.iter().map(|v| v.image_indexes.clone()))
                 .collect::<Vec<_>>()
         );
 

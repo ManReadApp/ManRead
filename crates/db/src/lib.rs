@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod chapter;
+pub mod character;
 pub mod error;
 pub mod kind;
 pub mod lists;
@@ -23,6 +24,7 @@ pub use surrealdb_extras::{RecordIdFunc, RecordIdType};
 
 use crate::auth::AuthTokenDBService;
 use crate::chapter::ChapterDBService;
+use crate::character::CharacterDBService;
 use crate::kind::KindDBService;
 use crate::lists::ListDBService;
 use crate::manga::MangaDBService;
@@ -77,6 +79,7 @@ pub struct DbHandle {
     pub session: DbSession,
     pub tokens: Arc<AuthTokenDBService>,
     pub users: Arc<UserDBService>,
+    pub characters: Arc<CharacterDBService>,
     pub chapters: Arc<ChapterDBService>,
     pub kinds: Arc<KindDBService>,
     pub lists: Arc<ListDBService>,
@@ -111,6 +114,7 @@ pub async fn init_db(config: DbConfig) -> Result<DbHandle, surrealdb::Error> {
         session: db.clone(),
         users: Arc::new(UserDBService::new(db.clone())),
         tokens: Arc::new(AuthTokenDBService::new(db.clone())),
+        characters: Arc::new(CharacterDBService::new(db.clone())),
         chapters: Arc::new(ChapterDBService::new(db.clone())),
         kinds: Arc::new(KindDBService::new(db.clone())),
         lists: Arc::new(ListDBService::new(db.clone())),

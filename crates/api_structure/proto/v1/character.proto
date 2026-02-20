@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package v1;
+
+import "v1/manga/manga.proto";
+
+message Character {
+  string id = 1;
+  repeated OptionalString imgs = 2;
+  repeated string names = 3;
+  optional string description = 4;
+  optional uint64 sex = 5;
+  repeated string links = 6;
+}
+
+message CreateCharacterRequest {
+  repeated OptionalString imgs = 1;
+  repeated string names = 2;
+  optional string description = 3;
+  optional uint64 sex = 4;
+  repeated string links = 5;
+}

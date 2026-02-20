@@ -314,24 +314,7 @@ impl TestCtx {
         self.manga
             .create(request, uid)
             .await
-            .expect("manga creation should succeed");
-
-        let (results, _) = self
-            .manga
-            .search(search_by_title(title), uid)
-            .await
-            .expect("manga should be searchable");
-
-        results
-            .into_iter()
-            .find(|item| {
-                item.titles
-                    .values()
-                    .flatten()
-                    .any(|candidate| candidate == title)
-            })
-            .expect("created manga should be present in search results")
-            .manga_id
+            .expect("manga creation should succeed")
     }
 
     async fn create_chapter(
@@ -871,7 +854,7 @@ async fn manga_export_emits_protobuf_metadata_and_indexed_images() {
         .register_user("exporter", "exporter@example.com", "password")
         .await;
     let manga_id = ctx.create_manga(&user.id, "Export Manga", "manga").await;
-    let chapter = ctx.create_chapter(&manga_id, 1.0, "en", 2).await;
+    ctx.create_chapter(&manga_id, 1.0, "en", 2).await;
 
     let mut payload = Vec::new();
     let mut stream = ctx
@@ -897,11 +880,21 @@ async fn manga_export_emits_protobuf_metadata_and_indexed_images() {
             .expect("metadata should decode");
     cursor += metadata_len;
 
-    assert_eq!(metadata.manga_id, manga_id);
+    assert_eq!(
+        metadata
+            .titles
+            .get("en")
+            .map(|titles| titles.items.clone())
+            .unwrap_or_default(),
+        vec!["Export Manga".to_owned()]
+    );
+    assert_eq!(metadata.kind, "manga");
     assert_eq!(metadata.chapters.len(), 1);
-    assert_eq!(metadata.chapters[0].chapter_id, chapter.chapter_id);
-    assert_eq!(metadata.chapters[0].version_id, chapter.version_id);
-    assert_eq!(metadata.chapters[0].image_indexes, vec![0, 1]);
+    assert_eq!(metadata.cover_image_indexes, vec![0]);
+    assert_eq!(metadata.chapters[0].chapter, 1.0);
+    assert_eq!(metadata.chapters[0].versions.len(), 1);
+    assert_eq!(metadata.chapters[0].versions[0].version, "en");
+    assert_eq!(metadata.chapters[0].versions[0].image_indexes, vec![1, 2]);
 
     let image_count = u32::from_le_bytes(
         payload[cursor..cursor + 4]
@@ -909,7 +902,7 @@ async fn manga_export_emits_protobuf_metadata_and_indexed_images() {
             .expect("image count should exist"),
     ) as usize;
     cursor += 4;
-    assert_eq!(image_count, 2);
+    assert_eq!(image_count, 3);
 
     for _ in 0..image_count {
         let image_len = u32::from_le_bytes(
@@ -926,6 +919,166 @@ async fn manga_export_emits_protobuf_metadata_and_indexed_images() {
         );
     }
     assert_eq!(cursor, payload.len());
+}
+
+#[actix_web::test]
+async fn manga_restore_rebuilds_exported_page_objects() {
+    let ctx = TestCtx::new().await;
+    let user = ctx
+        .register_user("restore", "restore@example.com", "password")
+        .await;
+    let manga_id = ctx.create_manga(&user.id, "Restore Manga", "manga").await;
+    ctx.create_chapter(&manga_id, 1.0, "en", 2).await;
+
+    let mut export_payload = Vec::new();
+    let mut stream = ctx
+        .manga
+        .export(&manga_id)
+        .await
+        .expect("manga export should succeed");
+    while let Some(chunk) = stream.next().await {
+        export_payload.extend_from_slice(&chunk.expect("export stream chunk should read"));
+    }
+
+    let mut tf = ctx
+        .storage
+        .new_temp_file()
+        .await
+        .expect("new temp file should work");
+    tf.write_all(&export_payload)
+        .await
+        .expect("export payload should be written");
+    tf.flush().await.expect("temp file should be flushed");
+    let upload_result = ctx
+        .storage
+        .register_temp_file(tf)
+        .await
+        .expect("export upload should be registered");
+
+    let (metadata_id, image_ids) = match upload_result {
+        RegisterTempResult::Manga(bundle) => (
+            bundle.metadata.inner(),
+            bundle
+                .images
+                .into_iter()
+                .map(|image_id| image_id.inner())
+                .collect::<Vec<_>>(),
+        ),
+        RegisterTempResult::File(_) | RegisterTempResult::Chapter(_) => {
+            panic!("expected manga upload result")
+        }
+    };
+
+    ctx.manga
+        .restore(&metadata_id, image_ids, &user.id)
+        .await
+        .expect("manga restore should succeed");
+
+    let (results, _) = ctx
+        .manga
+        .search(search_by_title("Restore Manga"), &user.id)
+        .await
+        .expect("restored manga should be searchable");
+    assert!(
+        results.len() >= 2,
+        "restore should create a new manga record instead of mutating existing one"
+    );
+
+    let restored = results
+        .iter()
+        .find(|result| result.manga_id != manga_id)
+        .expect("a restored manga copy should exist");
+    let info = ctx
+        .manga
+        .info(restored.manga_id.clone(), &user.id)
+        .await
+        .expect("restored manga info should load");
+    assert_eq!(info.chapters.len(), 1);
+}
+
+#[actix_web::test]
+async fn manga_restore_creates_manga_and_chapter_records_when_missing() {
+    let source = TestCtx::new().await;
+    let source_user = source
+        .register_user("restore-src", "restore-src@example.com", "password")
+        .await;
+    let exported_manga_id = source
+        .create_manga(&source_user.id, "Restore Source Manga", "manga")
+        .await;
+    source
+        .create_chapter(&exported_manga_id, 1.0, "en", 2)
+        .await;
+
+    let mut export_payload = Vec::new();
+    let mut stream = source
+        .manga
+        .export(&exported_manga_id)
+        .await
+        .expect("manga export should succeed");
+    while let Some(chunk) = stream.next().await {
+        export_payload.extend_from_slice(&chunk.expect("export stream chunk should read"));
+    }
+
+    let target = TestCtx::new().await;
+    let target_user = target
+        .register_user("restore-dst", "restore-dst@example.com", "password")
+        .await;
+
+    let mut tf = target
+        .storage
+        .new_temp_file()
+        .await
+        .expect("new temp file should work");
+    tf.write_all(&export_payload)
+        .await
+        .expect("export payload should be written");
+    tf.flush().await.expect("temp file should be flushed");
+    let upload_result = target
+        .storage
+        .register_temp_file(tf)
+        .await
+        .expect("export upload should be registered");
+
+    let (metadata_id, image_ids) = match upload_result {
+        RegisterTempResult::Manga(bundle) => (
+            bundle.metadata.inner(),
+            bundle
+                .images
+                .into_iter()
+                .map(|image_id| image_id.inner())
+                .collect::<Vec<_>>(),
+        ),
+        RegisterTempResult::File(_) | RegisterTempResult::Chapter(_) => {
+            panic!("expected manga upload result")
+        }
+    };
+
+    target
+        .manga
+        .restore(&metadata_id, image_ids, &target_user.id)
+        .await
+        .expect("manga restore should create records");
+
+    let (found, _) = target
+        .manga
+        .search(search_by_title("Restore Source Manga"), &target_user.id)
+        .await
+        .expect("restored manga should be searchable");
+    assert_eq!(found.len(), 1);
+
+    let info = target
+        .manga
+        .info(found[0].manga_id.clone(), &target_user.id)
+        .await
+        .expect("restored manga info should load");
+    assert_eq!(info.chapters.len(), 1);
+
+    let chapter_info = target
+        .chapter
+        .info(&info.chapters[0].id)
+        .await
+        .expect("restored chapter should exist");
+    assert_eq!(chapter_info.versions.len(), 1);
 }
 
 #[actix_web::test]

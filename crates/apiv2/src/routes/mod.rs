@@ -7,6 +7,7 @@ use crate::actions::crytpo::validator;
 mod auth;
 mod chapter;
 mod chapter_versions;
+mod character;
 mod image;
 mod kind;
 mod lists;
@@ -25,6 +26,7 @@ pub fn register() -> Scope {
                 .wrap(HttpAuthentication::bearer(validator))
                 // .service(external::register())
                 .service(chapter::register())
+                .service(character::register())
                 .service(chapter_versions::register())
                 .service(image::register())
                 .service(token::register())

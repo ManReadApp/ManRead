@@ -1,4 +1,7 @@
-use crate::error::{ApiError, ApiResult};
+use crate::{
+    actions::chapter::ChapterActions,
+    error::{ApiError, ApiResult},
+};
 use api_structure::{
     search::{
         Array, HomeResponse, Item, ItemData, ItemOrArray, ItemValue, Order, SearchRequest,
@@ -10,6 +13,7 @@ use api_structure::{
     },
 };
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use db::{
     auth::RecordData,
     chapter::ChapterDBService,
@@ -25,8 +29,12 @@ use db::{
 };
 use futures_util::{stream, Stream, StreamExt as _};
 use rand::{rng, rngs::ThreadRng, seq::IteratorRandom as _};
-use std::{cmp::Ordering, pin::Pin, sync::Arc, task::Poll};
-use storage::{ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, StorageSystem};
+use std::{cmp::Ordering, collections::HashMap, pin::Pin, sync::Arc, task::Poll};
+use storage::{
+    ArtFileBuilder, CoverFileBuilder, FileBuilderExt as _, FileId, RegisterTempResult,
+    StorageSystem,
+};
+use tokio::io::AsyncWriteExt as _;
 
 pub struct MangaActions {
     pub mangas: Arc<MangaDBService>,
@@ -128,6 +136,39 @@ pub struct ExportOutput {
 
 fn len_to_u32(len: usize, what: &str) -> ApiResult<u32> {
     u32::try_from(len).map_err(|_| ApiError::invalid_input(&format!("{what} exceeds limit")))
+}
+
+fn export_tag_from_global(tag: GlobalTag) -> export::manga::Tag {
+    export::manga::Tag {
+        tag: tag.tag,
+        description: tag.description,
+        sex: tag.sex as u64,
+    }
+}
+
+fn global_tag_from_export(tag: export::manga::Tag) -> GlobalTag {
+    GlobalTag {
+        tag: tag.tag,
+        description: tag.description,
+        sex: api_structure::v1::TagSex::try_from(tag.sex)
+            .unwrap_or(api_structure::v1::TagSex::Unknown),
+    }
+}
+
+fn sanitize_non_empty(items: Vec<String>) -> Vec<String> {
+    items
+        .into_iter()
+        .map(|item| item.trim().to_owned())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+fn parse_release_date(value: Option<String>) -> Option<DateTime<Utc>> {
+    value.and_then(|raw| {
+        DateTime::parse_from_rfc3339(&raw)
+            .ok()
+            .map(|date| date.with_timezone(&Utc))
+    })
 }
 
 fn chunk_stream(chunk: Bytes) -> ExportStream {
@@ -439,7 +480,111 @@ impl MangaActions {
     pub async fn prepare_export(&self, manga_id: &str) -> ApiResult<PreparedExport> {
         validate_non_empty("manga_id", manga_id)?;
         let manga = self.mangas.get(manga_id).await?;
-        let mut chapters = self.chapters.get_detail(manga.chapters.into_iter()).await?;
+        let kind = self.kinds.get_name(manga.kind.clone()).await?;
+        let uploader = self
+            .users
+            .get_name_by_id(manga.uploader.clone())
+            .await?
+            .data;
+        let artists = self
+            .users
+            .get_name_from_ids(manga.artists.clone().into_iter())
+            .await?;
+        let authors = self
+            .users
+            .get_name_from_ids(manga.authors.clone().into_iter())
+            .await?;
+        let publishers = self
+            .users
+            .get_name_from_ids(manga.publishers.clone().into_iter())
+            .await?;
+        let tags = self
+            .tags
+            .get_tags(
+                manga
+                    .tags
+                    .clone()
+                    .into_iter()
+                    .map(|v| v.thing.id().to_string()),
+            )
+            .await?
+            .into_iter()
+            .map(export_tag_from_global)
+            .collect::<Vec<_>>();
+        let mut metadata_scraper = Vec::with_capacity(manga.scraper.len());
+        for scraper in manga.scraper.clone() {
+            let channel = self.versions.get_(scraper.target).await?.data.name;
+            metadata_scraper.push(export::manga::Scraper {
+                channel,
+                url: scraper.url,
+                enabled: scraper.enabled,
+            });
+        }
+
+        let mut metadata = export::manga::MangaBundleMetadata {
+            titles: manga
+                .titles
+                .clone()
+                .into_iter()
+                .map(|(lang, titles)| (lang, export::manga::StringList { items: titles }))
+                .collect(),
+            kind,
+            description: manga.description.clone(),
+            tags,
+            status: manga.status,
+            visibility: manga.visibility,
+            uploader,
+            artists,
+            authors,
+            publishers,
+            sources: manga.sources.clone(),
+            scraper: metadata_scraper,
+            volumes: manga
+                .volumes
+                .clone()
+                .into_iter()
+                .map(|v| export::manga::Volume {
+                    title: v.title,
+                    start: v.start,
+                    end: v.end,
+                })
+                .collect(),
+            cover_image_indexes: vec![],
+            art_image_indexes: vec![],
+            chapters: vec![],
+        };
+
+        let mut image_keys = Vec::new();
+        for (index, ext) in manga.covers.iter().enumerate() {
+            let Some(ext) = ext.as_ref() else {
+                continue;
+            };
+            metadata
+                .cover_image_indexes
+                .push(len_to_u32(image_keys.len(), "image index")?);
+            let ext = ext.trim_start_matches('.');
+            let key = if index == 0 {
+                format!("covers/{manga_id}.{ext}")
+            } else {
+                format!("covers/{}_{}.{}", manga_id, index, ext)
+            };
+            image_keys.push(key);
+        }
+        for (index, ext) in manga.art_ext.iter().enumerate() {
+            let Some(ext) = ext.as_ref() else {
+                continue;
+            };
+            metadata
+                .art_image_indexes
+                .push(len_to_u32(image_keys.len(), "image index")?);
+            let ext = ext.trim_start_matches('.');
+            image_keys.push(format!("arts/{}_{}.{}", manga_id, index, ext));
+        }
+
+        let mut chapters = self
+            .chapters
+            .get_detail(manga.chapters.clone().into_iter())
+            .await?;
         chapters.sort_by(|a, b| {
             a.data
                 .chapter
@@ -447,54 +592,75 @@ impl MangaActions {
                 .unwrap_or(Ordering::Equal)
         });
 
-        let mut metadata_chapters = Vec::with_capacity(chapters.len());
-        let mut image_keys = Vec::new();
-
         for chapter in chapters {
             let chapter_id = chapter.id.id().to_string();
-            let mut versions: Vec<_> = chapter.data.versions.into_iter().collect();
+            let chapter_tags = self
+                .tags
+                .get_tags(
+                    chapter
+                        .data
+                        .tags
+                        .clone()
+                        .into_iter()
+                        .map(|v| v.thing.id().to_string()),
+                )
+                .await?
+                .into_iter()
+                .map(export_tag_from_global)
+                .collect::<Vec<_>>();
+            let mut versions = Vec::new();
+            for (_, chapter_version_ref) in chapter.data.versions.clone() {
+                let chapter_version = self
+                    .chapter_versions
+                    .get(&chapter_version_ref.id().to_string())
+                    .await?;
+                let version_name = self
+                    .versions
+                    .get_(chapter_version.version.clone())
+                    .await?
+                    .data
+                    .name;
+                let version_id = chapter_version.version.id().to_string();
+                versions.push((version_name, version_id, chapter_version));
+            }
             versions.sort_by(|a, b| a.0.cmp(&b.0));
-
-            let Some((version_key, chapter_version)) = versions.into_iter().next() else {
+            if versions.is_empty() {
                 return Err(ApiError::invalid_input(&format!(
                     "chapter {chapter_id} has no versions"
                 )));
-            };
-
-            let version_id = version_key
-                .split_once(':')
-                .map(|(_, id)| id.to_owned())
-                .unwrap_or(version_key);
-
-            let chapter_version = self
-                .chapter_versions
-                .get(&chapter_version.id().to_string())
-                .await?;
-            let mut pages = self.pages.get(chapter_version.pages).await?;
-            pages.sort_by_key(|page| page.data.page);
-
-            let mut image_indexes = Vec::with_capacity(pages.len());
-            for page in pages {
-                image_indexes.push(len_to_u32(image_keys.len(), "image index")?);
-                let ext = page.data.ext.trim_start_matches('.');
-                let key = format!(
-                    "mangas/{}/{}/{}/{}.{}",
-                    manga_id, chapter_id, version_id, page.data.page, ext
-                );
-                image_keys.push(key);
             }
 
-            metadata_chapters.push(export::manga::Chapter {
-                chapter_id,
-                version_id,
-                image_indexes,
+            let mut metadata_versions = Vec::with_capacity(versions.len());
+            for (version_name, version_id, chapter_version) in versions {
+                let mut pages = self.pages.get(chapter_version.pages).await?;
+                pages.sort_by_key(|page| page.data.page);
+
+                let mut image_indexes = Vec::with_capacity(pages.len());
+                for page in pages {
+                    image_indexes.push(len_to_u32(image_keys.len(), "image index")?);
+                    let ext = page.data.ext.trim_start_matches('.');
+                    let key = format!(
+                        "mangas/{}/{}/{}/{}.{}",
+                        manga_id, chapter_id, version_id, page.data.page, ext
+                    );
+                    image_keys.push(key);
+                }
+                metadata_versions.push(export::manga::ChapterVersion {
+                    version: version_name,
+                    image_indexes,
+                    link: chapter_version.link,
+                });
+            }
+
+            metadata.chapters.push(export::manga::Chapter {
+                titles: chapter.data.titles,
+                chapter: chapter.data.chapter,
+                tags: chapter_tags,
+                sources: chapter.data.sources,
+                release_date: chapter.data.release_date.map(|v| v.to_string()),
+                versions: metadata_versions,
             });
         }
-
-        let metadata = export::manga::MangaBundleMetadata {
-            manga_id: manga_id.to_owned(),
-            chapters: metadata_chapters,
-        };
         let metadata_bytes = export::to_bytes(&metadata);
         let metadata_len = len_to_u32(metadata_bytes.len(), "metadata size")?.to_le_bytes();
         let image_count = len_to_u32(image_keys.len(), "image count")?.to_le_bytes();
@@ -540,6 +706,322 @@ impl MangaActions {
         let prepared = self.prepare_export(manga_id).await?;
         let output = prepared.into_stream(&self.fs, None).await?;
         Ok(output.stream)
+    }
+
+    async fn upload_bytes_as_file_id(&self, bytes: &[u8]) -> ApiResult<String> {
+        let mut temp_file = self.fs.new_temp_file().await?;
+        temp_file
+            .write_all(bytes)
+            .await
+            .map_err(ApiError::write_error)?;
+        temp_file.flush().await.map_err(ApiError::write_error)?;
+        let upload = self.fs.register_temp_file(temp_file).await?;
+        match upload {
+            RegisterTempResult::File(file_id) => Ok(file_id.inner()),
+            RegisterTempResult::Chapter(_) | RegisterTempResult::Manga(_) => Err(
+                ApiError::invalid_input("restore expected a single image temp file"),
+            ),
+        }
+    }
+
+    fn build_restore_create_request(
+        metadata: &export::manga::MangaBundleMetadata,
+        image_temp_name: String,
+    ) -> AddMangaRequest {
+        let mut names = metadata
+            .titles
+            .clone()
+            .into_iter()
+            .filter_map(|(lang, titles)| {
+                let items = sanitize_non_empty(titles.items);
+                if lang.trim().is_empty() || items.is_empty() {
+                    None
+                } else {
+                    Some((lang, v1::StringList { items }))
+                }
+            })
+            .collect::<HashMap<_, _>>();
+        if names.is_empty() {
+            names.insert(
+                "en".to_owned(),
+                v1::StringList {
+                    items: vec!["Restored Manga".to_owned()],
+                },
+            );
+        }
+
+        let kind = if metadata.kind.trim().is_empty() {
+            "restored".to_owned()
+        } else {
+            metadata.kind.trim().to_owned()
+        };
+        let status = Status::try_from(metadata.status).unwrap_or(Status::Ongoing);
+        let description = metadata.description.clone().and_then(|value| {
+            let value = value.trim().to_owned();
+            if value.is_empty() {
+                None
+            } else {
+                Some(value)
+            }
+        });
+
+        AddMangaRequest {
+            names,
+            kind,
+            status,
+            description,
+            tags: metadata
+                .tags
+                .clone()
+                .into_iter()
+                .map(global_tag_from_export)
+                .collect(),
+            image_temp_name,
+            authors: sanitize_non_empty(metadata.authors.clone()),
+            publishers: sanitize_non_empty(metadata.publishers.clone()),
+            artists: sanitize_non_empty(metadata.artists.clone()),
+            sources: sanitize_non_empty(metadata.sources.clone()),
+            scrapers: metadata
+                .scraper
+                .clone()
+                .into_iter()
+                .filter(|scraper| scraper.enabled)
+                .filter_map(|scraper| {
+                    let channel = scraper.channel.trim().to_owned();
+                    let url = scraper.url.trim().to_owned();
+                    if channel.is_empty() || url.is_empty() {
+                        None
+                    } else {
+                        Some(v1::Scraper { channel, url })
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    pub async fn restore(
+        &self,
+        metadata_id: &str,
+        image_ids: Vec<String>,
+        uid: &str,
+    ) -> ApiResult<()> {
+        validate_non_empty("metadata_id", metadata_id)?;
+        validate_non_empty("uid", uid)?;
+        if image_ids.iter().any(|id| id.trim().is_empty()) {
+            return Err(ApiError::invalid_input(
+                "image_ids cannot contain empty values",
+            ));
+        }
+
+        let metadata_bytes = self
+            .fs
+            .take_bytes(FileId::new(metadata_id.to_owned()))
+            .await?;
+        let metadata: export::manga::MangaBundleMetadata = export::try_from_bytes(&metadata_bytes)
+            .map_err(|e| ApiError::invalid_input(&format!("invalid export metadata: {e}")))?;
+
+        let register_ref = |index: u32, counts: &mut Vec<usize>| -> ApiResult<()> {
+            let idx = usize::try_from(index)
+                .map_err(|_| ApiError::invalid_input("invalid image index"))?;
+            if idx >= counts.len() {
+                return Err(ApiError::invalid_input(
+                    "metadata references image index that was not uploaded",
+                ));
+            }
+            counts[idx] = counts[idx]
+                .checked_add(1)
+                .ok_or_else(|| ApiError::invalid_input("image reference count overflow"))?;
+            Ok(())
+        };
+        let create_cover_index = metadata
+            .cover_image_indexes
+            .first()
+            .copied()
+            .or_else(|| metadata.art_image_indexes.first().copied())
+            .or_else(|| {
+                metadata
+                    .chapters
+                    .iter()
+                    .flat_map(|chapter| chapter.versions.iter())
+                    .flat_map(|version| version.image_indexes.iter().copied())
+                    .next()
+            })
+            .ok_or_else(|| ApiError::invalid_input("restore metadata has no images"))?;
+
+        let mut image_ref_counts = vec![0usize; image_ids.len()];
+        for index in metadata.cover_image_indexes.iter().copied() {
+            register_ref(index, &mut image_ref_counts)?;
+        }
+        for index in metadata.art_image_indexes.iter().copied() {
+            register_ref(index, &mut image_ref_counts)?;
+        }
+        for chapter in &metadata.chapters {
+            for version in &chapter.versions {
+                for index in version.image_indexes.iter().copied() {
+                    register_ref(index, &mut image_ref_counts)?;
+                }
+            }
+        }
+        if metadata.cover_image_indexes.is_empty() {
+            register_ref(create_cover_index, &mut image_ref_counts)?;
+        }
+        if image_ref_counts.iter().any(|count| *count == 0) {
+            return Err(ApiError::invalid_input(
+                "upload response contains image ids not referenced by metadata",
+            ));
+        }
+
+        let mut prepared_file_ids = vec![Vec::<String>::new(); image_ids.len()];
+        for (index, count) in image_ref_counts.into_iter().enumerate() {
+            let bytes = self
+                .fs
+                .take_bytes(FileId::new(image_ids[index].clone()))
+                .await?;
+            let mut file_ids = Vec::with_capacity(count);
+            for _ in 0..count {
+                file_ids.push(self.upload_bytes_as_file_id(&bytes).await?);
+            }
+            prepared_file_ids[index] = file_ids;
+        }
+        let mut take_prepared_file_id = |image_index: u32| -> ApiResult<String> {
+            let idx = usize::try_from(image_index)
+                .map_err(|_| ApiError::invalid_input("invalid image index"))?;
+            prepared_file_ids
+                .get_mut(idx)
+                .and_then(|values| values.pop())
+                .ok_or_else(|| ApiError::invalid_input("missing referenced image payload"))
+        };
+
+        let cover_image_temp_name = take_prepared_file_id(create_cover_index)?;
+        let create_request = Self::build_restore_create_request(&metadata, cover_image_temp_name);
+        let manga_id = self.create(create_request, uid).await?;
+        let cover_indexes = metadata.cover_image_indexes.clone();
+        let art_indexes = metadata.art_image_indexes.clone();
+        let chapters = metadata.chapters.clone();
+        let volumes = metadata.volumes.clone();
+        let visibility_value = metadata.visibility;
+
+        for (index, image_index) in cover_indexes.iter().copied().enumerate() {
+            if index == 0 {
+                continue;
+            }
+            let file_id = take_prepared_file_id(image_index)?;
+            self.add_cover(&manga_id, &file_id).await?;
+        }
+        for image_index in art_indexes.iter().copied() {
+            let file_id = take_prepared_file_id(image_index)?;
+            self.add_art(&manga_id, &file_id).await?;
+        }
+
+        let chapter_actions = ChapterActions {
+            chapters: self.chapters.clone(),
+            tags: self.tags.clone(),
+            versions: self.versions.clone(),
+            chapter_versions: self.chapter_versions.clone(),
+            mangas: self.mangas.clone(),
+            pages: self.pages.clone(),
+            fs: self.fs.clone(),
+        };
+
+        for chapter in chapters {
+            if !chapter.chapter.is_finite() || chapter.chapter < 0.0 {
+                return Err(ApiError::invalid_input(
+                    "restore metadata contains invalid chapter number",
+                ));
+            }
+            if chapter.versions.is_empty() {
+                return Err(ApiError::invalid_input(
+                    "restore metadata contains chapter without versions",
+                ));
+            }
+
+            let chapter_titles = {
+                let titles = sanitize_non_empty(chapter.titles.clone());
+                if titles.is_empty() {
+                    vec![format!("Chapter {}", chapter.chapter)]
+                } else {
+                    titles
+                }
+            };
+            let chapter_tags = chapter
+                .tags
+                .clone()
+                .into_iter()
+                .map(global_tag_from_export)
+                .collect::<Vec<_>>();
+            let chapter_sources = sanitize_non_empty(chapter.sources.clone());
+            let chapter_release_date = parse_release_date(chapter.release_date.clone());
+
+            for (version_index, version) in chapter.versions.into_iter().enumerate() {
+                let version_name = {
+                    let name = version.version.trim();
+                    if name.is_empty() {
+                        format!("restored-v{}", version_index + 1)
+                    } else {
+                        name.to_owned()
+                    }
+                };
+                if version.image_indexes.is_empty() {
+                    return Err(ApiError::invalid_input(
+                        "restore metadata contains empty chapter version pages",
+                    ));
+                }
+                let mut version_images = Vec::with_capacity(version.image_indexes.len());
+                for image_index in version.image_indexes {
+                    version_images.push(take_prepared_file_id(image_index)?);
+                }
+
+                chapter_actions
+                    .add(
+                        &manga_id,
+                        if version_index == 0 {
+                            chapter_titles.clone()
+                        } else {
+                            vec![]
+                        },
+                        chapter.chapter,
+                        &version_name,
+                        version_images,
+                        if version_index == 0 {
+                            chapter_tags.clone()
+                        } else {
+                            vec![]
+                        },
+                        if version_index == 0 {
+                            chapter_sources.clone()
+                        } else {
+                            vec![]
+                        },
+                        if version_index == 0 {
+                            chapter_release_date.clone()
+                        } else {
+                            None
+                        },
+                    )
+                    .await?;
+            }
+        }
+
+        if !volumes.is_empty() {
+            self.set_volume_range(
+                &manga_id,
+                volumes
+                    .into_iter()
+                    .map(|v| VolumeRange {
+                        start: v.start,
+                        end: v.end,
+                        title: v.title,
+                    })
+                    .collect(),
+            )
+            .await?;
+        }
+        let visibility = Visibility::try_from(visibility_value).unwrap_or(Visibility::Visible);
+        if visibility != Visibility::Visible {
+            self.mangas.set_visibility(&manga_id, visibility).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -650,7 +1132,7 @@ impl MangaActions {
         Ok(())
     }
 
-    pub async fn create(&self, data: AddMangaRequest, uid: &str) -> ApiResult<()> {
+    pub async fn create(&self, data: AddMangaRequest, uid: &str) -> ApiResult<String> {
         validate_non_empty("uid", uid)?;
         validate_non_empty("kind", &data.kind)?;
         validate_non_empty("image_temp_name", &data.image_temp_name)?;
@@ -689,6 +1171,7 @@ impl MangaActions {
                 .collect::<Vec<_>>(),
             covers: vec![Some(file.ext()?.to_owned())],
             chapters: vec![],
+            characters: vec![],
             sources: data.sources,
             relations: vec![],
             scraper: scrapers,
@@ -703,7 +1186,7 @@ impl MangaActions {
         };
         let mid = self.mangas.add(manga).await?;
         file.build(&mid.thing.id().to_string(), 0).await?;
-        Ok(())
+        Ok(mid.thing.id().to_string())
     }
 
     pub async fn add_cover(&self, mid: &str, file_id: &str) -> ApiResult<()> {

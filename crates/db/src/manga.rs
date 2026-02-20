@@ -19,6 +19,7 @@ use crate::{
 
 use super::{
     chapter::Chapter,
+    character::Character,
     kind::Kind,
     lists::MangaList,
     tag::{Empty, Tag},
@@ -70,6 +71,9 @@ pub struct Manga {
     pub covers: Vec<Option<String>>,
     /// Ids to chapters ordered by chapter number
     pub chapters: Vec<RecordIdType<Chapter>>,
+    /// Ids to characters that appear in this manga
+    #[serde(default = "vec_default")]
+    pub characters: Vec<RecordIdType<Character>>,
     /// references to other sites like tracker or fandom
     pub sources: Vec<String>,
     /// Relations to other manga(spinoffs, parodies, etc.)

@@ -1,0 +1,64 @@
+syntax = "proto3";
+package manga;
+
+message StringList {
+  repeated string items = 1;
+}
+
+message OptionalString {
+  oneof kind {
+    string value = 1;
+  }
+}
+
+message Tag {
+  string tag = 1;
+  optional string description = 2;
+  uint64 sex = 3;
+}
+
+message ChapterVersion {
+  string version = 1;
+  repeated uint32 image_indexes = 2;
+  optional string link = 3;
+}
+
+message Chapter {
+  repeated string titles = 1;
+  double chapter = 2;
+  repeated Tag tags = 3;
+  repeated string sources = 4;
+  optional string release_date = 5;
+  repeated ChapterVersion versions = 6;
+}
+
+message Scraper {
+  string channel = 1;
+  string url = 2;
+  bool enabled = 3;
+}
+
+message Volume {
+  optional string title = 1;
+  double start = 2;
+  optional double end = 3;
+}
+
+message MangaBundleMetadata {
+  map<string, StringList> titles = 1;
+  string kind = 2;
+  optional string description = 3;
+  repeated Tag tags = 4;
+  uint64 status = 5;
+  uint64 visibility = 6;
+  string uploader = 7;
+  repeated string artists = 8;
+  repeated string authors = 9;
+  repeated string publishers = 10;
+  repeated string sources = 11;
+  repeated Scraper scraper = 12;
+  repeated Volume volumes = 13;
+  repeated uint32 cover_image_indexes = 14;
+  repeated uint32 art_image_indexes = 15;
+  repeated Chapter chapters = 16;
+}

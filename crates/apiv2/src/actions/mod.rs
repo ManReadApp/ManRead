@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod chapter;
 pub mod chapter_version;
+pub mod character;
 pub mod crytpo;
 pub mod kind;
 pub mod lists;

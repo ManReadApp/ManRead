@@ -13,7 +13,8 @@ use crate::{
 };
 
 use super::{
-    manga::Manga,
+    character::Character,
+    manga::{vec_default, Manga},
     page::Page,
     progress::UserProgressDBService,
     tag::{Empty, Tag},
@@ -42,6 +43,9 @@ pub struct Chapter {
     pub tags: Vec<RecordIdType<Tag>>,
     /// Origin of files & trackers
     pub sources: Vec<String>,
+    /// Ids to characters that appear in this chapter
+    #[serde(default = "vec_default")]
+    pub characters: Vec<RecordIdType<Character>>,
     /// When a chapter was published
     pub release_date: Option<Datetime>,
     ///map of Version to ChapterVersion which is needed to get files
@@ -278,6 +282,7 @@ impl ChapterDBService {
             chapter,
             tags,
             sources,
+            characters: Default::default(),
             release_date,
             versions: Default::default(),
             updated: Default::default(),
