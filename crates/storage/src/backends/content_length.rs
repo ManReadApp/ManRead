@@ -7,6 +7,7 @@ use std::{
 };
 
 use futures_util::{stream, TryStreamExt as _};
+use serde::{Deserialize, Serialize};
 
 use crate::backends::{ByteStream, KeyValueStore, Object, Options, StorageReader, StorageWriter};
 
@@ -32,23 +33,35 @@ fn content_length_only_dummy_stream() -> ByteStream {
     }))
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct Payload {
+    val: u64,
+}
+
+impl Payload {
+    fn new(val: u64) -> Self {
+        Self { val }
+    }
+}
+
 #[async_trait::async_trait]
 impl<S, K> StorageReader for ContentLengthStorage<S, K>
 where
     S: StorageReader,
-    K: KeyValueStore<u64, Error = io::Error>,
+    K: KeyValueStore<Payload>,
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
         if options.content_length_only {
             let content_length = self
                 .content_lengths
                 .get(key)
-                .await?
+                .await
+                .map_err(|err| io::Error::other(err.to_string()))?
                 .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "not found"))?;
 
             return Ok(Object {
                 stream: content_length_only_dummy_stream(),
-                content_length: Some(content_length),
+                content_length: Some(content_length.val),
                 content_type: None,
                 etag: None,
                 last_modified: None,
@@ -57,8 +70,13 @@ where
 
         let mut obj = self.inner.get(key, options).await?;
 
-        if let Some(content_length) = self.content_lengths.get(key).await? {
-            obj.content_length = Some(content_length);
+        if let Some(content_length) = self
+            .content_lengths
+            .get(key)
+            .await
+            .map_err(|err| io::Error::other(err.to_string()))?
+        {
+            obj.content_length = Some(content_length.val);
         }
 
         Ok(obj)
@@ -69,7 +87,7 @@ where
 impl<S, K> StorageWriter for ContentLengthStorage<S, K>
 where
     S: StorageWriter,
-    K: KeyValueStore<u64, Error = io::Error>,
+    K: KeyValueStore<Payload>,
 {
     async fn write(&self, key: &str, stream: ByteStream) -> Result<(), io::Error> {
         let observed_len = Arc::new(AtomicU64::new(0));
@@ -80,18 +98,26 @@ where
 
         self.inner.write(key, Box::pin(measured_stream)).await?;
         self.content_lengths
-            .set(key, observed_len.load(Ordering::Relaxed))
+            .set(key, Payload::new(observed_len.load(Ordering::Relaxed)))
             .await
+            .map_err(|err| std::io::Error::other(err.to_string()))
     }
 
     async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), io::Error> {
         self.inner.rename(orig_key, target_key).await?;
-        self.content_lengths.rename(orig_key, target_key).await
+        self.content_lengths
+            .rename(orig_key, target_key)
+            .await
+            .map_err(|err| std::io::Error::other(err.to_string()))
     }
 
     async fn delete(&self, key: &str) -> Result<(), io::Error> {
         self.inner.delete(key).await?;
-        let _ = self.content_lengths.remove(key).await?;
+        let _ = self
+            .content_lengths
+            .remove(key)
+            .await
+            .map_err(|err| io::Error::other(err.to_string()))?;
         Ok(())
     }
 }
@@ -130,23 +156,23 @@ mod tests {
     }
 
     struct TestKeyValueStore {
-        map: Arc<RwLock<HashMap<String, u64>>>,
+        map: Arc<RwLock<HashMap<String, Payload>>>,
     }
 
     #[async_trait::async_trait]
-    impl KeyValueStore<u64> for TestKeyValueStore {
+    impl KeyValueStore<Payload> for TestKeyValueStore {
         type Error = io::Error;
 
-        async fn get(&self, key: &str) -> Result<Option<u64>, io::Error> {
+        async fn get(&self, key: &str) -> Result<Option<Payload>, io::Error> {
             Ok(self.map.read().await.get(key).copied())
         }
 
-        async fn set(&self, key: &str, value: u64) -> Result<(), io::Error> {
+        async fn set(&self, key: &str, value: Payload) -> Result<(), io::Error> {
             self.map.write().await.insert(key.to_owned(), value);
             Ok(())
         }
 
-        async fn remove(&self, key: &str) -> Result<Option<u64>, io::Error> {
+        async fn remove(&self, key: &str) -> Result<Option<Payload>, io::Error> {
             Ok(self.map.write().await.remove(key))
         }
     }
@@ -220,7 +246,7 @@ mod tests {
 
         assert_eq!(
             map.read().await.get("items/a").copied(),
-            Some(payload.len() as u64)
+            Some(Payload::new(payload.len() as u64))
         );
 
         let obj = storage.get("items/a", &Options::default()).await?;
@@ -248,7 +274,7 @@ mod tests {
         assert_eq!(lengths.get("items/tmp"), None);
         assert_eq!(
             lengths.get("items/final").copied(),
-            Some(payload.len() as u64)
+            Some(Payload::new(payload.len() as u64))
         );
         drop(lengths);
 
@@ -281,7 +307,9 @@ mod tests {
     async fn content_length_only_returns_stored_length_without_inner_read() -> Result<(), io::Error>
     {
         let map = Arc::new(RwLock::new(HashMap::new()));
-        map.write().await.insert("items/a".to_owned(), 42);
+        map.write()
+            .await
+            .insert("items/a".to_owned(), Payload::new(42));
         let kv = TestKeyValueStore { map };
         let calls = Arc::new(AtomicUsize::new(0));
         let storage = ContentLengthStorage::new(

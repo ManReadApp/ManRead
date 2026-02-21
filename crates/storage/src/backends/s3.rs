@@ -12,9 +12,11 @@ use aws_sdk_s3::{
 };
 use bytes::BytesMut;
 use futures_util::TryStreamExt as _;
+use serde::{Deserialize, Serialize};
 use tokio_util::io::ReaderStream;
+use uuid::Uuid;
 
-use crate::backends::{ByteStream, Object, Options, StorageReader, StorageWriter};
+use crate::backends::{ByteStream, KeyValueStore, Object, Options, StorageReader, StorageWriter};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum S3UploadAcl {
@@ -51,14 +53,32 @@ impl S3StorageOptions {
     }
 }
 
-pub struct S3Storage {
+pub struct S3Storage<K> {
     client: Client,
     bucket: String,
     upload_acl: S3UploadAcl,
+    key_map: K,
 }
 
-impl S3Storage {
-    pub async fn new(options: S3StorageOptions) -> Result<Self, io::Error> {
+#[derive(Deserialize, Serialize, Clone)]
+pub struct Payload {
+    val: String,
+}
+
+impl Payload {
+    fn new(val: String) -> Self {
+        Self { val }
+    }
+}
+
+impl<K> S3Storage<K>
+where
+    K: KeyValueStore<Payload>,
+{
+    pub async fn new_with_key_map(
+        options: S3StorageOptions,
+        key_map: K,
+    ) -> Result<Self, io::Error> {
         if options.bucket.trim().is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -110,6 +130,7 @@ impl S3Storage {
             client,
             bucket: options.bucket,
             upload_acl: options.upload_acl,
+            key_map,
         })
     }
 
@@ -154,10 +175,67 @@ impl S3Storage {
         };
         io::Error::new(kind, format!("s3 {context} failed: {msg}"))
     }
+
+    fn kv_err(context: &str, err: impl std::fmt::Display) -> io::Error {
+        io::Error::other(format!("s3 key mapping {context} failed: {err}"))
+    }
+
+    fn generate_object_id() -> String {
+        format!("objects/{}", Uuid::new_v4())
+    }
+
+    async fn mapped_object_id(map: &K, key: &str) -> Result<Option<String>, io::Error> {
+        map.get(key)
+            .await
+            .map_err(|err| Self::kv_err("get", err))
+            .map(|v| v.map(|v| v.val))
+    }
+
+    async fn required_object_id(map: &K, key: &str) -> Result<String, io::Error> {
+        Self::mapped_object_id(map, key).await?.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("storage key not found: {key}"),
+            )
+        })
+    }
+
+    async fn rename_key_mapping_only(
+        map: &K,
+        orig_key: &str,
+        target_key: &str,
+    ) -> Result<Option<String>, io::Error> {
+        if orig_key == target_key {
+            return Ok(None);
+        }
+
+        let source_object_id = Self::required_object_id(map, orig_key).await?;
+        let replaced_target_object_id = Self::mapped_object_id(map, target_key).await?;
+
+        map.rename(orig_key, target_key)
+            .await
+            .map_err(|err| Self::kv_err("rename", err))?;
+
+        Ok(replaced_target_object_id.filter(|existing| existing != &source_object_id))
+    }
+
+    async fn delete_object_by_id(&self, object_id: &str) -> Result<(), io::Error> {
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(object_id)
+            .send()
+            .await
+            .map_err(|err| Self::s3_err("delete_object", err))?;
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]
-impl StorageWriter for S3Storage {
+impl<K> StorageWriter for S3Storage<K>
+where
+    K: KeyValueStore<Payload>,
+{
     async fn write(&self, key: &str, mut stream: ByteStream) -> Result<(), io::Error> {
         Self::validate_key(key)?;
 
@@ -166,11 +244,12 @@ impl StorageWriter for S3Storage {
             data.extend_from_slice(&chunk);
         }
 
+        let object_id = Self::generate_object_id();
         let mut req = self
             .client
             .put_object()
             .bucket(&self.bucket)
-            .key(key)
+            .key(&object_id)
             .body(S3ByteStream::from(data.freeze().to_vec()));
 
         if let Some(content_type) = mime_guess::from_path(key).first_raw() {
@@ -183,6 +262,24 @@ impl StorageWriter for S3Storage {
         req.send()
             .await
             .map_err(|err| Self::s3_err("put_object", err))?;
+
+        let previous_object_id = Self::mapped_object_id(&self.key_map, key).await?;
+        self.key_map
+            .set(key, Payload::new(object_id.clone()))
+            .await
+            .map_err(|err| Self::kv_err("set", err))?;
+
+        if let Some(previous_object_id) = previous_object_id {
+            if previous_object_id != object_id {
+                let delete_result = self.delete_object_by_id(&previous_object_id).await;
+                if let Err(err) = delete_result {
+                    if err.kind() != io::ErrorKind::NotFound {
+                        return Err(err);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -190,57 +287,57 @@ impl StorageWriter for S3Storage {
         Self::validate_key(orig_key)?;
         Self::validate_key(target_key)?;
 
-        let copy_source = format!("{}/{}", self.bucket, urlencoding::encode(orig_key));
-        let mut copy_req = self
-            .client
-            .copy_object()
-            .bucket(&self.bucket)
-            .key(target_key)
-            .copy_source(copy_source);
+        let replaced_target_object_id =
+            Self::rename_key_mapping_only(&self.key_map, orig_key, target_key).await?;
 
-        if let Some(acl) = self.canned_acl() {
-            copy_req = copy_req.acl(acl);
+        if let Some(object_id) = replaced_target_object_id {
+            let delete_result = self.delete_object_by_id(&object_id).await;
+            if let Err(err) = delete_result {
+                if err.kind() != io::ErrorKind::NotFound {
+                    return Err(err);
+                }
+            }
         }
-
-        copy_req
-            .send()
-            .await
-            .map_err(|err| Self::s3_err("copy_object", err))?;
-
-        self.client
-            .delete_object()
-            .bucket(&self.bucket)
-            .key(orig_key)
-            .send()
-            .await
-            .map_err(|err| Self::s3_err("delete_object", err))?;
 
         Ok(())
     }
 
     async fn delete(&self, key: &str) -> Result<(), io::Error> {
         Self::validate_key(key)?;
-        self.client
-            .delete_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
+
+        let object_id = self
+            .key_map
+            .remove(key)
             .await
-            .map_err(|err| Self::s3_err("delete_object", err))?;
+            .map_err(|err| Self::kv_err("remove", err))?;
+
+        if let Some(object_id) = object_id {
+            let delete_result = self.delete_object_by_id(&object_id.val).await;
+            if let Err(err) = delete_result {
+                if err.kind() != io::ErrorKind::NotFound {
+                    return Err(err);
+                }
+            }
+        }
+
         Ok(())
     }
 }
 
 #[async_trait::async_trait]
-impl StorageReader for S3Storage {
+impl<K> StorageReader for S3Storage<K>
+where
+    K: KeyValueStore<Payload>,
+{
     async fn get(&self, key: &str, _: &Options) -> Result<Object, io::Error> {
         Self::validate_key(key)?;
+        let object_id = Self::required_object_id(&self.key_map, key).await?;
 
         let out = self
             .client
             .get_object()
             .bucket(&self.bucket)
-            .key(key)
+            .key(object_id)
             .send()
             .await
             .map_err(|err| Self::s3_err("get_object", err))?;
@@ -270,17 +367,72 @@ impl StorageReader for S3Storage {
 #[cfg(test)]
 mod tests {
     use super::S3Storage;
+    use crate::backends::{s3::Payload, InMemoryKeyValueStore, KeyValueStore};
+
+    type DefaultS3Storage = S3Storage<InMemoryKeyValueStore<Payload>>;
 
     #[test]
     fn validate_key_accepts_safe_relative_paths() {
-        assert!(S3Storage::validate_key("temp/abc").is_ok());
-        assert!(S3Storage::validate_key("mangas/a/b/c.png").is_ok());
+        assert!(DefaultS3Storage::validate_key("temp/abc").is_ok());
+        assert!(DefaultS3Storage::validate_key("mangas/a/b/c.png").is_ok());
     }
 
     #[test]
     fn validate_key_rejects_unsafe_paths() {
-        assert!(S3Storage::validate_key("").is_err());
-        assert!(S3Storage::validate_key("../escape").is_err());
-        assert!(S3Storage::validate_key("/absolute").is_err());
+        assert!(DefaultS3Storage::validate_key("").is_err());
+        assert!(DefaultS3Storage::validate_key("../escape").is_err());
+        assert!(DefaultS3Storage::validate_key("/absolute").is_err());
+    }
+
+    #[tokio::test]
+    async fn rename_key_mapping_moves_id_only() {
+        let map = InMemoryKeyValueStore::new();
+        map.set("tmp/key", Payload::new("objects/id-1".to_string()))
+            .await
+            .unwrap();
+
+        let replaced = DefaultS3Storage::rename_key_mapping_only(&map, "tmp/key", "final/key")
+            .await
+            .unwrap();
+
+        assert_eq!(replaced, None);
+        assert_eq!(map.get("tmp/key").await.unwrap(), None);
+        assert_eq!(
+            map.get("final/key").await.unwrap(),
+            Some("objects/id-1".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn rename_key_mapping_returns_replaced_target_id() {
+        let map = InMemoryKeyValueStore::new();
+        map.set("tmp/key", Payload::new("objects/id-1".to_string()))
+            .await
+            .unwrap();
+        map.set("final/key", Payload::new("objects/id-2".to_string()))
+            .await
+            .unwrap();
+
+        let replaced = DefaultS3Storage::rename_key_mapping_only(&map, "tmp/key", "final/key")
+            .await
+            .unwrap();
+
+        assert_eq!(replaced, Some("objects/id-2".to_string()));
+        assert_eq!(map.get("tmp/key").await.unwrap(), None);
+        assert_eq!(
+            map.get("final/key").await.unwrap(),
+            Some("objects/id-1".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn rename_key_mapping_requires_existing_source() {
+        let map = InMemoryKeyValueStore::<Payload>::new();
+
+        let err = DefaultS3Storage::rename_key_mapping_only(&map, "tmp/key", "final/key")
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
     }
 }

@@ -6,6 +6,7 @@ mod delay;
 #[cfg(feature = "disk")]
 mod disk;
 mod key_value;
+mod key_value_memory;
 mod memory;
 #[cfg(feature = "s3")]
 mod s3;
@@ -18,12 +19,14 @@ pub use delay::DelayStorage;
 #[cfg(feature = "disk")]
 pub use disk::DiskStorage;
 pub use key_value::KeyValueStore;
+pub use key_value_memory::InMemoryKeyValueStore;
 pub use memory::MemStorage;
 use rand::{rngs::OsRng, TryRngCore};
 #[cfg(feature = "s3")]
 pub use s3::{S3Storage, S3StorageOptions, S3UploadAcl};
+use serde::{Deserialize, Serialize};
 
-use std::{pin::Pin, time::SystemTime};
+use std::{pin::Pin, sync::Arc, time::SystemTime};
 
 use bytes::Bytes;
 use futures_core::Stream;
@@ -40,7 +43,7 @@ pub struct Object {
 
 //TODO: cache policy: when set cache_download => on manga image + download next 2 chapters and 2 prev; cleanup cache: on next chapter
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AesOptions {
     key: [u8; 32],
     nonce: [u8; 12],
@@ -100,6 +103,34 @@ pub trait StorageWriter: Send + Sync + 'static {
 
     /// removes an object by key
     async fn delete(&self, key: &str) -> Result<(), std::io::Error>;
+}
+
+#[async_trait::async_trait]
+impl<T> StorageReader for Arc<T>
+where
+    T: StorageReader + ?Sized,
+{
+    async fn get(&self, key: &str, options: &Options) -> Result<Object, std::io::Error> {
+        (**self).get(key, options).await
+    }
+}
+
+#[async_trait::async_trait]
+impl<T> StorageWriter for Arc<T>
+where
+    T: StorageWriter + ?Sized,
+{
+    async fn write(&self, key: &str, stream: ByteStream) -> Result<(), std::io::Error> {
+        (**self).write(key, stream).await
+    }
+
+    async fn rename(&self, orig_key: &str, target_key: &str) -> Result<(), std::io::Error> {
+        (**self).rename(orig_key, target_key).await
+    }
+
+    async fn delete(&self, key: &str) -> Result<(), std::io::Error> {
+        (**self).delete(key).await
+    }
 }
 
 #[cfg(test)]

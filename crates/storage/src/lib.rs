@@ -11,10 +11,13 @@ pub use backends::DelayStorage;
 pub use backends::DiskStorage;
 #[cfg(feature = "encode")]
 pub use backends::EncryptedStorage;
+pub use backends::InMemoryKeyValueStore;
 pub use backends::KeyValueStore;
 pub use backends::MemStorage;
 pub use backends::Object;
 pub use backends::Options;
+pub use backends::StorageReader;
+pub use backends::StorageWriter;
 #[cfg(feature = "s3")]
 pub use backends::{S3Storage, S3StorageOptions, S3UploadAcl};
 
@@ -39,7 +42,6 @@ use tokio::{
 };
 
 use crate::{
-    backends::{StorageReader, StorageWriter},
     error::{ProcessingError, StorageResult},
     temp::{FileTempData, TempData},
     workers::{

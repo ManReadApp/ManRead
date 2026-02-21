@@ -13,6 +13,9 @@ pub enum DbError {
     SurrealDbError(surrealdb::Error),
     DbError(StorageError),
 }
+
+impl std::error::Error for DbError {}
+
 pub type DbResult<T> = Result<T, DbError>;
 
 impl From<StorageError> for DbError {

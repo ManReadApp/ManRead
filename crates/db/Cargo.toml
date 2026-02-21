@@ -12,6 +12,7 @@ chrono.workspace = true
 helper.workspace = true
 scraper-module = { workspace = true, features = ["json"] }
 storage.workspace = true
+async-trait.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

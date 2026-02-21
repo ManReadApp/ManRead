@@ -3,6 +3,7 @@ pub mod chapter;
 pub mod character;
 pub mod error;
 pub mod kind;
+pub mod kv;
 pub mod lists;
 pub mod manga;
 pub mod page;
@@ -12,7 +13,10 @@ pub mod tag;
 pub mod user;
 pub mod version;
 pub mod version_link;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::sync::Arc;
+use storage::KeyValueStore;
 pub use surrealdb::RecordId;
 pub use surrealdb_extras::SurrealTableInfo;
 
@@ -25,7 +29,9 @@ pub use surrealdb_extras::{RecordIdFunc, RecordIdType};
 use crate::auth::AuthTokenDBService;
 use crate::chapter::ChapterDBService;
 use crate::character::CharacterDBService;
+use crate::error::DbError;
 use crate::kind::KindDBService;
+use crate::kv::KeyValueDb;
 use crate::lists::ListDBService;
 use crate::manga::MangaDBService;
 use crate::page::PageDBService;
@@ -90,6 +96,12 @@ pub struct DbHandle {
     pub tags: Arc<TagDBService>,
     pub versions: Arc<VersionDBService>,
     pub chapter_versions: Arc<ChapterVersionDBService>,
+}
+
+impl DbHandle {
+    pub fn kv(&self, name: &str) -> KeyValueDb {
+        KeyValueDb::new(name, self.session.clone())
+    }
 }
 
 pub async fn init_db(config: DbConfig) -> Result<DbHandle, surrealdb::Error> {

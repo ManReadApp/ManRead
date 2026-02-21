@@ -1,5 +1,9 @@
+use serde::{de::DeserializeOwned, Serialize};
+
 #[async_trait::async_trait]
-pub trait KeyValueStore<V: Send + Sync + 'static>: Send + Sync + 'static {
+pub trait KeyValueStore<V: Send + Sync + 'static + DeserializeOwned + Serialize>:
+    Send + Sync + 'static
+{
     type Error: std::error::Error + Send + Sync + 'static;
 
     async fn get(&self, key: &str) -> Result<Option<V>, Self::Error>;

@@ -15,7 +15,6 @@ use std::{
 use crate::backends::{
     AesOptions, ByteStream, KeyValueStore, Object, Options, StorageReader, StorageWriter,
 };
-use crate::StorageError;
 
 const TAG_LEN: usize = 16;
 const LEN_LEN: usize = 4;
@@ -83,24 +82,22 @@ pin_project! {
     }
 }
 
-pub struct EncryptedStorage<S> {
+pub struct EncryptedStorage<S, K> {
     inner: S,
-    mapper: Box<dyn KeyValueStore<AesOptions, Error = StorageError>>,
+    mapper: K,
 }
 
-impl<S> EncryptedStorage<S> {
-    pub fn new<T: KeyValueStore<AesOptions, Error = StorageError>>(inner: S, mapper: T) -> Self {
-        Self {
-            inner,
-            mapper: Box::new(mapper),
-        }
+impl<S, K> EncryptedStorage<S, K> {
+    pub fn new(inner: S, mapper: K) -> Self {
+        Self { inner, mapper }
     }
 }
 
 #[async_trait::async_trait]
-impl<S> StorageReader for EncryptedStorage<S>
+impl<S, K> StorageReader for EncryptedStorage<S, K>
 where
     S: StorageReader,
+    K: KeyValueStore<AesOptions>,
 {
     async fn get(&self, key: &str, options: &Options) -> Result<Object, io::Error> {
         if options.content_length_only {
@@ -337,9 +334,10 @@ where
 }
 
 #[async_trait::async_trait]
-impl<S> StorageWriter for EncryptedStorage<S>
+impl<S, K> StorageWriter for EncryptedStorage<S, K>
 where
     S: StorageWriter,
+    K: KeyValueStore<AesOptions>,
 {
     async fn write(&self, key: &str, stream: ByteStream) -> Result<(), std::io::Error> {
         let aes_options = AesOptions::new()?;

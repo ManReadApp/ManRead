@@ -12,6 +12,68 @@ pub struct Config {
     pub rust_log: String,
     pub secret_key: String,
     pub spinner: Spinner,
+    #[serde(default)]
+    pub storage: StorageConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct StorageConfig {
+    #[serde(default = "default_true")]
+    pub local: bool,
+    #[serde(default)]
+    pub encryption: bool,
+    #[serde(default)]
+    pub s3: S3Config,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct S3Config {
+    pub bucket: String,
+    pub region: String,
+    pub endpoint: Option<String>,
+    pub access_key_id: Option<String>,
+    pub secret_access_key: Option<String>,
+    pub session_token: Option<String>,
+    #[serde(default)]
+    pub force_path_style: bool,
+    #[serde(default)]
+    pub upload_acl: S3UploadAclConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum S3UploadAclConfig {
+    #[default]
+    InheritBucket,
+    Private,
+    PublicRead,
+}
+
+impl Default for S3Config {
+    fn default() -> Self {
+        Self {
+            bucket: String::new(),
+            region: String::new(),
+            endpoint: None,
+            access_key_id: None,
+            secret_access_key: None,
+            session_token: None,
+            force_path_style: false,
+            upload_acl: S3UploadAclConfig::InheritBucket,
+        }
+    }
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            local: true,
+            encryption: false,
+            s3: S3Config::default(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -57,8 +119,13 @@ impl Default for Config {
             rust_log: "info".to_string(),
             secret_key: random_string(64), //2048bit = 256byte = 64 chars
             spinner: Spinner::Pikachu2,
+            storage: StorageConfig::default(),
         }
     }
+}
+
+const fn default_true() -> bool {
+    true
 }
 
 pub fn get_env() -> std::io::Result<Config> {
